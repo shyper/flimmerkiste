@@ -1,0 +1,54 @@
+<div class="setup">
+<div class="head">
+<img alt="" height="44" src="/favicon.svg" width="44">
+</img> <div>
+<h1>Welcome to Flimmerkiste</h1> <p class="muted">Three steps to your own TV programme.</p>
+</div>
+</div> <div class="progress-steps">
+<div class="ps current">
+<span class="dot">1</span>Connect server</div>
+<div class="ps">
+<span class="dot">2</span>Read library</div>
+<div class="ps">
+<span class="dot">3</span>Set up in Plex</div>
+</div> <div class="card">
+<h2>Which Plex server do you want to use?</h2> <p class="muted small sub">We found your servers through plex.tv and already tested the best connection.</p> <div class="servers">
+<button class="server active">
+<svg aria-hidden="true" class="icon" fill="none" height="22" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="22">
+<circle cx="12" cy="12" r="2">
+</circle>
+<path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14">
+</path>
+</svg> <div class="grow">
+<b>Wohnzimmer-Server</b> <div class="tiny muted">Reachable at http://127.0.0.1:32400</div>
+</div> <svg aria-hidden="true" class="icon" fill="none" height="18" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="18">
+<path d="M20 6 9 17l-5-5">
+</path>
+</svg>
+</button>
+<button class="server">
+<svg aria-hidden="true" class="icon" fill="none" height="22" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="22">
+<circle cx="12" cy="12" r="2">
+</circle>
+<path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14">
+</path>
+</svg> <div class="grow">
+<b>Büro</b> <div class="tiny muted">No connection found automatically</div>
+</div> </button>
+</div> <div class="field">
+<label class="label" for="url">Server address</label> <input class="input" id="url" list="conns" placeholder="http://127.0.0.1:32400">
+</input> <datalist id="conns">
+<option value="http://127.0.0.1:32400">
+</option>
+<option value="http://192.168.1.20:32400">
+</option>
+</datalist> <span class="hint">If Flimmerkiste runs on the same computer as Plex, <code class="">http://127.0.0.1:32400</code> is usually right.</span>
+</div> <div class="row end">
+<button class="btn primary"> Connect <svg aria-hidden="true" class="icon" fill="none" height="16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="16">
+<path d="m9 18 6-6-6-6">
+</path>
+</svg>
+</button>
+</div>
+</div>
+</div>

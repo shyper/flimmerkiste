@@ -1,0 +1,37 @@
+{
+  "config": {
+    "source": {
+      "type": "ai",
+      "ai": {
+        "theme": "Filme mit Plot-Twist",
+        "batchSize": 20,
+        "episodesPerShow": 2,
+        "filter": {
+          "match": "all",
+          "rules": [
+            {
+              "field": "type",
+              "op": "is",
+              "values": [
+                "movie"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "order": "shuffle",
+    "keepEpisodeOrder": true,
+    "noRepeatHours": 48,
+    "transcode": "full",
+    "logoStyle": "auto",
+    "watermark": {
+      "enabled": true,
+      "position": "tr",
+      "opacity": 70,
+      "size": 14
+    },
+    "credits": "default"
+  },
+  "kind": "ai"
+}

@@ -1,0 +1,248 @@
+[
+  {
+    "id": "type",
+    "label": "Art",
+    "kind": "enum",
+    "ops": [
+      "is",
+      "isNot"
+    ]
+  },
+  {
+    "id": "library",
+    "label": "Bibliothek",
+    "kind": "enum",
+    "ops": [
+      "is",
+      "isNot"
+    ]
+  },
+  {
+    "id": "genre",
+    "label": "Genre",
+    "kind": "tag",
+    "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+    ]
+  },
+  {
+    "id": "year",
+    "label": "Jahr",
+    "kind": "number",
+    "ops": [
+      "is",
+      "isNot",
+      "gt",
+      "lt",
+      "between"
+    ]
+  },
+  {
+    "id": "decade",
+    "label": "Jahrzehnt",
+    "kind": "enum",
+    "ops": [
+      "is",
+      "isNot"
+    ]
+  },
+  {
+    "id": "title",
+    "label": "Titel",
+    "kind": "text",
+    "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "startsWith"
+    ]
+  },
+  {
+    "id": "show",
+    "label": "Serie",
+    "kind": "tag",
+    "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+    ]
+  },
+  {
+    "id": "season",
+    "label": "Staffel",
+    "kind": "number",
+    "ops": [
+      "is",
+      "isNot",
+      "gt",
+      "lt",
+      "between"
+    ]
+  },
+  {
+    "id": "actor",
+    "label": "Darsteller",
+    "kind": "tag",
+    "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+    ]
+  },
+  {
+    "id": "director",
+    "label": "Regie",
+    "kind": "tag",
+    "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+    ]
+  },
+  {
+    "id": "writer",
+    "label": "Drehbuch",
+    "kind": "tag",
+    "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+    ]
+  },
+  {
+    "id": "collection",
+    "label": "Sammlung",
+    "kind": "tag",
+    "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+    ]
+  },
+  {
+    "id": "label",
+    "label": "Label",
+    "kind": "tag",
+    "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+    ]
+  },
+  {
+    "id": "studio",
+    "label": "Studio",
+    "kind": "tag",
+    "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+    ]
+  },
+  {
+    "id": "country",
+    "label": "Land",
+    "kind": "tag",
+    "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+    ]
+  },
+  {
+    "id": "contentRating",
+    "label": "Altersfreigabe",
+    "kind": "tag",
+    "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+    ]
+  },
+  {
+    "id": "rating",
+    "label": "Bewertung",
+    "kind": "number",
+    "ops": [
+      "is",
+      "isNot",
+      "gt",
+      "lt",
+      "between"
+    ],
+    "unit": "/10"
+  },
+  {
+    "id": "duration",
+    "label": "Laufzeit",
+    "kind": "number",
+    "ops": [
+      "is",
+      "isNot",
+      "gt",
+      "lt",
+      "between"
+    ],
+    "unit": "Min."
+  },
+  {
+    "id": "watched",
+    "label": "Gesehen",
+    "kind": "bool",
+    "ops": [
+      "is"
+    ]
+  },
+  {
+    "id": "addedDays",
+    "label": "Hinzugefügt vor",
+    "kind": "number",
+    "ops": [
+      "lt",
+      "gt"
+    ],
+    "unit": "Tagen"
+  },
+  {
+    "id": "summary",
+    "label": "Beschreibung",
+    "kind": "text",
+    "ops": [
+      "contains",
+      "notContains"
+    ]
+  }
+]

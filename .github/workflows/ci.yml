@@ -1,0 +1,107 @@
+# Checks every push and pull request; the image goes to the GitHub container registry
+# (ghcr.io/<owner>/<repo>) from the default branch (:latest) and from tags (:<tag>),
+# for amd64 and arm64 (e.g. Raspberry Pi 4).
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["*"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  go-lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l cmd internal web)
+          if [ -n "$unformatted" ]; then echo "Please run gofmt:"; echo "$unformatted"; exit 1; fi
+      - run: go vet ./...
+
+  go-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # the ffmpeg of the image (jellyfin-ffmpeg) for the stream tests, a font for text subtitles (libass)
+      - run: sudo sh build/jellyfin-ffmpeg.sh && sudo apt-get install -y --no-install-recommends fontconfig fonts-dejavu-core
+      - name: Go tests (including the end-to-end test with real MPEG-TS streams)
+        env:
+          FLIMMERKISTE_E2E: "1"
+        # two packages at a time: the stream tests measure timing
+        run: go test -p 2 ./...
+      - name: Helper scripts
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+
+  web:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: web
+      - run: npm test
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+
+  docker:
+    needs: [go-lint, go-test, web]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Version
+        id: version
+        run: |
+          if [ "${{ github.ref_type }}" = tag ]; then echo "value=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else echo "value=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"; fi
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          flavor: |
+            latest=false
+          tags: |
+            type=sha,prefix=
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # pull requests and other branches only build; the default branch and tags publish
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          build-args: VERSION=${{ steps.version.outputs.value }}
+          push: ${{ github.event_name != 'pull_request' && (github.ref_type == 'tag' || github.ref_name == github.event.repository.default_branch) }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

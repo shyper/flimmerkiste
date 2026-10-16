@@ -1,0 +1,41 @@
+services:
+  flimmerkiste:
+    build: .
+    image: flimmerkiste:latest
+    container_name: flimmerkiste
+    restart: unless-stopped
+    # Host networking: Plex on the same machine reaches the tuner at
+    # http://<host-ip>:8089 and Flimmerkiste reaches Plex at 127.0.0.1:32400.
+    network_mode: host
+    environment:
+      TZ: Europe/Berlin            # important: seasons and the guide use local time
+      FLIMMERKISTE_LISTEN: ":8089"
+      # FLIMMERKISTE_PLEX_URL: "http://127.0.0.1:32400"   # optional, otherwise chosen in the setup wizard
+      # FLIMMERKISTE_BASE_URL: "http://192.168.1.10:8089" # optional, fixed address Plex uses for the tuner
+      # FLIMMERKISTE_EPG_HOURS: "48"                      # how far ahead the guide is planned
+      # FLIMMERKISTE_TUNER_ALLOW: "100.64.0.0/10"        # extra networks for the tuner besides the LAN ("all" = no limit)
+    # Optional: Intel or AMD GPU for "Fully normalize" (much less CPU).
+    # group_add takes the numeric id of the host's "render" group: getent group render
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - "993"
+    # NVIDIA instead (experimental): needs the NVIDIA Container Toolkit on the host
+    # gpus: all
+    # Raspberry Pi 4 instead: its hardware encoder, group "video" (getent group video)
+    # devices:
+    #   - /dev/video11:/dev/video11
+    # group_add:
+    #   - "44"
+    volumes:
+      # Named volume: gets the right permissions automatically. For a host folder
+      # instead, create it first and give it to UID 1000: mkdir data && chown 1000 data
+      # (the volume keeps its old name, so existing installations keep their data)
+      - flimmerkiste-data:/data
+      # Optional: media folders read-only, so films are read directly instead of
+      # through Plex. Assign them on the Library page (readable for UID 1000).
+      # - /mnt/media/Filme:/movies:ro
+      # - /mnt/media/Serien:/tv:ro
+
+volumes:
+  flimmerkiste-data:

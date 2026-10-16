@@ -1,0 +1,1 @@
+{"kind":"ai","config":{"source":{"type":"ai","ai":{"theme":"Filme mit Plot-Twist","batchSize":20,"filter":{"match":"all","rules":[{"field":"type","op":"is","values":["movie"]}]}}},"order":"shuffle","keepEpisodeOrder":true,"noRepeatHours":48,"transcode":"full","logoStyle":"auto","watermark":{"enabled":true}}}

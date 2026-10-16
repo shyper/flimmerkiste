@@ -1,0 +1,112 @@
+# Flimmerkiste – GitLab CI
+#
+#   test:  gofmt/vet, Go unit + end-to-end tests (fake Plex + real ffmpeg), frontend tests + build
+#   build: Docker image; pushed to the GitLab Container Registry on the default branch and on tags
+#
+# The docker job uses Docker-in-Docker and therefore needs a runner with privileged mode.
+
+stages:
+  - test
+  - build
+
+variables:
+  GOPATH: $CI_PROJECT_DIR/.go
+  GOFLAGS: -mod=readonly
+  npm_config_cache: $CI_PROJECT_DIR/.npm
+  GO_IMAGE: golang:1.26-alpine
+  NODE_IMAGE: node:22-alpine
+
+# Run for merge requests, branches (unless an MR is open for them) and tags.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+default:
+  interruptible: true
+
+.go:
+  image: $GO_IMAGE
+  cache:
+    key:
+      files: [go.sum]
+      prefix: go
+    paths: [.go/pkg/mod/]
+
+go:lint:
+  extends: .go
+  stage: test
+  script:
+    - unformatted=$(gofmt -l cmd internal web)
+    - if [ -n "$unformatted" ]; then echo "Please run gofmt:"; echo "$unformatted"; exit 1; fi
+    - go vet ./...
+
+go:test:
+  extends: .go
+  stage: test
+  image: golang:1.26-trixie # Debian like the image, for jellyfin-ffmpeg
+  variables:
+    FLIMMERKISTE_E2E: "1" # includes the end-to-end test: fake Plex server, scheduling, real MPEG-TS streams
+  before_script:
+    # the ffmpeg of the image (jellyfin-ffmpeg), a font for text subtitles (libass), python for the helper scripts
+    - sh build/jellyfin-ffmpeg.sh
+    - apt-get install -y --no-install-recommends fontconfig fonts-dejavu-core python3
+  script:
+    - go test -coverprofile=coverage.out ./...
+    - go tool cover -func=coverage.out | tail -n 1
+    - python3 -m unittest discover -s scripts -p 'test_*.py'
+  coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
+
+web:build:
+  image: $NODE_IMAGE
+  stage: test
+  cache:
+    key:
+      files: [web/package-lock.json]
+      prefix: npm
+    paths: [.npm/]
+  script:
+    - cd web
+    - npm ci --no-audit --no-fund
+    - npm test # editor opens channels stored by older versions (internal/schedule/testdata)
+    - npm run build
+  artifacts:
+    paths: [web/dist/]
+    expire_in: 1 week
+
+docker:
+  stage: build
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+    IMAGE: $CI_REGISTRY_IMAGE
+  needs: [go:lint, go:test, web:build]
+  script:
+    - VERSION=${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}
+    - docker build --pull --build-arg VERSION="$VERSION" -t "$IMAGE:$CI_COMMIT_SHORT_SHA" .
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
+        echo "Merge request: image built only, not published."
+        exit 0
+      fi
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+    - docker push "$IMAGE:$CI_COMMIT_SHORT_SHA"
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        docker tag "$IMAGE:$CI_COMMIT_SHORT_SHA" "$IMAGE:$CI_COMMIT_TAG"
+        docker push "$IMAGE:$CI_COMMIT_TAG"
+      fi
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        docker tag "$IMAGE:$CI_COMMIT_SHORT_SHA" "$IMAGE:latest"
+        docker push "$IMAGE:latest"
+      fi
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG

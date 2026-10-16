@@ -1,0 +1,29 @@
+# VCS and CI
+.git
+.gitignore
+.gitlab-ci.yml
+.dockerignore
+
+# Local build output and dependencies (rebuilt inside the image)
+web/node_modules
+web/dist
+/flimmerkiste
+/bin
+/.go
+/.npm
+
+# Runtime data and secrets never belong in an image
+data
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+
+# Not needed to build the image
+README.md
+docker-compose*.yml
+*.out
+coverage.*
+.idea
+.vscode

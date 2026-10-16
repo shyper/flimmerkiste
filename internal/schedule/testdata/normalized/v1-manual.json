@@ -1,0 +1,41 @@
+{
+  "config": {
+    "source": {
+      "type": "manual",
+      "items": [
+        {
+          "key": "1",
+          "type": "movie",
+          "title": "Harry Potter und der Stein der Weisen",
+          "subtitle": "2001"
+        },
+        {
+          "key": "100",
+          "type": "show",
+          "title": "Testserie",
+          "subtitle": "24 Episoden"
+        },
+        {
+          "key": "100",
+          "type": "season",
+          "title": "Testserie",
+          "subtitle": "Staffel 2",
+          "season": 2
+        }
+      ]
+    },
+    "order": "fixed",
+    "keepEpisodeOrder": true,
+    "noRepeatHours": 0,
+    "transcode": "copy",
+    "logoStyle": "auto",
+    "watermark": {
+      "enabled": false,
+      "position": "tr",
+      "opacity": 70,
+      "size": 14
+    },
+    "credits": "default"
+  },
+  "kind": "manual"
+}

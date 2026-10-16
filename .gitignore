@@ -1,0 +1,56 @@
+# Build output
+/flimmerkiste
+/bin/
+/dist/
+node_modules/
+# The frontend build is embedded into the Go binary; only the placeholder is tracked
+# (it is copied from web/public on every build) so a fresh checkout still compiles.
+web/dist/*
+!web/dist/.gitkeep
+
+# Runtime data (SQLite, uploaded logos, caches)
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Go, frontend and test artefacts
+*.test
+*.out
+*.prof
+coverage.*
+coverage/
+/.go/
+/.npm/
+.vite/
+*.log
+
+# Local configuration and secrets
+.env
+.env.*
+docker-compose.override.yml
+compose.override.yml
+
+# Local AI assistant settings
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Helper scripts: state and lock files, Python caches
+scripts/*_state.json
+scripts/*_state.json.lock
+scripts/*_state.json.tmp
+__pycache__/
+*.pyc
+.venv/
+
+# Channel exports downloaded while testing
+flimmerkiste-channels-*.json
+pseudotv-channels-*.json

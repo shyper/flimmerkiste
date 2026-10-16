@@ -1,0 +1,27 @@
+# Test servers for the Jellyfin/Emby integration tests (internal/jellyfin).
+# The media comes from make-media.sh; data lives in throw-away volumes.
+#
+#   ./make-media.sh && docker compose -p flimmerkiste-test up -d
+#   FLIMMERKISTE_MEDIASERVER_E2E=all go test -count=1 ./internal/jellyfin/
+#   docker compose -p flimmerkiste-test down -v
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:12.2
+    ports: ["127.0.0.1:18096:8096"]
+    extra_hosts: ["host.docker.internal:host-gateway"] # reaches the fake tuner of the tests
+    volumes:
+      - ./media:/media:ro
+      - jellyfin-config:/config
+      - jellyfin-cache:/cache
+  emby:
+    image: emby/embyserver:4.10.1.0
+    ports: ["127.0.0.1:18097:8096"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    environment: { UID: "1000", GID: "1000" }
+    volumes:
+      - ./media:/media:ro
+      - emby-config:/config
+volumes:
+  jellyfin-config:
+  jellyfin-cache:
+  emby-config:

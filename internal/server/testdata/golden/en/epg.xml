@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tv SYSTEM "xmltv.dtd">
+<tv generator-info-name="Flimmerkiste">
+ <channel id="1">
+  <display-name>Komödien</display-name>
+  <display-name>1 Komödien</display-name>
+  <display-name>1</display-name>
+  <icon src="http://flimmerkiste.local:8089/logos/auto-1.png?v=5a57c42384d0"></icon>
+  <lcn>1</lcn>
+ </channel>
+ <channel id="2">
+  <display-name>Filmklassiker</display-name>
+  <display-name>2 Filmklassiker</display-name>
+  <display-name>2</display-name>
+  <icon src="http://flimmerkiste.local:8089/logos/auto-2.png?v=08e60c1e8a8e"></icon>
+  <lcn>2</lcn>
+ </channel>
+ <channel id="3">
+  <display-name>Zeichentrick</display-name>
+  <display-name>3 Zeichentrick</display-name>
+  <display-name>3</display-name>
+  <icon src="http://flimmerkiste.local:8089/logos/auto-3.png?v=e3a8d85ae3f4"></icon>
+  <lcn>3</lcn>
+ </channel>
+ <programme start="20261212180300 +0100" stop="20261212201500 +0100" channel="1">
+  <title lang="en">Zurück in die Zukunft</title>
+  <desc lang="en">Ein Klassiker: Zurück in die Zukunft. Spannung, Humor und große Gefühle – für einen gemütlichen Abend.</desc>
+  <date>1985</date>
+  <category lang="en">Movie</category>
+  <category lang="en">Abenteuer</category>
+  <category lang="en">Komödie</category>
+  <category lang="en">Science-Fiction</category>
+  <icon src="http://flimmerkiste.local:8089/img/1/thumb"></icon>
+  <rating>
+   <value>de/12</value>
+  </rating>
+ </programme>
+ <programme start="20261212201500 +0100" stop="20261212220000 +0100" channel="1">
+  <title lang="en">Ghostbusters</title>
+  <desc lang="en">Ein Klassiker: Ghostbusters. Spannung, Humor und große Gefühle – für einen gemütlichen Abend.</desc>
+  <date>1984</date>
+  <category lang="en">Movie</category>
+  <category lang="en">Komödie</category>
+  <category lang="en">Fantasy</category>
+  <icon src="http://flimmerkiste.local:8089/img/2/thumb"></icon>
+  <rating>
+   <value>de/12</value>
+  </rating>
+ </programme>
+ <programme start="20261212220000 +0100" stop="20261212234400 +0100" channel="1">
+  <title lang="en">Der Grinch</title>
+  <desc lang="en">Ein Klassiker: Der Grinch. Spannung, Humor und große Gefühle – für einen gemütlichen Abend.</desc>
+  <date>2000</date>
+  <category lang="en">Movie</category>
+  <category lang="en">Komödie</category>
+  <category lang="en">Familie</category>
+  <category lang="en">Fantasy</category>
+  <icon src="http://flimmerkiste.local:8089/img/3/thumb"></icon>
+  <rating>
+   <value>de/12</value>
+  </rating>
+ </programme>
+ <programme start="20261212180000 +0100" stop="20261212201500 +0100" channel="2">
+  <title lang="en">Kevin – Allein zu Haus</title>
+  <desc lang="en">Ein Klassiker: Kevin – Allein zu Haus. Spannung, Humor und große Gefühle – für einen gemütlichen Abend.</desc>
+  <date>1990</date>
+  <category lang="en">Movie</category>
+  <category lang="en">Komödie</category>
+  <category lang="en">Familie</category>
+  <icon src="http://flimmerkiste.local:8089/img/5/thumb"></icon>
+  <rating>
+   <value>de/12</value>
+  </rating>
+ </programme>
+ <programme start="20261212201500 +0100" stop="20261212222700 +0100" channel="2">
+  <title lang="en">Stirb langsam</title>
+  <desc lang="en">Ein Klassiker: Stirb langsam. Spannung, Humor und große Gefühle – für einen gemütlichen Abend.</desc>
+  <date>1988</date>
+  <category lang="en">Movie</category>
+  <category lang="en">Action</category>
+  <category lang="en">Thriller</category>
+  <icon src="http://flimmerkiste.local:8089/img/4/thumb"></icon>
+  <rating>
+   <value>de/12</value>
+  </rating>
+ </programme>
+ <programme start="20261212223000 +0100" stop="20261213001400 +0100" channel="2">
+  <title lang="en">Der Grinch</title>
+  <desc lang="en">Ein Klassiker: Der Grinch. Spannung, Humor und große Gefühle – für einen gemütlichen Abend.</desc>
+  <date>2000</date>
+  <category lang="en">Movie</category>
+  <category lang="en">Komödie</category>
+  <category lang="en">Familie</category>
+  <category lang="en">Fantasy</category>
+  <icon src="http://flimmerkiste.local:8089/img/3/thumb"></icon>
+  <rating>
+   <value>de/12</value>
+  </rating>
+ </programme>
+ <programme start="20261212195000 +0100" stop="20261212201200 +0100" channel="3">
+  <title lang="en">Die Simpsons</title>
+  <sub-title lang="en">Bart, das Genie</sub-title>
+  <date>1990</date>
+  <category lang="en">Series</category>
+  <category lang="en">Animation</category>
+  <category lang="en">Komödie</category>
+  <icon src="http://flimmerkiste.local:8089/img/205/show"></icon>
+  <episode-num system="xmltv_ns">0.1.</episode-num>
+  <episode-num system="onscreen">S01E02</episode-num>
+ </programme>
+ <programme start="20261212210000 +0100" stop="20261212224300 +0100" channel="3">
+  <title lang="en">Kevin – Allein zu Haus</title>
+  <desc lang="en">Ein Klassiker: Kevin – Allein zu Haus. Spannung, Humor und große Gefühle – für einen gemütlichen Abend.</desc>
+  <date>1990</date>
+  <category lang="en">Movie</category>
+  <category lang="en">Komödie</category>
+  <category lang="en">Familie</category>
+  <icon src="http://flimmerkiste.local:8089/img/5/thumb"></icon>
+  <rating>
+   <value>de/12</value>
+  </rating>
+ </programme>
+</tv>

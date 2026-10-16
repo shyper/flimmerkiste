@@ -1,0 +1,666 @@
+<div class="page">
+<div class="page-head">
+<a aria-label="Zurück" class="btn ghost icon" href="/">
+<svg aria-hidden="true" class="icon" fill="none" height="18" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="18">
+<path d="m15 18-6-6 6-6">
+</path>
+</svg>
+</a> <div class="grow">
+<div class="row tiny muted">
+<svg aria-hidden="true" class="icon" fill="none" height="13" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="13">
+<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z">
+</path>
+</svg> Smarter Sender</div> <h1>Komödien</h1>
+</div> <button class="btn" title="Zukünftiges Programm verwerfen und neu planen">
+<svg aria-hidden="true" class="icon" fill="none" height="16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="16">
+<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8">
+</path>
+<path d="M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16">
+</path>
+<path d="M8 16H3v5">
+</path>
+</svg> Neu planen</button> <button class="btn primary">
+<svg aria-hidden="true" class="icon" fill="none" height="16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="16">
+<path d="M20 6 9 17l-5-5">
+</path>
+</svg> Speichern</button>
+</div> <nav aria-label="Abschnitte" class="jumps">
+<button class="chip">Grunddaten</button>
+<button class="chip">Inhalt</button>
+<button class="chip">Ablauf</button>
+<button class="chip">Sendezeiten & Pausen</button>
+<button class="chip">Logo</button>
+<button class="chip">Technik</button>
+</nav> <div class="layout">
+<div class="main stack">
+<section class="card" id="sec-basics">
+<div class="section-title">
+<svg aria-hidden="true" class="icon" fill="none" height="18" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="18">
+<rect height="15" rx="2" width="20" x="2" y="7">
+</rect>
+<path d="m17 2-5 5-5-5">
+</path>
+</svg>
+<h2>Grunddaten</h2>
+</div> <div class="basics">
+<div class="field name">
+<label class="label" for="name">Sendername</label> <input class="input big" id="name" placeholder="z. B. Sonntagskino">
+</input>
+</div> <div class="field">
+<label class="label" for="num">Kanal</label> <input class="input" id="num" min="1" placeholder="auto" type="number">
+</input>
+</div>
+</div> <div class="mt">
+<label class="toggle">
+<input class="" type="checkbox">
+</input> <span class="track">
+<span class="thumb">
+</span>
+</span> <span class="text">
+<span class="t">Sender aktiv</span> <span class="h">Inaktive Sender tauchen in Plex nicht auf.</span>
+</span>
+</label>
+</div>
+</section> <section class="card" id="sec-content">
+<div class="section-title">
+<svg aria-hidden="true" class="icon" fill="none" height="18" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="18">
+<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z">
+</path>
+</svg>
+<h2>Inhalt</h2>
+</div> <p class="muted small mb">Lege fest, welche Titel auf diesem Sender laufen. Neue Inhalte in Plex, die passen, kommen automatisch dazu.</p> <div class="group" style="--c: var(--accent);">
+<div class="head">
+<span class="muted small">Passt, wenn</span> <select class="input mini">
+<option value="all">alle</option>
+<option value="any">mindestens eine</option>
+<option value="none">keine</option>
+</select> <span class="muted small">der folgenden Bedingungen zutreffen</span> <span class="spacer">
+</span> </div> <div class="rule">
+<select class="input field-sel">
+<option value="type">Art</option>
+<option value="library">Bibliothek</option>
+<option value="genre">Genre</option>
+<option value="year">Jahr</option>
+<option value="decade">Jahrzehnt</option>
+<option value="title">Titel</option>
+<option value="show">Serie</option>
+<option value="season">Staffel</option>
+<option value="actor">Darsteller</option>
+<option value="director">Regie</option>
+<option value="writer">Drehbuch</option>
+<option value="collection">Sammlung</option>
+<option value="label">Label</option>
+<option value="studio">Studio</option>
+<option value="country">Land</option>
+<option value="contentRating">Altersfreigabe</option>
+<option value="rating">Bewertung</option>
+<option value="duration">Laufzeit</option>
+<option value="watched">Gesehen</option>
+<option value="addedDays">Hinzugefügt vor</option>
+<option value="summary">Beschreibung</option>
+</select> <select class="input op-sel">
+<option value="is">ist</option>
+<option value="isNot">ist nicht</option>
+<option value="contains">enthält</option>
+<option value="notContains">enthält nicht</option>
+<option value="exists">ist vorhanden</option>
+<option value="missing">ist leer</option>
+</select> <div class="value">
+<div class="tags input">
+<span class="tag">Komödie<button aria-label="Entfernen" class="" type="button">×</button>
+</span> <input class="" inputmode="text" placeholder="Auswählen oder tippen…">
+</input> </div>
+</div> <button class="btn ghost icon sm" title="Bedingung entfernen">
+<svg aria-hidden="true" class="icon" fill="none" height="15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="15">
+<path d="M18 6 6 18M6 6l12 12">
+</path>
+</svg>
+</button>
+</div> <div class="actions">
+<button class="btn sm">
+<svg aria-hidden="true" class="icon" fill="none" height="14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="14">
+<path d="M12 5v14M5 12h14">
+</path>
+</svg> Bedingung</button> <button class="btn sm ghost">
+<svg aria-hidden="true" class="icon" fill="none" height="14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="14">
+<path d="m12 2 10 5-10 5L2 7l10-5Z">
+</path>
+<path d="m2 17 10 5 10-5M2 12l10 5 10-5">
+</path>
+</svg> Gruppe</button>
+</div>
+</div>
+</section> <section class="card" id="sec-order">
+<div class="section-title">
+<svg aria-hidden="true" class="icon" fill="none" height="18" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="18">
+<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22">
+</path>
+<path d="m18 2 4 4-4 4M2 6h1.9c1.5 0 2.9.9 3.6 2.2M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8">
+</path>
+<path d="m18 14 4 4-4 4">
+</path>
+</svg>
+<h2>Ablauf</h2>
+</div> <div class="stack">
+<div>
+<span class="label">Reihenfolge</span> <div class="seg md" role="radiogroup">
+<button aria-checked="true" class="active" role="radio" title="" type="button">
+<svg aria-hidden="true" class="icon" fill="none" height="15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="15">
+<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22">
+</path>
+<path d="m18 2 4 4-4 4M2 6h1.9c1.5 0 2.9.9 3.6 2.2M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8">
+</path>
+<path d="m18 14 4 4-4 4">
+</path>
+</svg> Zufällig</button>
+<button aria-checked="false" class="" role="radio" title="" type="button">
+<svg aria-hidden="true" class="icon" fill="none" height="15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="15">
+<path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4">
+</path>
+</svg> Feste Reihenfolge</button>
+</div> <p class="hint">Alle Titel kommen einmal dran, bevor sich etwas wiederholt.</p>
+</div> <label class="toggle">
+<input class="" type="checkbox">
+</input> <span class="track">
+<span class="thumb">
+</span>
+</span> <span class="text">
+<span class="t">Serien in Episodenreihenfolge</span> <span class="h">Zwischen Filmen und Serien wird gemischt, Serien laufen aber Folge für Folge weiter.</span>
+</span>
+</label> <div>
+<span class="label">Wiederholungen vermeiden für</span> <div class="seg sm" role="radiogroup">
+<button aria-checked="true" class="active" role="radio" title="" type="button"> Aus</button>
+<button aria-checked="false" class="" role="radio" title="" type="button"> 12 Std.</button>
+<button aria-checked="false" class="" role="radio" title="" type="button"> 2 Tage</button>
+<button aria-checked="false" class="" role="radio" title="" type="button"> 1 Woche</button>
+<button aria-checked="false" class="" role="radio" title="" type="button"> 1 Monat</button>
+</div>
+</div>
+</div>
+</section> <section class="card" id="sec-breaks">
+<div class="section-title">
+<svg aria-hidden="true" class="icon" fill="none" height="18" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="18">
+<circle cx="12" cy="12" r="10">
+</circle>
+<path d="M12 6v6l4 2">
+</path>
+</svg>
+<h2>Sendezeiten & Pausen</h2>
+</div> <div class="stack">
+<div>
+<span class="label">Titel beginnen</span> <div class="seg sm" role="radiogroup">
+<button aria-checked="true" class="active" role="radio" title="" type="button"> Sofort</button>
+<button aria-checked="false" class="" role="radio" title="" type="button"> 5 Min.</button>
+<button aria-checked="false" class="" role="radio" title="" type="button"> :00 :15 :30 :45</button>
+<button aria-checked="false" class="" role="radio" title="" type="button"> Halbstündlich</button>
+<button aria-checked="false" class="" role="radio" title="" type="button"> Volle Stunde</button>
+</div> <p class="hint">Titel laufen direkt nacheinander, ohne Pausen.</p>
+</div> <div>
+<span class="label">Clips nach jedem Titel</span> <div class="seg sm" role="radiogroup">
+<button aria-checked="true" class="active" role="radio" title="" type="button"> Keine</button>
+<button aria-checked="false" class="" role="radio" title="" type="button"> 1</button>
+<button aria-checked="false" class="" role="radio" title="" type="button"> 2</button>
+<button aria-checked="false" class="" role="radio" title="" type="button"> 3</button>
+</div> <p class="hint">Wie Werbepausen – nur mit Trailern, Musikvideos oder Kurzfilmen aus deiner Bibliothek.</p>
+</div> </div>
+</section> <section class="card" id="sec-logo">
+<div class="section-title">
+<svg aria-hidden="true" class="icon" fill="none" height="18" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="18">
+<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z">
+</path>
+<path d="M5 3v4M19 17v4M3 5h4M17 19h4">
+</path>
+</svg>
+<h2>Logo</h2>
+</div> <div class="logo-picker">
+<div class="gallery">
+<button class="style upload-tile" title="PNG, JPG, WebP oder GIF, max. 3 MB – am besten im Querformat mit transparentem Hintergrund" type="button">
+<div class="logo-frame drop">
+<svg aria-hidden="true" class="icon" fill="none" height="26" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="26">
+<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12">
+</path>
+</svg>
+<span class="tiny">Bild wählen oder hierher ziehen</span>
+</div> <span class="label-row">Eigenes Logo</span>
+</button> <button class="style active" title="Passend zu Name und Inhalt" type="button">
+<div class="logo-frame">
+<img alt="Automatisch" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=auto&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">
+<svg aria-hidden="true" class="icon" fill="none" height="13" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="13">
+<path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72ZM14 7l3 3M5 6v4M19 14v4M10 2v2M7 8H3M21 16h-4M11 3H9">
+</path>
+</svg>Automatisch</span>
+</button>
+<button class="style" title="Kräftige Schrift auf farbigem Badge" type="button">
+<div class="logo-frame">
+<img alt="Klassik" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=classic&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Klassik</span>
+</button>
+<button class="style" title="Sonnenuntergangs-Verlauf mit Streifen" type="button">
+<div class="logo-frame">
+<img alt="Retro 80er" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=retro&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Retro 80er</span>
+</button>
+<button class="style" title="Leuchtröhren-Glow bei Nacht" type="button">
+<div class="logo-frame">
+<img alt="Neon" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=neon&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Neon</span>
+</button>
+<button class="style" title="Gold auf Schwarz im Art-déco-Stil" type="button">
+<div class="logo-frame">
+<img alt="Kino" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=cinema&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Kino</span>
+</button>
+<button class="style" title="Handschrift mit langem Schatten" type="button">
+<div class="logo-frame">
+<img alt="Gemütlich" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=cozy&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Gemütlich</span>
+</button>
+<button class="style" title="Geschwungene goldene Schreibschrift" type="button">
+<div class="logo-frame">
+<img alt="Elegant" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=elegant&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Elegant</span>
+</button>
+<button class="style" title="Blutrot mit Tropfen" type="button">
+<div class="logo-frame">
+<img alt="Horror" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=horror&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Horror</span>
+</button>
+<button class="style" title="Bunte Buchstaben mit dicker Kontur" type="button">
+<div class="logo-frame">
+<img alt="Kinder" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=kids&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Kinder</span>
+</button>
+<button class="style" title="Rot-Gold mit funkelnden Sternen" type="button">
+<div class="logo-frame">
+<img alt="Festlich" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=festive&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Festlich</span>
+</button>
+<button class="style" title="Pastell-Verlauf mit Blüten" type="button">
+<div class="logo-frame">
+<img alt="Frühling" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=spring&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Frühling</span>
+</button>
+<button class="style" title="Feuriger Verlauf mit Speed-Lines" type="button">
+<div class="logo-frame">
+<img alt="Action" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=action&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Action</span>
+</button>
+<button class="style" title="Goldschrift mit magischer Aura und Funkenspur" type="button">
+<div class="logo-frame">
+<img alt="Zauberei" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=magic&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Zauberei</span>
+</button>
+<button class="style" title="Geschmiedetes Gold mit glühender Glut" type="button">
+<div class="logo-frame">
+<img alt="Episch" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=epic&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Episch</span>
+</button>
+<button class="style" title="Storybook-Schrift auf Pergament-Banner" type="button">
+<div class="logo-frame">
+<img alt="Märchen" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=fairytale&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Märchen</span>
+</button>
+<button class="style" title="Chrom-Schrift mit Sternen und Lens-Flare" type="button">
+<div class="logo-frame">
+<img alt="Weltraum" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=space&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Weltraum</span>
+</button>
+<button class="style" title="Staubige Lettern, Abendsonne und Sheriff-Sterne" type="button">
+<div class="logo-frame">
+<img alt="Western" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=western&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Western</span>
+</button>
+<button class="style" title="Explosions-Zacken mit Rasterpunkten" type="button">
+<div class="logo-frame">
+<img alt="Comic" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=comic&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Comic</span>
+</button>
+<button class="style" title="Schreibmaschine auf Polizei-Absperrband" type="button">
+<div class="logo-frame">
+<img alt="Krimi" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=crime&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Krimi</span>
+</button>
+<button class="style" title="Silberfraktur, Vollmond und Fledermäuse" type="button">
+<div class="logo-frame">
+<img alt="Gothic" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=gothic&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Gothic</span>
+</button>
+<button class="style" title="Bergsilhouette im Abendlicht mit Zugvögeln" type="button">
+<div class="logo-frame">
+<img alt="Natur" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=nature&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Natur</span>
+</button>
+<button class="style" title="Wellen, Luftblasen und Türkis" type="button">
+<div class="logo-frame">
+<img alt="Ozean" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=ocean&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Ozean</span>
+</button>
+<button class="style" title="College-Trikot mit doppelter Kontur" type="button">
+<div class="logo-frame">
+<img alt="Sport" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=sport&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Sport</span>
+</button>
+<button class="style" title="Neon-Linien über einem Equalizer" type="button">
+<div class="logo-frame">
+<img alt="Musik" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=music&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Musik</span>
+</button>
+<button class="style" title="Schräger Balken wie eine Bauchbinde" type="button">
+<div class="logo-frame">
+<img alt="Nachrichten" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=news&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Nachrichten</span>
+</button>
+<button class="style" title="Geschwungene Schrift mit Herzen" type="button">
+<div class="logo-frame">
+<img alt="Liebe" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=love&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Liebe</span>
+</button>
+<button class="style" title="8-Bit-Arcade mit Bildschirmzeilen" type="button">
+<div class="logo-frame">
+<img alt="Pixel" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=pixel&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Pixel</span>
+</button>
+<button class="style" title="Kreide auf der Schultafel" type="button">
+<div class="logo-frame">
+<img alt="Tafel" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=chalk&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Tafel</span>
+</button>
+<button class="style" title="Frostschrift mit Eiszapfen und Schneeflocken" type="button">
+<div class="logo-frame">
+<img alt="Eis" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=ice&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Eis</span>
+</button>
+<button class="style" title="Pinselschrift vor roter Sonne" type="button">
+<div class="logo-frame">
+<img alt="Anime" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=anime&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Anime</span>
+</button>
+<button class="style" title="Art-déco-Zwischentitel mit Filmkörnung" type="button">
+<div class="logo-frame">
+<img alt="Stummfilm" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=silent&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Stummfilm</span>
+</button>
+<button class="style" title="Wachsmalstift mit Sonne, Wolke und Wiese" type="button">
+<div class="logo-frame">
+<img alt="Kinderbuch" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=crayon&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Kinderbuch</span>
+</button>
+<button class="style" title="Nebel, Lupe und Fragezeichen" type="button">
+<div class="logo-frame">
+<img alt="Mystery" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=mystery&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Mystery</span>
+</button>
+<button class="style" title="Magenta und Safran auf goldenem Mandala" type="button">
+<div class="logo-frame">
+<img alt="Bollywood" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=bollywood&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Bollywood</span>
+</button>
+<button class="style" title="Retro-Diner-Schild mit Besteck" type="button">
+<div class="logo-frame">
+<img alt="Kochen" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=cooking&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Kochen</span>
+</button>
+<button class="style" title="50er-Jahre-Space-Age mit Ringplanet" type="button">
+<div class="logo-frame">
+<img alt="Atomzeitalter" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=atomic&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Atomzeitalter</span>
+</button>
+<button class="style" title="Sprühfarbe mit Klecksen und Tropfen" type="button">
+<div class="logo-frame">
+<img alt="Graffiti" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=graffiti&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Graffiti</span>
+</button>
+<button class="style" title="Initiale wie in einer alten Handschrift" type="button">
+<div class="logo-frame">
+<img alt="Pergament" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=manuscript&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">Pergament</span>
+</button>
+<button class="style" title="Videokassetten-Etikett mit Leih-Aufkleber" type="button">
+<div class="logo-frame">
+<img alt="VHS" class="" loading="lazy" src="/api/logo/preview?name=Kom%C3%B6dien&style=vhs&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <span class="label-row">VHS</span>
+</button>
+</div> <div class="row wrap colors">
+<span class="label nomb">Akzentfarbe</span> <button aria-label="Automatisch" class="swatch active" style="--sw: conic-gradient(#ef4444, #facc15, #22c55e, #3b82f6, #a855f7, #ef4444);" title="Automatisch" type="button">
+</button>
+<button aria-label="#e5a00d" class="swatch" style="--sw: #e5a00d;" title="#e5a00d" type="button">
+</button>
+<button aria-label="#ef4444" class="swatch" style="--sw: #ef4444;" title="#ef4444" type="button">
+</button>
+<button aria-label="#ec4899" class="swatch" style="--sw: #ec4899;" title="#ec4899" type="button">
+</button>
+<button aria-label="#8b5cf6" class="swatch" style="--sw: #8b5cf6;" title="#8b5cf6" type="button">
+</button>
+<button aria-label="#3b82f6" class="swatch" style="--sw: #3b82f6;" title="#3b82f6" type="button">
+</button>
+<button aria-label="#06b6d4" class="swatch" style="--sw: #06b6d4;" title="#06b6d4" type="button">
+</button>
+<button aria-label="#10b981" class="swatch" style="--sw: #10b981;" title="#10b981" type="button">
+</button>
+<button aria-label="#f97316" class="swatch" style="--sw: #f97316;" title="#f97316" type="button">
+</button> <label class="swatch custom-color" title="Eigene Farbe">
+<input class="" type="color">
+</input>
+</label> <button class="btn sm ghost" title="Farbe passend zu den Postern der Titel auf diesem Sender" type="button">
+<svg aria-hidden="true" class="icon" fill="none" height="14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="14">
+<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z">
+</path>
+<circle cx="12" cy="12" r="3">
+</circle>
+</svg> Aus Postern</button>
+</div> <div class="extras">
+<div class="field">
+<span class="label">Farbwelt</span> <div class="row wrap">
+<button aria-label="Originalfarben" class="hue active" style="--h: 0deg;" title="Original" type="button">
+<span>A</span>
+</button>
+<button aria-label="Farbton 30 Grad" class="hue" style="--h: 30deg;" title="Farbton +30°" type="button">
+</button>
+<button aria-label="Farbton 60 Grad" class="hue" style="--h: 60deg;" title="Farbton +60°" type="button">
+</button>
+<button aria-label="Farbton 120 Grad" class="hue" style="--h: 120deg;" title="Farbton +120°" type="button">
+</button>
+<button aria-label="Farbton 180 Grad" class="hue" style="--h: 180deg;" title="Farbton +180°" type="button">
+</button>
+<button aria-label="Farbton 210 Grad" class="hue" style="--h: 210deg;" title="Farbton +210°" type="button">
+</button>
+<button aria-label="Farbton 260 Grad" class="hue" style="--h: 260deg;" title="Farbton +260°" type="button">
+</button>
+<button aria-label="Farbton 300 Grad" class="hue" style="--h: 300deg;" title="Farbton +300°" type="button">
+</button>
+</div>
+</div> <div class="field">
+<span class="label">Anordnung</span> <button class="btn sm" type="button">🎲 Neu würfeln</button> <span class="hint">Verteilt Sterne, Herzen, Wellen & Co. neu.</span>
+</div> <div class="field grow-2">
+<label class="label" for="tagline">Slogan <span class="muted">(optional)</span>
+</label> <input class="input" id="tagline" maxlength="40" placeholder="z. B. Filme für die ganze Familie">
+</input>
+</div> <div class="field">
+<label class="toggle">
+<input class="" type="checkbox">
+</input> <span class="track">
+<span class="thumb">
+</span>
+</span> <span class="text">
+<span class="t">Kanalnummer im Logo</span> <span class="h">Kleine Plakette oben links.</span>
+</span>
+</label>
+</div> <div class="field grow-2">
+<label class="toggle">
+<input class="" type="checkbox">
+</input> <span class="track">
+<span class="thumb">
+</span>
+</span> <span class="text">
+<span class="t">Feiertags-Accessoires</span> <span class="h">Weihnachtsmütze, Kürbis, Osterei … erscheinen automatisch zur passenden Zeit.</span>
+</span>
+</label> </div>
+</div> <input accept="image/png,image/jpeg,image/webp,image/gif" hidden="" type="file">
+</input>
+</div>
+</section> <section class="card" id="sec-tech">
+<div class="section-title">
+<svg aria-hidden="true" class="icon" fill="none" height="18" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="18">
+<rect height="16" rx="2" width="16" x="4" y="4">
+</rect>
+<rect height="6" width="6" x="9" y="9">
+</rect>
+<path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2">
+</path>
+</svg>
+<h2>Technik</h2>
+</div> <div class="modes">
+<label class="mode">
+<input class="" name="tc" type="radio" value="default">
+</input> <div class="row">
+<b class="grow">Standard</b> <span class="cpu" title="CPU-Last">
+<i class="on">
+</i>
+<i class="">
+</i>
+<i class="">
+</i>
+</span>
+</div> <span class="small muted">Wie in den Einstellungen festgelegt, zurzeit „Direkt (Remux)“.</span>
+</label> <label class="mode active">
+<input class="" name="tc" type="radio" value="copy">
+</input> <div class="row">
+<b class="grow">Direkt (Remux)</b> <span class="cpu" title="CPU-Last">
+<i class="on">
+</i>
+<i class="">
+</i>
+<i class="">
+</i>
+</span>
+</div> <span class="small muted">Bild und Ton werden nur umverpackt. Minimale Last – empfohlen.</span>
+</label>
+<label class="mode">
+<input class="" name="tc" type="radio" value="audio">
+</input> <div class="row">
+<b class="grow">Ton angleichen</b> <span class="cpu" title="CPU-Last">
+<i class="on">
+</i>
+<i class="on">
+</i>
+<i class="">
+</i>
+</span>
+</div> <span class="small muted">Ton wird zu Stereo-AAC. Hilft, wenn Übergänge zwischen Titeln hängen.</span>
+</label>
+<label class="mode">
+<input class="" name="tc" type="radio" value="full">
+</input> <div class="row">
+<b class="grow">Vollständig normalisieren</b> <span class="cpu" title="CPU-Last">
+<i class="on hot">
+</i>
+<i class="on hot">
+</i>
+<i class="on hot">
+</i>
+</span>
+</div> <span class="small muted">Alles wird einheitlich H.264 codiert, erzwungene Untertitel werden eingebrannt. Sehr robust, aber hohe CPU-Last ohne GPU.</span>
+</label>
+</div> <div class="wm">
+<label class="toggle">
+<input class="" type="checkbox">
+</input> <span class="track">
+<span class="thumb">
+</span>
+</span> <span class="text">
+<span class="t">Senderlogo im Bild einblenden</span> <span class="h">Wie im echten Fernsehen. Benötigt „Vollständig normalisieren“, weil das Bild dafür neu berechnet wird.</span>
+</span>
+</label> </div> <div class="wm">
+<div>
+<span class="label">Abspann</span> <div class="seg sm" role="radiogroup">
+<button aria-checked="true" class="active" role="radio" title="" type="button"> Standard (unverändert)</button>
+<button aria-checked="false" class="" role="radio" title="" type="button"> Unverändert</button>
+<button aria-checked="false" class="" role="radio" title="" type="button"> Verkleinern mit Infotafel</button>
+</div> <p class="hint">Das Bild schrumpft beim Abspann nach oben links, daneben steht, was als Nächstes läuft, darunter wechseln Highlights der anderen Sender. Folgt nach dem Abspann noch eine Szene, bleibt das Bild groß und unten links wechselt eine kleine Karte: was im Anschluss läuft, dann Filme auf anderen Sendern. Ohne passenden Abspann (mindestens 30 Sekunden, höchstens 3 Minuten vor dem Ende) erscheint sie in der letzten Minute. Der Ton bleibt unverändert. Braucht die Abspann-Erkennung von Plex (Plex Pass).</p>
+</div> </div>
+</section> <section class="card danger-zone">
+<div class="row">
+<div class="grow">
+<h3>Sender löschen</h3>
+<p class="small muted">Entfernt den Sender samt Programm. Deine Medien bleiben unberührt.</p>
+</div> <button class="btn danger">
+<svg aria-hidden="true" class="icon" fill="none" height="16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="16">
+<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+</path>
+</svg> Löschen</button>
+</div>
+</section>
+</div> <aside class="side">
+<div class="card sticky">
+<div class="logo-preview" style="--c: var(--accent);">
+<img alt="" class="" src="/api/logo/preview?name=Kom%C3%B6dien&style=auto&color=&hint=Kom%C3%B6die&seed=0&hue=0&tagline=&number=0&holiday=&symbol=">
+</img>
+</div> <h3 class="mt">Vorschau </h3> <div class="stats">
+<div class="">
+<b class="">3</b>
+<span class="">Titel</span>
+</div> <div class="">
+<b class="">0 Min.</b>
+<span class="">Programm</span>
+</div> </div> <div class="posters">
+</div> <h3 class="mt">Als Nächstes</h3> <ul class="upcoming">
+<li class="">
+<span class="time">23:04<small class="">Heute</small>
+</span> <span class="grow ellipsis">Der Grinch </span>
+</li>
+<li class="">
+<span class="time">00:48<small class="">Morgen</small>
+</span> <span class="grow ellipsis">Ghostbusters </span>
+</li>
+<li class="">
+<span class="time">02:33<small class="">Morgen</small>
+</span> <span class="grow ellipsis">Zurück in die Zukunft </span>
+</li>
+<li class="">
+<span class="time">04:29<small class="">Morgen</small>
+</span> <span class="grow ellipsis">Kevin – Allein zu Haus </span>
+</li>
+</ul>
+</div>
+</aside>
+</div> </div> 

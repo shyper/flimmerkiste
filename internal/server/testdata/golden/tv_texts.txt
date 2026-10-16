@@ -1,0 +1,65 @@
+airText Sat 12.12. 21:55: Heute um 21:55 Uhr
+airText Sun 13.12. 00:00: Morgen um 00:00 Uhr
+airText Sun 13.12. 00:01: Morgen um 00:01 Uhr
+airText Sun 13.12. 23:55: Morgen um 23:55 Uhr
+airText Mon 14.12. 23:55: Montag um 23:55 Uhr
+airText Fri 18.12. 19:55: Freitag um 19:55 Uhr
+airText DST: Morgen um 03:15 Uhr
+airText new year: Morgen um 00:05 Uhr
+releaseText movie 2026-12-16 [home.blockbuster-trailers]: "Demnächst im Kino" "Ab 16. Dezember"
+releaseText movie 2026-12-24 []: "Demnächst im Kino" "Ab 24. Dezember"
+releaseText show 2027-01-07 []: "Demnächst" "Ab 7. Januar 2027"
+releaseText movie 2026-11-20 [home.blockbuster-trailers]: "Jetzt im Kino" "Seit 20. November"
+releaseText movie 2026-03-01 []: "Neu" "Seit 1. März"
+releaseText movie  []: "Demnächst" ""
+captionKicker lib-2: Heute um 20:15 Uhr
+captionKicker lib-4: Montag um 20:15 Uhr
+captionKicker lib-1: 
+captionKicker disc-a: Demnächst im Kino · Ab 16. Dezember
+captionKicker disc-b: Demnächst · Ab 7. Januar 2027
+captionKicker disc-c: Jetzt im Kino · Seit 20. November
+card next: headline="Gleich geht's weiter" when="Um 20:15 Uhr" title="Ghostbusters" subtitle="1984 · Komödie, Fantasy" poster=true logo=true
+card episode: headline="Gleich geht's weiter" when="Jetzt gleich" title="Die Simpsons" subtitle="Staffel 1 · Folge 2 · Bart, das Genie" poster=true logo=true
+card soon: headline="Gleich geht's weiter" when="Jetzt gleich" title="Ghostbusters" subtitle="1984 · Komödie, Fantasy" poster=true logo=true
+card none: headline="Gleich geht's weiter" when="" title="" subtitle="" poster=false logo=true
+fault: headline="Technische Störung" when="„Zurück in die Zukunft“ ist gerade nicht verfügbar" title="Ghostbusters" subtitle="Weiter um 20:15 Uhr" poster=true logo=true
+fault unknown: headline="Technische Störung" when="Diese Sendung ist gerade nicht verfügbar" title="Wir sind gleich zurück" subtitle="" poster=false logo=true
+promo today: headline="Demnächst auf Komödien" when="Heute um 20:15 Uhr" title="Ghostbusters" subtitle="1984 · Komödie, Fantasy" poster=true logo=true
+promo tomorrow: headline="Demnächst auf Komödien" when="Morgen um 20:15 Uhr" title="Kevin – Allein zu Haus" subtitle="1990 · Komödie, Familie" poster=true logo=true
+promo monday: headline="Demnächst auf Komödien" when="Montag um 20:15 Uhr" title="Stirb langsam" subtitle="1988 · Action, Thriller" poster=true logo=true
+promo discover: headline="Demnächst im Kino" when="Ab 16. Dezember" title="Avengers: Doomsday" subtitle="2026 · Action, Science-Fiction" poster=false logo=true
+promo discover show: headline="Demnächst" when="Ab 7. Januar 2027" title="Stranger Things" subtitle="2027 · Drama, Mystery" poster=false logo=true
+promo tmdb slate: headline="Demnächst im Kino" when="Ab 17. Dezember" title="Avatar: Fire and Ash" subtitle="Science-Fiction, Abenteuer · FSK 12 · 3 Std. 12 Min." poster=true logo=true
+credits: headline="Gleich geht's weiter" when="Um 20:15 Uhr" title="Ghostbusters" subtitle="1984 · Komödie, Fantasy" kicker="Demnächst auf anderen Sendern"
+credits highlight 0: when="20:15 Uhr · Filmklassiker" title="Stirb langsam" subtitle="1988 · Action, Thriller"
+credits highlight 1: when="21:00 Uhr · Zeichentrick" title="Kevin – Allein zu Haus" subtitle="1990 · Komödie, Familie"
+credits highlight 2: when="22:30 Uhr · Filmklassiker" title="Der Grinch" subtitle="2000 · Komödie, Familie"
+credits later: when="Um 20:15 Uhr"
+credits right before: when="Um 20:15 Uhr" title="Ghostbusters"
+credits card 0: kicker="Um 20:15 Uhr" title="Ghostbusters"
+credits card 1: kicker="20:15 Uhr · Filmklassiker" title="Stirb langsam"
+credits card 2: kicker="21:00 Uhr · Zeichentrick" title="Kevin – Allein zu Haus"
+credits card 3: kicker="22:30 Uhr · Filmklassiker" title="Der Grinch"
+weather now: headline="Das Wetter" line="Hamburg · Stand 19:30 Uhr" credit="Wetterdaten: Open-Meteo.com" now="Teilweise bewölkt" "2°" "Wind 14 km/h"
+weather now slot: "22 Uhr" "" rain "0°" "" "Regen 21 %"
+weather now slot: "1 Uhr" "" rain "-3°" "" "Regen 42 %"
+weather now slot: "4 Uhr" "" partly-cloudy-night "-4°" "" "Regen 63 %"
+weather now slot: "7 Uhr" "" clear-night "-2°" "" "Regen 84 %"
+weather days: headline="Die Aussichten" line="Hamburg" credit="Wetterdaten: Open-Meteo.com" now="" "" ""
+weather days slot: "Sonntag" "13. Dezember" snow "6°" "-4°" "Regen 85 %"
+weather days slot: "Montag" "14. Dezember" rain "5°" "-5°" "Regen 87 %"
+weather days slot: "Dienstag" "15. Dezember" thunderstorm "4°" "-5°" "Regen 88 %"
+weather days slot: "Mittwoch" "16. Dezember" snow "4°" "-6°" "Regen 89 %"
+weather now °F: headline="Das Wetter" line="Hamburg · Stand 19:30 Uhr" credit="Wetterdaten: Open-Meteo.com" now="Teilweise bewölkt" "36°" "Wind 9 mph"
+weather now °F slot: "22 Uhr" "" rain "31°" "" "Regen 21 %"
+weather now °F slot: "1 Uhr" "" rain "26°" "" "Regen 42 %"
+weather now °F slot: "4 Uhr" "" partly-cloudy-night "25°" "" "Regen 63 %"
+weather now °F slot: "7 Uhr" "" clear-night "29°" "" "Regen 84 %"
+news 1: headline="Nachrichten" line="Stand 19:51 Uhr"
+news 1 item: "tagesschau.de · 18:42" "Forschende entdecken neue Tiefseeart vor Norwegen"
+news 1 item: "NDR · 18:25" "Handball-EM: Deutschland zieht ins Halbfinale ein"
+news 1 item: "tagesschau.de · 18:08" "Sternwarten laden zur Beobachtung der Geminiden ein"
+news 2: headline="Nachrichten" line="Stand 19:51 Uhr"
+news 2 item: "tagesschau.de · 19:50" "Bundestag beschließt Haushalt für das kommende Jahr nach langer Debatte"
+news 2 item: "tagesschau.de · 19:33" "Wintereinbruch: Erster Schnee im Norden erwartet"
+news 2 item: "NDR · 19:16" "Weihnachtsmärkte melden Besucherrekord"

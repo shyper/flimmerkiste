@@ -1,0 +1,1822 @@
+{
+ "api": {
+  "/api/auth/status": {
+   "claimed": true,
+   "serverLinked": true,
+   "serverName": "Wohnzimmer-Server",
+   "user": {
+    "createdAt": 1792098297,
+    "email": "",
+    "id": 1,
+    "lastLogin": 1792098297,
+    "plexId": 1,
+    "role": "admin",
+    "thumb": "",
+    "username": "Alex"
+   },
+   "language": "de"
+  },
+  "/api/channels": [
+   {
+    "autoLogo": true,
+    "color": "",
+    "config": {
+     "order": "shuffle",
+     "source": {
+      "rules": {
+       "match": "all",
+       "rules": [
+        {
+         "field": "genre",
+         "op": "is",
+         "values": [
+          "Komödie"
+         ]
+        }
+       ]
+      },
+      "type": "rules"
+     }
+    },
+    "createdAt": 1792098297,
+    "enabled": true,
+    "id": 1,
+    "kind": "smart",
+    "logo": "",
+    "logoUrl": "/logos/auto-1.png?v=f2d7129aec91",
+    "name": "Komödien",
+    "next": {
+     "media": {
+      "contentRating": "de/12",
+      "durationMs": 6300000,
+      "genres": [
+       "Komödie",
+       "Fantasy"
+      ],
+      "key": "2",
+      "rating": 7.5,
+      "thumb": "/img/2/thumb",
+      "title": "Ghostbusters",
+      "type": "movie",
+      "watched": true,
+      "year": 1984
+     },
+     "start": 1792104537302,
+     "stop": 1792110837302
+    },
+    "now": {
+     "media": {
+      "contentRating": "de/12",
+      "durationMs": 6240000,
+      "genres": [
+       "Komödie",
+       "Familie",
+       "Fantasy"
+      ],
+      "key": "6",
+      "rating": 7.5,
+      "thumb": "/img/6/thumb",
+      "title": "Der Grinch",
+      "type": "movie",
+      "watched": true,
+      "year": 2000
+     },
+     "start": 1792098297302,
+     "stop": 1792104537302
+    },
+    "number": 1,
+    "updatedAt": 1792098297
+   },
+   {
+    "autoLogo": true,
+    "color": "",
+    "config": {
+     "logoStyle": "horror",
+     "order": "shuffle",
+     "source": {
+      "rules": {
+       "match": "all",
+       "rules": [
+        {
+         "field": "genre",
+         "op": "is",
+         "values": [
+          "Horror"
+         ]
+        }
+       ]
+      },
+      "type": "rules"
+     }
+    },
+    "createdAt": 1792098297,
+    "enabled": true,
+    "id": 2,
+    "kind": "smart",
+    "logo": "",
+    "logoUrl": "/logos/auto-2.png?v=a813b5e4eeca",
+    "name": "Grusel TV",
+    "next": {
+     "media": {
+      "contentRating": "de/12",
+      "durationMs": 8760000,
+      "genres": [
+       "Horror",
+       "Drama"
+      ],
+      "key": "8",
+      "rating": 7.5,
+      "thumb": "/img/8/thumb",
+      "title": "Shining",
+      "type": "movie",
+      "watched": true,
+      "year": 1980
+     },
+     "start": 1792103757303,
+     "stop": 1792112517303
+    },
+    "now": {
+     "media": {
+      "contentRating": "de/12",
+      "durationMs": 5460000,
+      "genres": [
+       "Horror"
+      ],
+      "key": "7",
+      "rating": 7.5,
+      "thumb": "/img/7/thumb",
+      "title": "Halloween",
+      "type": "movie",
+      "watched": false,
+      "year": 1978
+     },
+     "start": 1792098297303,
+     "stop": 1792103757303
+    },
+    "number": 2,
+    "updatedAt": 1792098297
+   },
+   {
+    "autoLogo": true,
+    "color": "",
+    "config": {
+     "order": "fixed",
+     "source": {
+      "items": [
+       {
+        "key": "200",
+        "title": "Die Simpsons",
+        "type": "show"
+       }
+      ],
+      "type": "manual"
+     }
+    },
+    "createdAt": 1792098297,
+    "enabled": true,
+    "id": 3,
+    "kind": "manual",
+    "logo": "",
+    "logoUrl": "/logos/auto-3.png?v=a4041cc3a28f",
+    "name": "Simpsons",
+    "next": {
+     "media": {
+      "durationMs": 1320000,
+      "genres": [
+       "Animation"
+      ],
+      "key": "2102",
+      "showKey": "200",
+      "subtitle": "S01E02 · Folge 2",
+      "thumb": "/img/2102/show",
+      "title": "Die Simpsons",
+      "type": "episode",
+      "watched": false,
+      "year": 1990
+     },
+     "start": 1792099617304,
+     "stop": 1792100937304
+    },
+    "now": {
+     "media": {
+      "durationMs": 1320000,
+      "genres": [
+       "Animation"
+      ],
+      "key": "2101",
+      "showKey": "200",
+      "subtitle": "S01E01 · Folge 1",
+      "thumb": "/img/2101/show",
+      "title": "Die Simpsons",
+      "type": "episode",
+      "watched": false,
+      "year": 1990
+     },
+     "start": 1792098297304,
+     "stop": 1792099617304
+    },
+    "number": 3,
+    "updatedAt": 1792098297
+   }
+  ],
+  "/api/channels/1": {
+   "autoLogo": true,
+   "color": "",
+   "config": {
+    "credits": "default",
+    "keepEpisodeOrder": false,
+    "noRepeatHours": 0,
+    "order": "shuffle",
+    "source": {
+     "rules": {
+      "match": "all",
+      "rules": [
+       {
+        "field": "genre",
+        "op": "is",
+        "values": [
+         "Komödie"
+        ]
+       }
+      ]
+     },
+     "type": "rules"
+    },
+    "transcode": "copy",
+    "watermark": {
+     "enabled": false,
+     "opacity": 70,
+     "position": "tr",
+     "size": 14
+    }
+   },
+   "createdAt": 1792098297,
+   "enabled": true,
+   "id": 1,
+   "kind": "smart",
+   "logo": "",
+   "logoUrl": "/logos/auto-1.png?v=f2d7129aec91",
+   "name": "Komödien",
+   "next": {
+    "media": {
+     "contentRating": "de/12",
+     "durationMs": 6300000,
+     "genres": [
+      "Komödie",
+      "Fantasy"
+     ],
+     "key": "2",
+     "rating": 7.5,
+     "thumb": "/img/2/thumb",
+     "title": "Ghostbusters",
+     "type": "movie",
+     "watched": true,
+     "year": 1984
+    },
+    "start": 1792104537302,
+    "stop": 1792110837302
+   },
+   "now": {
+    "media": {
+     "contentRating": "de/12",
+     "durationMs": 6240000,
+     "genres": [
+      "Komödie",
+      "Familie",
+      "Fantasy"
+     ],
+     "key": "6",
+     "rating": 7.5,
+     "thumb": "/img/6/thumb",
+     "title": "Der Grinch",
+     "type": "movie",
+     "watched": true,
+     "year": 2000
+    },
+    "start": 1792098297302,
+    "stop": 1792104537302
+   },
+   "number": 1,
+   "updatedAt": 1792098297
+  },
+  "/api/guide": [
+   {
+    "channel": {
+     "autoLogo": true,
+     "color": "",
+     "config": {
+      "order": "shuffle",
+      "source": {
+       "rules": {
+        "match": "all",
+        "rules": [
+         {
+          "field": "genre",
+          "op": "is",
+          "values": [
+           "Komödie"
+          ]
+         }
+        ]
+       },
+       "type": "rules"
+      }
+     },
+     "createdAt": 1792098297,
+     "enabled": true,
+     "id": 1,
+     "kind": "smart",
+     "logo": "",
+     "logoUrl": "/logos/auto-1.png?v=f2d7129aec91",
+     "name": "Komödien",
+     "number": 1,
+     "updatedAt": 1792098297
+    },
+    "programs": [
+     {
+      "media": {
+       "contentRating": "de/12",
+       "durationMs": 6240000,
+       "genres": [
+        "Komödie",
+        "Familie",
+        "Fantasy"
+       ],
+       "key": "6",
+       "rating": 7.5,
+       "summary": "Ein Klassiker: Der Grinch.",
+       "thumb": "/img/6/thumb",
+       "title": "Der Grinch",
+       "type": "movie",
+       "watched": true,
+       "year": 2000
+      },
+      "start": 1792098297302,
+      "stop": 1792104537302
+     },
+     {
+      "media": {
+       "contentRating": "de/12",
+       "durationMs": 6300000,
+       "genres": [
+        "Komödie",
+        "Fantasy"
+       ],
+       "key": "2",
+       "rating": 7.5,
+       "summary": "Ein Klassiker: Ghostbusters.",
+       "thumb": "/img/2/thumb",
+       "title": "Ghostbusters",
+       "type": "movie",
+       "watched": true,
+       "year": 1984
+      },
+      "start": 1792104537302,
+      "stop": 1792110837302
+     },
+     {
+      "media": {
+       "contentRating": "de/12",
+       "durationMs": 6960000,
+       "genres": [
+        "Komödie",
+        "Science-Fiction"
+       ],
+       "key": "1",
+       "rating": 7.5,
+       "summary": "Ein Klassiker: Zurück in die Zukunft.",
+       "thumb": "/img/1/thumb",
+       "title": "Zurück in die Zukunft",
+       "type": "movie",
+       "watched": false,
+       "year": 1985
+      },
+      "start": 1792110837302,
+      "stop": 1792117797302
+     },
+     {
+      "media": {
+       "contentRating": "de/12",
+       "durationMs": 6180000,
+       "genres": [
+        "Komödie",
+        "Familie"
+       ],
+       "key": "5",
+       "rating": 7.5,
+       "summary": "Ein Klassiker: Kevin – Allein zu Haus.",
+       "thumb": "/img/5/thumb",
+       "title": "Kevin – Allein zu Haus",
+       "type": "movie",
+       "watched": true,
+       "year": 1990
+      },
+      "start": 1792117797302,
+      "stop": 1792123977302
+     }
+    ]
+   },
+   {
+    "channel": {
+     "autoLogo": true,
+     "color": "",
+     "config": {
+      "logoStyle": "horror",
+      "order": "shuffle",
+      "source": {
+       "rules": {
+        "match": "all",
+        "rules": [
+         {
+          "field": "genre",
+          "op": "is",
+          "values": [
+           "Horror"
+          ]
+         }
+        ]
+       },
+       "type": "rules"
+      }
+     },
+     "createdAt": 1792098297,
+     "enabled": true,
+     "id": 2,
+     "kind": "smart",
+     "logo": "",
+     "logoUrl": "/logos/auto-2.png?v=a813b5e4eeca",
+     "name": "Grusel TV",
+     "number": 2,
+     "updatedAt": 1792098297
+    },
+    "programs": [
+     {
+      "media": {
+       "contentRating": "de/12",
+       "durationMs": 5460000,
+       "genres": [
+        "Horror"
+       ],
+       "key": "7",
+       "rating": 7.5,
+       "summary": "Ein Klassiker: Halloween.",
+       "thumb": "/img/7/thumb",
+       "title": "Halloween",
+       "type": "movie",
+       "watched": false,
+       "year": 1978
+      },
+      "start": 1792098297303,
+      "stop": 1792103757303
+     },
+     {
+      "media": {
+       "contentRating": "de/12",
+       "durationMs": 8760000,
+       "genres": [
+        "Horror",
+        "Drama"
+       ],
+       "key": "8",
+       "rating": 7.5,
+       "summary": "Ein Klassiker: Shining.",
+       "thumb": "/img/8/thumb",
+       "title": "Shining",
+       "type": "movie",
+       "watched": true,
+       "year": 1980
+      },
+      "start": 1792103757303,
+      "stop": 1792112517303
+     },
+     {
+      "media": {
+       "contentRating": "de/12",
+       "durationMs": 5460000,
+       "genres": [
+        "Horror"
+       ],
+       "key": "7",
+       "rating": 7.5,
+       "summary": "Ein Klassiker: Halloween.",
+       "thumb": "/img/7/thumb",
+       "title": "Halloween",
+       "type": "movie",
+       "watched": false,
+       "year": 1978
+      },
+      "start": 1792112517303,
+      "stop": 1792117977303
+     }
+    ]
+   },
+   {
+    "channel": {
+     "autoLogo": true,
+     "color": "",
+     "config": {
+      "order": "fixed",
+      "source": {
+       "items": [
+        {
+         "key": "200",
+         "title": "Die Simpsons",
+         "type": "show"
+        }
+       ],
+       "type": "manual"
+      }
+     },
+     "createdAt": 1792098297,
+     "enabled": true,
+     "id": 3,
+     "kind": "manual",
+     "logo": "",
+     "logoUrl": "/logos/auto-3.png?v=a4041cc3a28f",
+     "name": "Simpsons",
+     "number": 3,
+     "updatedAt": 1792098297
+    },
+    "programs": [
+     {
+      "media": {
+       "durationMs": 1320000,
+       "genres": [
+        "Animation"
+       ],
+       "key": "2101",
+       "showKey": "200",
+       "subtitle": "S01E01 · Folge 1",
+       "thumb": "/img/2101/show",
+       "title": "Die Simpsons",
+       "type": "episode",
+       "watched": false,
+       "year": 1990
+      },
+      "start": 1792098297304,
+      "stop": 1792099617304
+     },
+     {
+      "media": {
+       "durationMs": 1320000,
+       "genres": [
+        "Animation"
+       ],
+       "key": "2102",
+       "showKey": "200",
+       "subtitle": "S01E02 · Folge 2",
+       "thumb": "/img/2102/show",
+       "title": "Die Simpsons",
+       "type": "episode",
+       "watched": false,
+       "year": 1990
+      },
+      "start": 1792099617304,
+      "stop": 1792100937304
+     },
+     {
+      "media": {
+       "durationMs": 1320000,
+       "genres": [
+        "Animation"
+       ],
+       "key": "2103",
+       "showKey": "200",
+       "subtitle": "S01E03 · Folge 3",
+       "thumb": "/img/2103/show",
+       "title": "Die Simpsons",
+       "type": "episode",
+       "watched": false,
+       "year": 1990
+      },
+      "start": 1792100937304,
+      "stop": 1792102257304
+     },
+     {
+      "media": {
+       "durationMs": 1320000,
+       "genres": [
+        "Animation"
+       ],
+       "key": "2104",
+       "showKey": "200",
+       "subtitle": "S01E04 · Folge 4",
+       "thumb": "/img/2104/show",
+       "title": "Die Simpsons",
+       "type": "episode",
+       "watched": false,
+       "year": 1990
+      },
+      "start": 1792102257304,
+      "stop": 1792103577304
+     },
+     {
+      "media": {
+       "durationMs": 1320000,
+       "genres": [
+        "Animation"
+       ],
+       "key": "2105",
+       "showKey": "200",
+       "subtitle": "S01E05 · Folge 5",
+       "thumb": "/img/2105/show",
+       "title": "Die Simpsons",
+       "type": "episode",
+       "watched": false,
+       "year": 1990
+      },
+      "start": 1792103577304,
+      "stop": 1792104897304
+     },
+     {
+      "media": {
+       "durationMs": 1320000,
+       "genres": [
+        "Animation"
+       ],
+       "key": "2106",
+       "showKey": "200",
+       "subtitle": "S01E06 · Folge 6",
+       "thumb": "/img/2106/show",
+       "title": "Die Simpsons",
+       "type": "episode",
+       "watched": false,
+       "year": 1990
+      },
+      "start": 1792104897304,
+      "stop": 1792106217304
+     },
+     {
+      "media": {
+       "durationMs": 1320000,
+       "genres": [
+        "Animation"
+       ],
+       "key": "2101",
+       "showKey": "200",
+       "subtitle": "S01E01 · Folge 1",
+       "thumb": "/img/2101/show",
+       "title": "Die Simpsons",
+       "type": "episode",
+       "watched": false,
+       "year": 1990
+      },
+      "start": 1792106217304,
+      "stop": 1792107537304
+     },
+     {
+      "media": {
+       "durationMs": 1320000,
+       "genres": [
+        "Animation"
+       ],
+       "key": "2102",
+       "showKey": "200",
+       "subtitle": "S01E02 · Folge 2",
+       "thumb": "/img/2102/show",
+       "title": "Die Simpsons",
+       "type": "episode",
+       "watched": false,
+       "year": 1990
+      },
+      "start": 1792107537304,
+      "stop": 1792108857304
+     },
+     {
+      "media": {
+       "durationMs": 1320000,
+       "genres": [
+        "Animation"
+       ],
+       "key": "2103",
+       "showKey": "200",
+       "subtitle": "S01E03 · Folge 3",
+       "thumb": "/img/2103/show",
+       "title": "Die Simpsons",
+       "type": "episode",
+       "watched": false,
+       "year": 1990
+      },
+      "start": 1792108857304,
+      "stop": 1792110177304
+     },
+     {
+      "media": {
+       "durationMs": 1320000,
+       "genres": [
+        "Animation"
+       ],
+       "key": "2104",
+       "showKey": "200",
+       "subtitle": "S01E04 · Folge 4",
+       "thumb": "/img/2104/show",
+       "title": "Die Simpsons",
+       "type": "episode",
+       "watched": false,
+       "year": 1990
+      },
+      "start": 1792110177304,
+      "stop": 1792111497304
+     },
+     {
+      "media": {
+       "durationMs": 1320000,
+       "genres": [
+        "Animation"
+       ],
+       "key": "2105",
+       "showKey": "200",
+       "subtitle": "S01E05 · Folge 5",
+       "thumb": "/img/2105/show",
+       "title": "Die Simpsons",
+       "type": "episode",
+       "watched": false,
+       "year": 1990
+      },
+      "start": 1792111497304,
+      "stop": 1792112817304
+     },
+     {
+      "media": {
+       "durationMs": 1320000,
+       "genres": [
+        "Animation"
+       ],
+       "key": "2106",
+       "showKey": "200",
+       "subtitle": "S01E06 · Folge 6",
+       "thumb": "/img/2106/show",
+       "title": "Die Simpsons",
+       "type": "episode",
+       "watched": false,
+       "year": 1990
+      },
+      "start": 1792112817304,
+      "stop": 1792114137304
+     },
+     {
+      "media": {
+       "durationMs": 1320000,
+       "genres": [
+        "Animation"
+       ],
+       "key": "2101",
+       "showKey": "200",
+       "subtitle": "S01E01 · Folge 1",
+       "thumb": "/img/2101/show",
+       "title": "Die Simpsons",
+       "type": "episode",
+       "watched": false,
+       "year": 1990
+      },
+      "start": 1792114137304,
+      "stop": 1792115457304
+     },
+     {
+      "media": {
+       "durationMs": 1320000,
+       "genres": [
+        "Animation"
+       ],
+       "key": "2102",
+       "showKey": "200",
+       "subtitle": "S01E02 · Folge 2",
+       "thumb": "/img/2102/show",
+       "title": "Die Simpsons",
+       "type": "episode",
+       "watched": false,
+       "year": 1990
+      },
+      "start": 1792115457304,
+      "stop": 1792116777304
+     },
+     {
+      "media": {
+       "durationMs": 1320000,
+       "genres": [
+        "Animation"
+       ],
+       "key": "2103",
+       "showKey": "200",
+       "subtitle": "S01E03 · Folge 3",
+       "thumb": "/img/2103/show",
+       "title": "Die Simpsons",
+       "type": "episode",
+       "watched": false,
+       "year": 1990
+      },
+      "start": 1792116777304,
+      "stop": 1792118097304
+     }
+    ]
+   }
+  ],
+  "/api/libraries": {
+   "container": false,
+   "libraries": [
+    {
+     "enabled": true,
+     "id": "1",
+     "items": 8,
+     "locations": [
+      {
+       "local": "",
+       "plex": "/data/movies"
+      }
+     ],
+     "syncedAt": 1792098297,
+     "title": "Filme",
+     "type": "movie"
+    },
+    {
+     "enabled": true,
+     "id": "2",
+     "items": 6,
+     "locations": [
+      {
+       "local": "",
+       "plex": "/data/tv"
+      }
+     ],
+     "syncedAt": 1792098297,
+     "title": "Serien",
+     "type": "show"
+    }
+   ],
+   "status": {
+    "added": 14,
+    "finished": 1792098297,
+    "message": "Synchronisation abgeschlossen",
+    "removed": 0,
+    "running": false,
+    "trailers": "Trailer: 8 Filme geprüft, 0 Trailer gefunden"
+   }
+  },
+  "/api/library/facets": {
+   "actor": [],
+   "collection": [],
+   "contentRating": [
+    {
+     "count": 8,
+     "value": "de/12"
+    }
+   ],
+   "country": [],
+   "decade": [
+    {
+     "count": 1,
+     "value": "1970"
+    },
+    {
+     "count": 5,
+     "value": "1980"
+    },
+    {
+     "count": 2,
+     "value": "1990"
+    },
+    {
+     "count": 1,
+     "value": "2000"
+    }
+   ],
+   "director": [],
+   "genre": [
+    {
+     "count": 4,
+     "value": "Komödie"
+    },
+    {
+     "count": 3,
+     "value": "Familie"
+    },
+    {
+     "count": 2,
+     "value": "Fantasy"
+    },
+    {
+     "count": 2,
+     "value": "Horror"
+    },
+    {
+     "count": 1,
+     "value": "Abenteuer"
+    },
+    {
+     "count": 1,
+     "value": "Action"
+    },
+    {
+     "count": 1,
+     "value": "Animation"
+    },
+    {
+     "count": 1,
+     "value": "Drama"
+    },
+    {
+     "count": 1,
+     "value": "Science-Fiction"
+    },
+    {
+     "count": 1,
+     "value": "Thriller"
+    }
+   ],
+   "label": [],
+   "show": [
+    {
+     "count": 6,
+     "value": "Die Simpsons"
+    }
+   ],
+   "studio": [],
+   "writer": []
+  },
+  "/api/library/status": {
+   "added": 14,
+   "finished": 1792098297,
+   "message": "Synchronisation abgeschlossen",
+   "removed": 0,
+   "running": false,
+   "trailers": "Trailer: 8 Filme geprüft, 0 Trailer gefunden"
+  },
+  "/api/meta": {
+   "aiEnabled": false,
+   "defaultCredits": "off",
+   "defaultTranscode": "copy",
+   "fields": [
+    {
+     "id": "type",
+     "kind": "enum",
+     "label": "Art",
+     "ops": [
+      "is",
+      "isNot"
+     ]
+    },
+    {
+     "id": "library",
+     "kind": "enum",
+     "label": "Bibliothek",
+     "ops": [
+      "is",
+      "isNot"
+     ]
+    },
+    {
+     "id": "genre",
+     "kind": "tag",
+     "label": "Genre",
+     "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+     ]
+    },
+    {
+     "id": "year",
+     "kind": "number",
+     "label": "Jahr",
+     "ops": [
+      "is",
+      "isNot",
+      "gt",
+      "lt",
+      "between"
+     ]
+    },
+    {
+     "id": "decade",
+     "kind": "enum",
+     "label": "Jahrzehnt",
+     "ops": [
+      "is",
+      "isNot"
+     ]
+    },
+    {
+     "id": "title",
+     "kind": "text",
+     "label": "Titel",
+     "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "startsWith"
+     ]
+    },
+    {
+     "id": "show",
+     "kind": "tag",
+     "label": "Serie",
+     "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+     ]
+    },
+    {
+     "id": "season",
+     "kind": "number",
+     "label": "Staffel",
+     "ops": [
+      "is",
+      "isNot",
+      "gt",
+      "lt",
+      "between"
+     ]
+    },
+    {
+     "id": "actor",
+     "kind": "tag",
+     "label": "Darsteller",
+     "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+     ]
+    },
+    {
+     "id": "director",
+     "kind": "tag",
+     "label": "Regie",
+     "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+     ]
+    },
+    {
+     "id": "writer",
+     "kind": "tag",
+     "label": "Drehbuch",
+     "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+     ]
+    },
+    {
+     "id": "collection",
+     "kind": "tag",
+     "label": "Sammlung",
+     "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+     ]
+    },
+    {
+     "id": "label",
+     "kind": "tag",
+     "label": "Label",
+     "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+     ]
+    },
+    {
+     "id": "studio",
+     "kind": "tag",
+     "label": "Studio",
+     "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+     ]
+    },
+    {
+     "id": "country",
+     "kind": "tag",
+     "label": "Land",
+     "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+     ]
+    },
+    {
+     "id": "contentRating",
+     "kind": "tag",
+     "label": "Altersfreigabe",
+     "ops": [
+      "is",
+      "isNot",
+      "contains",
+      "notContains",
+      "exists",
+      "missing"
+     ]
+    },
+    {
+     "id": "rating",
+     "kind": "number",
+     "label": "Bewertung",
+     "ops": [
+      "is",
+      "isNot",
+      "gt",
+      "lt",
+      "between"
+     ],
+     "unit": "/10"
+    },
+    {
+     "id": "duration",
+     "kind": "number",
+     "label": "Laufzeit",
+     "ops": [
+      "is",
+      "isNot",
+      "gt",
+      "lt",
+      "between"
+     ],
+     "unit": "Min."
+    },
+    {
+     "id": "watched",
+     "kind": "bool",
+     "label": "Gesehen",
+     "ops": [
+      "is"
+     ]
+    },
+    {
+     "id": "addedDays",
+     "kind": "number",
+     "label": "Hinzugefügt vor",
+     "ops": [
+      "lt",
+      "gt"
+     ],
+     "unit": "Tagen"
+    },
+    {
+     "id": "summary",
+     "kind": "text",
+     "label": "Beschreibung",
+     "ops": [
+      "contains",
+      "notContains"
+     ]
+    }
+   ],
+   "horizon": 24,
+   "libraries": [
+    {
+     "enabled": true,
+     "id": "1",
+     "items": 8,
+     "syncedAt": 1792098297,
+     "title": "Filme",
+     "type": "movie"
+    },
+    {
+     "enabled": true,
+     "id": "2",
+     "items": 6,
+     "syncedAt": 1792098297,
+     "title": "Serien",
+     "type": "show"
+    }
+   ],
+   "linked": true,
+   "logoStyles": [
+    {
+     "hint": "Passend zu Name und Inhalt",
+     "id": "auto",
+     "label": "Automatisch"
+    },
+    {
+     "hint": "Kräftige Schrift auf farbigem Badge",
+     "id": "classic",
+     "label": "Klassik"
+    },
+    {
+     "hint": "Sonnenuntergangs-Verlauf mit Streifen",
+     "id": "retro",
+     "label": "Retro 80er"
+    },
+    {
+     "hint": "Leuchtröhren-Glow bei Nacht",
+     "id": "neon",
+     "label": "Neon"
+    },
+    {
+     "hint": "Gold auf Schwarz im Art-déco-Stil",
+     "id": "cinema",
+     "label": "Kino"
+    },
+    {
+     "hint": "Handschrift mit langem Schatten",
+     "id": "cozy",
+     "label": "Gemütlich"
+    },
+    {
+     "hint": "Geschwungene goldene Schreibschrift",
+     "id": "elegant",
+     "label": "Elegant"
+    },
+    {
+     "hint": "Blutrot mit Tropfen",
+     "id": "horror",
+     "label": "Horror"
+    },
+    {
+     "hint": "Bunte Buchstaben mit dicker Kontur",
+     "id": "kids",
+     "label": "Kinder"
+    },
+    {
+     "hint": "Rot-Gold mit funkelnden Sternen",
+     "id": "festive",
+     "label": "Festlich"
+    },
+    {
+     "hint": "Pastell-Verlauf mit Blüten",
+     "id": "spring",
+     "label": "Frühling"
+    },
+    {
+     "hint": "Feuriger Verlauf mit Speed-Lines",
+     "id": "action",
+     "label": "Action"
+    },
+    {
+     "hint": "Goldschrift mit magischer Aura und Funkenspur",
+     "id": "magic",
+     "label": "Zauberei"
+    },
+    {
+     "hint": "Geschmiedetes Gold mit glühender Glut",
+     "id": "epic",
+     "label": "Episch"
+    },
+    {
+     "hint": "Storybook-Schrift auf Pergament-Banner",
+     "id": "fairytale",
+     "label": "Märchen"
+    },
+    {
+     "hint": "Chrom-Schrift mit Sternen und Lens-Flare",
+     "id": "space",
+     "label": "Weltraum"
+    },
+    {
+     "hint": "Staubige Lettern, Abendsonne und Sheriff-Sterne",
+     "id": "western",
+     "label": "Western"
+    },
+    {
+     "hint": "Explosions-Zacken mit Rasterpunkten",
+     "id": "comic",
+     "label": "Comic"
+    },
+    {
+     "hint": "Schreibmaschine auf Polizei-Absperrband",
+     "id": "crime",
+     "label": "Krimi"
+    },
+    {
+     "hint": "Silberfraktur, Vollmond und Fledermäuse",
+     "id": "gothic",
+     "label": "Gothic"
+    },
+    {
+     "hint": "Bergsilhouette im Abendlicht mit Zugvögeln",
+     "id": "nature",
+     "label": "Natur"
+    },
+    {
+     "hint": "Wellen, Luftblasen und Türkis",
+     "id": "ocean",
+     "label": "Ozean"
+    },
+    {
+     "hint": "College-Trikot mit doppelter Kontur",
+     "id": "sport",
+     "label": "Sport"
+    },
+    {
+     "hint": "Neon-Linien über einem Equalizer",
+     "id": "music",
+     "label": "Musik"
+    },
+    {
+     "hint": "Schräger Balken wie eine Bauchbinde",
+     "id": "news",
+     "label": "Nachrichten"
+    },
+    {
+     "hint": "Geschwungene Schrift mit Herzen",
+     "id": "love",
+     "label": "Liebe"
+    },
+    {
+     "hint": "8-Bit-Arcade mit Bildschirmzeilen",
+     "id": "pixel",
+     "label": "Pixel"
+    },
+    {
+     "hint": "Kreide auf der Schultafel",
+     "id": "chalk",
+     "label": "Tafel"
+    },
+    {
+     "hint": "Frostschrift mit Eiszapfen und Schneeflocken",
+     "id": "ice",
+     "label": "Eis"
+    },
+    {
+     "hint": "Pinselschrift vor roter Sonne",
+     "id": "anime",
+     "label": "Anime"
+    },
+    {
+     "hint": "Art-déco-Zwischentitel mit Filmkörnung",
+     "id": "silent",
+     "label": "Stummfilm"
+    },
+    {
+     "hint": "Wachsmalstift mit Sonne, Wolke und Wiese",
+     "id": "crayon",
+     "label": "Kinderbuch"
+    },
+    {
+     "hint": "Nebel, Lupe und Fragezeichen",
+     "id": "mystery",
+     "label": "Mystery"
+    },
+    {
+     "hint": "Magenta und Safran auf goldenem Mandala",
+     "id": "bollywood",
+     "label": "Bollywood"
+    },
+    {
+     "hint": "Retro-Diner-Schild mit Besteck",
+     "id": "cooking",
+     "label": "Kochen"
+    },
+    {
+     "hint": "50er-Jahre-Space-Age mit Ringplanet",
+     "id": "atomic",
+     "label": "Atomzeitalter"
+    },
+    {
+     "hint": "Sprühfarbe mit Klecksen und Tropfen",
+     "id": "graffiti",
+     "label": "Graffiti"
+    },
+    {
+     "hint": "Initiale wie in einer alten Handschrift",
+     "id": "manuscript",
+     "label": "Pergament"
+    },
+    {
+     "hint": "Videokassetten-Etikett mit Leih-Aufkleber",
+     "id": "vhs",
+     "label": "VHS"
+    }
+   ],
+   "serverName": "Wohnzimmer-Server",
+   "tuner": {
+    "epg": "http://192.168.1.10:8089/epg.xml",
+    "url": "http://192.168.1.10:8089"
+   },
+   "user": {
+    "createdAt": 1792098297,
+    "email": "",
+    "id": 1,
+    "lastLogin": 1792098297,
+    "plexId": 1,
+    "role": "admin",
+    "thumb": "",
+    "username": "Alex"
+   },
+   "language": "de"
+  },
+  "/api/presets/seasonal": {
+   "credits": "",
+   "fallback": {
+    "rules": {
+     "match": "all",
+     "rules": null
+    },
+    "type": "rules"
+   },
+   "keepEpisodeOrder": true,
+   "noRepeatHours": 72,
+   "order": "shuffle",
+   "seasons": [
+    {
+     "emoji": "🎄",
+     "from": "12-01",
+     "id": "christmas",
+     "name": "Weihnachten",
+     "source": {
+      "rules": {
+       "match": "any",
+       "rules": [
+        {
+         "field": "title",
+         "op": "contains",
+         "values": [
+          "Weihnacht",
+          "Christmas",
+          "Xmas",
+          "Santa",
+          "Nikolaus",
+          "Grinch",
+          "Rentier",
+          "Elf",
+          "Polar Express",
+          "Kevin"
+         ]
+        },
+        {
+         "field": "collection",
+         "op": "contains",
+         "values": [
+          "Weihnacht",
+          "Christmas"
+         ]
+        },
+        {
+         "field": "label",
+         "op": "contains",
+         "values": [
+          "Weihnacht",
+          "Christmas"
+         ]
+        },
+        {
+         "field": "summary",
+         "op": "contains",
+         "values": [
+          "Weihnacht",
+          "Christmas",
+          "Heiligabend",
+          "Christkind",
+          "Weihnachtsmann"
+         ]
+        }
+       ]
+      },
+      "type": "rules"
+     },
+     "to": "12-26"
+    },
+    {
+     "emoji": "❄️",
+     "from": "12-27",
+     "id": "winter",
+     "name": "Winterzauber",
+     "source": {
+      "rules": {
+       "match": "any",
+       "rules": [
+        {
+         "field": "summary",
+         "op": "contains",
+         "values": [
+          "Winter",
+          "Schnee",
+          "Snow",
+          "Eis",
+          "Ski",
+          "Silvester",
+          "New Year"
+         ]
+        },
+        {
+         "field": "genre",
+         "op": "is",
+         "values": [
+          "Fantasy",
+          "Familie",
+          "Family",
+          "Animation"
+         ]
+        }
+       ]
+      },
+      "type": "rules"
+     },
+     "to": "02-29"
+    },
+    {
+     "emoji": "🐣",
+     "from": "03-20",
+     "id": "easter",
+     "name": "Ostern",
+     "source": {
+      "rules": {
+       "match": "any",
+       "rules": [
+        {
+         "field": "title",
+         "op": "contains",
+         "values": [
+          "Oster",
+          "Easter",
+          "Hase",
+          "Bunny",
+          "Peter Hase"
+         ]
+        },
+        {
+         "field": "summary",
+         "op": "contains",
+         "values": [
+          "Ostern",
+          "Easter",
+          "Osterhase"
+         ]
+        },
+        {
+         "field": "genre",
+         "op": "is",
+         "values": [
+          "Familie",
+          "Family",
+          "Animation"
+         ]
+        }
+       ]
+      },
+      "type": "rules"
+     },
+     "to": "04-25"
+    },
+    {
+     "emoji": "🌷",
+     "from": "03-01",
+     "id": "spring",
+     "name": "Frühling",
+     "source": {
+      "rules": {
+       "match": "any",
+       "rules": [
+        {
+         "field": "genre",
+         "op": "is",
+         "values": [
+          "Liebesfilm",
+          "Romance",
+          "Romantik",
+          "Komödie",
+          "Comedy"
+         ]
+        },
+        {
+         "field": "summary",
+         "op": "contains",
+         "values": [
+          "Frühling",
+          "Spring",
+          "Hochzeit",
+          "Wedding"
+         ]
+        }
+       ]
+      },
+      "type": "rules"
+     },
+     "to": "05-31"
+    },
+    {
+     "emoji": "☀️",
+     "from": "06-01",
+     "id": "summer",
+     "name": "Sommer",
+     "source": {
+      "rules": {
+       "match": "any",
+       "rules": [
+        {
+         "field": "genre",
+         "op": "is",
+         "values": [
+          "Abenteuer",
+          "Adventure",
+          "Action"
+         ]
+        },
+        {
+         "field": "summary",
+         "op": "contains",
+         "values": [
+          "Sommer",
+          "Summer",
+          "Strand",
+          "Beach",
+          "Urlaub",
+          "Ferien",
+          "Vacation",
+          "Insel",
+          "Island",
+          "Meer"
+         ]
+        }
+       ]
+      },
+      "type": "rules"
+     },
+     "to": "08-31"
+    },
+    {
+     "emoji": "🎃",
+     "from": "10-15",
+     "id": "halloween",
+     "name": "Halloween",
+     "source": {
+      "rules": {
+       "match": "any",
+       "rules": [
+        {
+         "field": "genre",
+         "op": "is",
+         "values": [
+          "Horror"
+         ]
+        },
+        {
+         "field": "title",
+         "op": "contains",
+         "values": [
+          "Halloween"
+         ]
+        },
+        {
+         "field": "summary",
+         "op": "contains",
+         "values": [
+          "Halloween",
+          "Hexe",
+          "Witch",
+          "Geist",
+          "Ghost",
+          "Vampir",
+          "Vampire",
+          "Spuk"
+         ]
+        }
+       ]
+      },
+      "type": "rules"
+     },
+     "to": "11-02"
+    },
+    {
+     "emoji": "🍂",
+     "from": "09-01",
+     "id": "autumn",
+     "name": "Herbst",
+     "source": {
+      "rules": {
+       "match": "any",
+       "rules": [
+        {
+         "field": "genre",
+         "op": "is",
+         "values": [
+          "Krimi",
+          "Crime",
+          "Mystery",
+          "Thriller",
+          "Drama"
+         ]
+        },
+        {
+         "field": "summary",
+         "op": "contains",
+         "values": [
+          "Herbst",
+          "Autumn",
+          "Fall",
+          "Nebel"
+         ]
+        }
+       ]
+      },
+      "type": "rules"
+     },
+     "to": "11-30"
+    }
+   ],
+   "source": {
+    "type": ""
+   },
+   "transcode": "default",
+   "watermark": {
+    "enabled": false
+   }
+  },
+  "/api/sessions": [],
+  "/api/settings": {
+   "aiBaseUrl": "",
+   "aiDefaultModel": "claude-opus-5-5",
+   "aiKey": "",
+   "aiModel": "",
+   "aiProvider": "",
+   "allowSharedUsers": true,
+   "audioLanguages": "deu,ger",
+   "cardMusic": true,
+   "credits": "off",
+   "defaultTranscode": "copy",
+   "epgPrefix": "",
+   "friendlyName": "Flimmerkiste",
+   "guideReload": null,
+   "hwAccel": "auto",
+   "hwAvailable": false,
+   "hwDecode": "auto",
+   "hwDecodeStatus": "keine GPU",
+   "hwStatus": " nicht vorhanden (devices: /dev/dri im Container eintragen)",
+   "normalizeRes": 720,
+   "plexUrlOverride": "",
+   "serverName": "Wohnzimmer-Server",
+   "serverUrl": "http://127.0.0.1:43121",
+   "streamBuffer": 10,
+   "syncInterval": 6,
+   "trailerCaption": false,
+   "trailerHubs": [],
+   "tunerCount": 4,
+   "language": "de"
+  },
+  "/api/trailers": {
+   "discover": {
+    "result": {
+     "removed": 0,
+     "titles": 0,
+     "trailers": 0
+    },
+    "running": false
+   },
+   "hubs": [],
+   "languages": [
+    "deu",
+    "ger"
+   ],
+   "library": "Trailer: 8 Filme geprüft, 0 Trailer gefunden",
+   "stats": []
+  },
+  "/api/users": [
+   {
+    "createdAt": 1792098297,
+    "email": "",
+    "id": 1,
+    "lastLogin": 1792098297,
+    "owner": true,
+    "plexId": 1,
+    "role": "admin",
+    "thumb": "",
+    "username": "Alex"
+   },
+   {
+    "createdAt": 1792098297,
+    "email": "",
+    "id": 2,
+    "lastLogin": 1792098297,
+    "owner": false,
+    "plexId": 2,
+    "role": "viewer",
+    "thumb": "",
+    "username": "Gast"
+   }
+  ]
+ },
+ "from": 1792096200000,
+ "now": 1792098240000
+}

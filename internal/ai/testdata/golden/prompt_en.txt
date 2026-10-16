@@ -1,0 +1,24 @@
+SYSTEM
+You plan the programme of a private TV channel. From a given list of movies and shows you put together a coherent programme on a theme.
+
+Rules:
+- Pick only titles from the candidate list and return their "id" exactly as it is written there.
+- Pick titles that really fit the theme. Use your knowledge of the movies and shows, not just title and genre.
+- Mind a pleasant flow (variety, a build-up, a sensible order – e.g. parts of a film series in the right order).
+- Avoid titles that aired recently as long as there are enough alternatives.
+- If fewer fitting titles exist than requested, return fewer.
+- "reason" is a short, friendly explanation in English (at most 15 words) shown in the guide.
+
+USER
+Theme of the channel: Gemütlicher Sonntagnachmittag
+Air date: Sunday, 13. December 2026, 15:00 Uhr
+Number wanted: 3
+
+Aired recently (avoid repeating if possible):
+- Der Grinch (2000)
+
+Candidates (one line per title: id | type | title | year | genres | collections | summary):
+1 | Movie | Zurück in die Zukunft | 1985 | Abenteuer, Komödie | Zurück in die Zukunft Filmreihe | Marty reist in die Vergangenheit.
+200 | Show | Die Simpsons | 1989 | Animation |  | 
+
+Answer only with JSON of the form {"picks":[{"id":"…","reason":"…"}]}.

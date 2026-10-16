@@ -1,0 +1,19 @@
+{
+  "name": "flimmerkiste-web",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@testing-library/svelte": "^5.4.2",
+    "jsdom": "^30.1.2",
+    "svelte": "^5.57.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
+  }
+}

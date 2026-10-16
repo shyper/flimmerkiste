@@ -1,0 +1,80 @@
+{
+  "config": {
+    "source": {
+      "type": ""
+    },
+    "seasons": [
+      {
+        "id": "christmas",
+        "name": "Weihnachten",
+        "emoji": "🎄",
+        "from": "12-01",
+        "to": "12-26",
+        "source": {
+          "type": "rules",
+          "rules": {
+            "match": "all",
+            "rules": [
+              {
+                "field": "genre",
+                "op": "is",
+                "values": [
+                  "Weihnachten"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "halloween",
+        "name": "Halloween",
+        "from": "10-15",
+        "to": "10-31",
+        "source": {
+          "type": "ai",
+          "ai": {
+            "theme": "Grusel, aber nicht zu brutal",
+            "batchSize": 12,
+            "episodesPerShow": 2
+          }
+        }
+      },
+      {
+        "id": "saga",
+        "name": "Filmreihe",
+        "from": "07-01",
+        "to": "07-31",
+        "source": {
+          "type": "manual",
+          "items": [
+            {
+              "key": "2",
+              "type": "movie",
+              "title": "Stirb langsam"
+            }
+          ]
+        }
+      }
+    ],
+    "fallback": {
+      "type": "rules",
+      "rules": {
+        "match": "all",
+        "rules": []
+      }
+    },
+    "order": "shuffle",
+    "keepEpisodeOrder": false,
+    "noRepeatHours": 24,
+    "transcode": "copy",
+    "watermark": {
+      "enabled": false,
+      "position": "tr",
+      "opacity": 70,
+      "size": 14
+    },
+    "credits": "default"
+  },
+  "kind": "seasonal"
+}

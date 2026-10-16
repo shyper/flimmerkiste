@@ -1,0 +1,42 @@
+{
+  "config": {
+    "source": {
+      "type": "rules",
+      "rules": {
+        "match": "all",
+        "rules": [
+          {
+            "field": "genre",
+            "op": "is",
+            "values": [
+              "Horror"
+            ]
+          }
+        ]
+      }
+    },
+    "order": "shuffle",
+    "keepEpisodeOrder": true,
+    "noRepeatHours": 48,
+    "transcode": "copy",
+    "logoStyle": "horror",
+    "align": 30,
+    "filler": {
+      "type": "trailers",
+      "rules": {
+        "match": "all",
+        "rules": []
+      },
+      "trailerOrigin": "all"
+    },
+    "previews": true,
+    "watermark": {
+      "enabled": false,
+      "position": "tr",
+      "opacity": 70,
+      "size": 14
+    },
+    "credits": "default"
+  },
+  "kind": "smart"
+}
