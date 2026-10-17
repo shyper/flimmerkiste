@@ -123,7 +123,7 @@ Details are under [Installation](#installation-docker).
   fill the gap. The last clip of a break may run up to 45 seconds over so the slate doesn't stand too long.
   Breaks don't show in the guide.
 - **Pages on long slates**: an “up next” slate of 20 seconds or more turns a page every 15 seconds, blending softly:
-  the slate, what the coming title is about (if it has a summary), the weather and the news (if set up, on every
+  the slate, what the coming title is about and when it starts (if it has a summary), the weather and the news (if set up, on every
   platform), the last two with a box naming the coming title. It ends on whatever page it is on, fading to black;
   the music plays on. Shorter slates stay as they are.
 - **Credits with an info panel**: during the credits the logo fades out and the picture shrinks to the top left
@@ -168,7 +168,7 @@ Details are under [Installation](#installation-docker).
   and news slates join them; on every platform they are pages of long “up next” slates. The weather for one place
   (current conditions with the coming hours, and a four-day outlook) and the search for the place come from
   [Open-Meteo](https://open-meteo.com) (for Germany from the ICON model of the Deutscher Wetterdienst); its free service
-  is for non-commercial use. The news are headlines (source and time, no teasers or pictures) from RSS or Atom feeds
+  is for non-commercial use. The news are up to six headlines a slate in two columns, fewer if long ones need the room (source and time, no teasers or pictures) from RSS or Atom feeds
   you enter. No keys needed; weather is fetched every hour, news every 15 minutes, and the slates are drawn when they
   air.
 

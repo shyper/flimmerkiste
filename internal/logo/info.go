@@ -27,6 +27,8 @@ type InfoHeader struct {
 	Headline      string // "The weather"
 	Line          string // "Hamburg · as of 8:30 AM"
 	Credit        string // source, bottom left
+	// Inline puts Line beside the headline instead of below it (more room below).
+	Inline bool
 	// Footer names the coming title when the slate is a page of the "up next"
 	// slate (a box at the bottom right); nil on its own.
 	Footer *InfoFooter
@@ -109,10 +111,19 @@ func infoCanvas(o InfoHeader) (img *image.RGBA, s float64, top int, accent color
 	maxW := w - 2*margin
 	if o.Headline != "" {
 		face := newFace(bebas, 54*s)
-		y += drawText(img, face, strings.ToUpper(o.Headline), mix(accent, white, 0.15), margin, y, maxW)
+		head := strings.ToUpper(o.Headline)
+		lineH := drawText(img, face, head, mix(accent, white, 0.15), margin, y, maxW)
+		if o.Inline && o.Line != "" {
+			// on the headline's baseline, after a gap
+			lf := newFace(bebas, 32*s)
+			x := margin + int(measure(face, head)) + int(22*s)
+			drawText(img, lf, o.Line, color.RGBA{200, 203, 214, 255}, x, y+face.Metrics().Ascent.Ceil()-lf.Metrics().Ascent.Ceil(), maxW-(x-margin))
+			lf.Close()
+		}
+		y += lineH
 		face.Close()
 	}
-	if o.Line != "" {
+	if o.Line != "" && !(o.Inline && o.Headline != "") {
 		face := newFace(bebas, 32*s)
 		y += drawText(img, face, o.Line, color.RGBA{200, 203, 214, 255}, margin, y, maxW)
 		face.Close()
@@ -275,6 +286,7 @@ func RenderWeather(o WeatherOptions) ([]byte, error) {
 
 // RenderNews draws a news slate as PNG.
 func RenderNews(o NewsOptions) ([]byte, error) {
+	o.Inline = true
 	img, s, top, accent, err := infoCanvas(o.InfoHeader)
 	if err != nil {
 		return nil, err
@@ -290,31 +302,37 @@ func RenderNews(o NewsOptions) ([]byte, error) {
 	w, h := img.Bounds().Dx(), img.Bounds().Dy()
 	margin := int(80 * s)
 	px := func(v float64) int { return int(v * s) }
-	meta, title := newFace(bebas, 26*s), newFace(slab, 36*s)
+	meta, title := newFace(bebas, 22*s), newFace(slab, 28*s)
 	defer meta.Close()
 	defer title.Close()
-	textX := margin + px(26)
-	maxW := w - textX - margin
+	// two columns, headlines alternating between them; each column moves down
+	// on its own, so a long headline only pushes the one below it. The first
+	// headline that does not fit ends the slate (fewer then).
+	gap := px(48)
+	colW := (w - 2*margin - gap) / 2
+	maxW := colW - px(24)
 	bottom := h - px(70)
 	if o.Footer != nil {
 		bottom = px(footerTop - 12)
 	}
-	y := top
-	for _, it := range o.Items {
-		lines := wrapText(title, it.Title, maxW, 2)
-		lh := title.Metrics().Ascent.Ceil() + title.Metrics().Descent.Ceil()
-		mh := meta.Metrics().Ascent.Ceil() + meta.Metrics().Descent.Ceil()
+	lh := title.Metrics().Ascent.Ceil() + title.Metrics().Descent.Ceil()
+	mh := meta.Metrics().Ascent.Ceil() + meta.Metrics().Descent.Ceil()
+	ys := [2]int{top, top}
+	for i, it := range o.Items {
+		col := i % 2
+		x, y := margin+col*(colW+gap), ys[col]
+		lines := wrapText(title, it.Title, maxW, 4)
 		need := mh + px(2) + len(lines)*lh
 		if y+need > bottom {
 			break
 		}
-		bar := image.Rect(margin, y+px(4), margin+px(6), y+need-px(4))
+		bar := image.Rect(x, y+px(3), x+px(5), y+need-px(3))
 		draw.Draw(img, bar, image.NewUniform(accent), image.Point{}, draw.Over)
-		yy := y + drawText(img, meta, it.Meta, mix(accent, white, 0.35), textX, y, maxW) + px(2)
+		yy := y + drawText(img, meta, it.Meta, mix(accent, white, 0.35), x+px(20), y, maxW) + px(2)
 		for _, l := range lines {
-			yy += drawText(img, title, l, white, textX, yy, maxW)
+			yy += drawText(img, title, l, white, x+px(20), yy, maxW)
 		}
-		y = yy + px(26)
+		ys[col] = yy + px(18)
 	}
 	return infoPNG(img)
 }

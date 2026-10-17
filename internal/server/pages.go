@@ -47,19 +47,18 @@ func (s *Server) renderCardPages(ctx context.Context, c *store.Channel, prog *st
 		pages = append(pages, path)
 	}
 
+	// "Stay tuned · At 8:15 PM": above the summary and in the box of weather and news
+	kicker := i18n.T(l, "caption.sep", i18n.T(l, "card.headline"), i18n.T(l, "card.at", i18n.Clock(l, next.StartTime().Local())))
 	if strings.TrimSpace(m.Summary) != "" {
 		add("about", m.Summary, func() ([]byte, error) {
 			d := o
-			d.Headline, d.When, d.Summary = "", "", m.Summary
+			d.Headline, d.When, d.Summary = "", kicker, m.Summary
 			return logo.RenderDescription(d)
 		})
 	}
 
 	// weather and news from what was fetched last: a slate does not wait for them
-	footer := &logo.InfoFooter{
-		Kicker: i18n.T(l, "caption.sep", i18n.T(l, "card.headline"), i18n.T(l, "card.at", i18n.Clock(l, next.StartTime().Local()))),
-		Title:  o.Title,
-	}
+	footer := &logo.InfoFooter{Kicker: kicker, Title: o.Title}
 	s.info.mu.Lock()
 	rep, hs, newsAt := s.info.weather, s.info.news, s.info.newsLast
 	s.info.mu.Unlock()
@@ -91,7 +90,7 @@ func (s *Server) renderCardPages(ctx context.Context, c *store.Channel, prog *st
 
 // cachedPage renders a page picture once per key.
 func (s *Server) cachedPage(kind, key string, render func() ([]byte, error)) (string, error) {
-	sum := sha1.Sum([]byte(kind + "|" + key + "|v1"))
+	sum := sha1.Sum([]byte(kind + "|" + key + "|v2"))
 	path := filepath.Join(s.cfg.DataDir, "cache", "page-"+kind+"-"+hex.EncodeToString(sum[:8])+".png")
 	if keepCached(path) {
 		return path, nil

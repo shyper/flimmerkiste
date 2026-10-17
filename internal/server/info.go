@@ -33,8 +33,8 @@ const (
 	newsInterval    = 15 * time.Minute
 	// newsMaxAge: older headlines are not shown.
 	newsMaxAge = 36 * time.Hour
-	// newsPerSlate headlines fit on a slate with two lines each.
-	newsPerSlate = 3
+	// newsPerSlate: headlines on a slate in two columns (fewer if long ones need the room).
+	newsPerSlate = 6
 	// newsPages: at most this many slates of different headlines.
 	newsPages = 5
 	maxFeeds  = 8

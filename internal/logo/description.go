@@ -4,13 +4,15 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"strings"
 
 	xdraw "golang.org/x/image/draw"
 )
 
 // RenderDescription draws the page of the "up next" slate that tells what the
 // coming title is about: the poster on the left as on the slate, on the right
-// the title, the line with year and genres and the summary (up to 8 lines).
+// the start time (When), the title, the line with year and genres and the
+// summary (up to 8 lines).
 func RenderDescription(o CardOptions) ([]byte, error) {
 	w, h := o.Width, o.Height
 	if w <= 0 || h <= 0 {
@@ -52,6 +54,11 @@ func RenderDescription(o CardOptions) ([]byte, error) {
 	// text on its own layer, centred vertically by its ink like the slate
 	layer := image.NewRGBA(img.Bounds())
 	y := 0
+	if o.When != "" {
+		f := newFace(bebas, 34*s)
+		y += drawText(layer, f, strings.ToUpper(o.When), mix(accent, white, 0.15), textX, y, maxW) + px(8)
+		f.Close()
+	}
 	y += drawTitle(layer, bebas, o.Title, textX, y, maxW, px(150), 84*s, 50*s) + px(10)
 	if o.Subtitle != "" {
 		f := newFace(bebas, 34*s)
