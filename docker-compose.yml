@@ -1,7 +1,11 @@
 services:
   flimmerkiste:
-    build: .
-    image: flimmerkiste:latest
+    # Published image for amd64 and arm64; update with: docker compose pull && docker compose up -d
+    # A fixed version instead of the latest: ghcr.io/shyper/flimmerkiste:<commit or tag>
+    image: ghcr.io/shyper/flimmerkiste:latest
+    # Build it yourself instead (in a clone of the repository): uncomment and run
+    # docker compose up -d --build
+    # build: .
     container_name: flimmerkiste
     restart: unless-stopped
     # Host networking: Plex on the same machine reaches the tuner at

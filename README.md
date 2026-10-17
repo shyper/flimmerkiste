@@ -71,9 +71,9 @@ It presents itself to the media server as an HDHomeRun tuner with an XMLTV guide
 ## Quick start
 
 ```bash
-git clone https://github.com/shyper/flimmerkiste.git
-cd flimmerkiste
-docker compose up -d --build
+mkdir flimmerkiste && cd flimmerkiste
+curl -fsSLO https://raw.githubusercontent.com/shyper/flimmerkiste/main/docker-compose.yml
+docker compose up -d
 ```
 
 Open `http://<server-ip>:8089`, choose Plex, Jellyfin or Emby and sign in – the assistant does the rest.
@@ -200,13 +200,19 @@ Details are under [Installation](#installation-docker).
 ## Installation (Docker)
 
 ```bash
-git clone https://github.com/shyper/flimmerkiste.git
-cd flimmerkiste
-docker compose up -d --build
+mkdir flimmerkiste && cd flimmerkiste
+curl -fsSLO https://raw.githubusercontent.com/shyper/flimmerkiste/main/docker-compose.yml
+docker compose up -d
 ```
 
 Then open `http://<server-ip>:8089`, choose Plex, Jellyfin or Emby and sign in. The assistant leads through
 the rest: choose the server, read the library and add the tuner.
+
+The compose file uses the published image `ghcr.io/shyper/flimmerkiste:latest`, built from the default branch.
+- **Update**: `docker compose pull && docker compose up -d`. The data in the volume stays.
+- **Fixed version**: replace `latest` with a commit (e.g. `:3d40587`) or a release tag.
+- **Build it yourself**: in a clone of the repository (`git clone https://github.com/shyper/flimmerkiste.git`),
+  uncomment `build: .` in `docker-compose.yml` and run `docker compose up -d --build`.
 
 **One image for all hardware** (amd64 and arm64): it uses [jellyfin-ffmpeg](https://github.com/jellyfin/jellyfin-ffmpeg),
 which brings the drivers for Intel and AMD graphics along and supports NVIDIA and the Raspberry Pi 4 (see notes).
@@ -322,7 +328,7 @@ Tests run with jellyfin-ffmpeg as in the image (`build/jellyfin-ffmpeg.sh` insta
 **GitHub** (`.github/workflows/ci.yml`) publishes to the GitHub container registry (`ghcr.io/<owner>/<repo>`) and
 builds the standard image for amd64 and arm64 (Raspberry Pi). **GitLab** (`.gitlab-ci.yml`) publishes to the GitLab
 container registry, amd64 only; its Docker job uses Docker-in-Docker and needs a runner with `privileged = true`.
-The compose file can then use `image: <registry>/<project>:latest` instead of `build: .`.
+The compose file uses the GitHub image `ghcr.io/shyper/flimmerkiste:latest`; a fork points it at its own registry.
 
 ## Development
 
