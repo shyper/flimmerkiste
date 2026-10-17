@@ -4,8 +4,10 @@ package library
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"strings"
 	"sync"
 	"time"
@@ -232,6 +234,9 @@ func (l *Library) sync(ctx context.Context, changes *Changes) error {
 		if err != nil {
 			return err
 		}
+		if err := l.syncDetails(ctx, srv, lib); err != nil {
+			return fmt.Errorf("%s: %w", lib.Title, err)
+		}
 		if err := l.store.MarkLibrarySynced(ctx, lib.ID, time.Now().Unix()); err != nil {
 			return err
 		}
@@ -270,6 +275,13 @@ func (l *Library) syncShows(ctx context.Context, srv mediaserver.Server, lib sto
 	if err != nil {
 		return 0, err
 	}
+	keys := make([]string, 0, len(shows))
+	for k := range shows {
+		keys = append(keys, k)
+	}
+	if err := l.store.SyncShows(ctx, lib.ID, keys); err != nil {
+		return 0, err
+	}
 	total := 0
 	err = srv.Items(ctx, lib.ID, mediaserver.KindEpisode, func(page []mediaserver.Item) error {
 		batch := make([]*store.Media, 0, len(page))
@@ -284,6 +296,114 @@ func (l *Library) syncShows(ctx context.Context, srv mediaserver.Server, lib sto
 		return l.store.UpsertMedia(ctx, batch, now)
 	})
 	return total, err
+}
+
+// Listings carry only the first few actors, directors and writers of a movie
+// or show (Plex), so each movie and show is also fetched on its own: new ones
+// right away, the others about every detailsEvery. The jitter spreads the
+// first fetch of a whole library over the following weeks. Episodes get the
+// tags of their show.
+const (
+	detailsEvery   = 30 * 24 * time.Hour
+	detailsJitter  = 10 * 24 * time.Hour
+	detailsWorkers = 4
+	detailsBatch   = 50
+	// detailsGiveUp failures in a row end the fetch for this sync; the items
+	// stay due for the next one.
+	detailsGiveUp = 10
+)
+
+func nextDetails(now time.Time) int64 {
+	return now.Add(detailsEvery - detailsJitter + rand.N(2*detailsJitter)).Unix()
+}
+
+// syncDetails fetches the full metadata of the movies or shows of a library
+// that are new or due.
+func (l *Library) syncDetails(ctx context.Context, srv mediaserver.Server, lib store.Library) error {
+	due, save := l.store.DueDetails, l.store.SetDetails
+	if lib.Type == "show" {
+		due, save = l.store.DueShowDetails, l.store.SetShowDetails
+	}
+	keys, err := due(ctx, lib.ID, time.Now().Unix())
+	if err != nil || len(keys) == 0 {
+		return err
+	}
+	type result struct {
+		key string
+		it  *mediaserver.Item
+		err error
+	}
+	fetchCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	jobs := make(chan string)
+	results := make(chan result)
+	go func() {
+		defer close(jobs)
+		for _, k := range keys {
+			select {
+			case jobs <- k:
+			case <-fetchCtx.Done():
+				return
+			}
+		}
+	}()
+	var wg sync.WaitGroup
+	for range min(detailsWorkers, len(keys)) {
+		wg.Go(func() {
+			for k := range jobs {
+				it, err := srv.Item(fetchCtx, k)
+				results <- result{k, it, err}
+			}
+		})
+	}
+	go func() { wg.Wait(); close(results) }()
+
+	lang := l.lang(ctx)
+	var batch []store.Details
+	var flushErr error
+	flush := func() {
+		if len(batch) > 0 && flushErr == nil {
+			flushErr = save(ctx, batch)
+		}
+		batch = batch[:0]
+	}
+	done, fetched, inARow := 0, 0, 0
+	for r := range results {
+		done++
+		switch {
+		case r.err == nil && r.it != nil:
+			inARow = 0
+			fetched++
+			batch = append(batch, detailsOf(r.key, r.it, time.Now()))
+		case fetchCtx.Err() == nil:
+			inARow++
+			l.log.Debug("fetch details", "item", r.key, "err", r.err)
+			if inARow >= detailsGiveUp {
+				l.log.Warn("fetching details stopped", "library", lib.Title, "err", r.err)
+				cancel()
+			}
+		}
+		if len(batch) >= detailsBatch {
+			flush()
+		}
+		if done%10 == 0 || done == len(keys) {
+			l.setStatus(i18n.T(lang, "library.details", lib.Title, done, len(keys)))
+		}
+	}
+	flush()
+	if flushErr != nil {
+		return flushErr
+	}
+	l.log.Info("details fetched", "library", lib.Title, "items", fetched, "due", len(keys))
+	return ctx.Err()
+}
+
+func detailsOf(key string, it *mediaserver.Item, now time.Time) store.Details {
+	raw, _ := json.Marshal(it)
+	// Collections and labels come complete with every sync; taken from here
+	// they would outlive their removal by weeks.
+	return store.Details{RatingKey: key, Raw: raw, FetchedAt: now.Unix(), DueAt: nextDetails(now),
+		Tags: store.Tags{Genre: it.Genres, Actor: it.Actors, Director: it.Directors, Writer: it.Writers, Country: it.Countries}}
 }
 
 func convert(md *mediaserver.Item, libraryID string, show *mediaserver.Item) *store.Media {

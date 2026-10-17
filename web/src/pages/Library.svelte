@@ -46,6 +46,13 @@
     load()
   }
 
+  async function fullScan(l) {
+    await post(`/api/libraries/${l.id}/fullscan`)
+    toast(t('library.fullScanStarted', [l.title]))
+    poll()
+    load()
+  }
+
   async function savePaths(l) {
     savingPaths = l.id
     try {
@@ -104,7 +111,14 @@
           <div class="grow">
             <h3>{l.title}</h3>
             <p class="small muted">{l.type === 'movie' ? t('library.movieInfo', [fmtNumber(l.items), fmtAgo(l.syncedAt)]) : t('library.showInfo', [fmtNumber(l.items), fmtAgo(l.syncedAt)])}</p>
+            {#if l.enabled && l.items}
+              <p class="tiny muted">{l.type === 'movie' ? t('library.details', [fmtNumber(l.detailed), fmtNumber(l.items)]) : t('library.showDetails', [fmtNumber(l.detailed), fmtNumber(l.shows || 0)])}</p>
+            {/if}
           </div>
+          {#if l.enabled}
+            <button class="btn sm" onclick={() => fullScan(l)} disabled={data.status.running} title={t('library.fullScanHint')}>
+              <Icon name="refresh" size={14} /> {t('library.fullScan')}</button>
+          {/if}
           <Toggle checked={l.enabled} onchange={(v) => setEnabled(l, v)} />
           {#if data.container && l.locations?.length}
             <details class="direct">

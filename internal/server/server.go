@@ -332,6 +332,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/libraries", s.auth(s.handleLibraries, true))
 	mux.Handle("PUT /api/libraries/{id}", s.auth(s.handlePutLibrary, true))
 	mux.Handle("PUT /api/libraries/{id}/paths", s.auth(s.handlePutLibraryPaths, true))
+	mux.Handle("POST /api/libraries/{id}/fullscan", s.auth(s.handleFullScan, true))
 	mux.Handle("POST /api/library/sync", s.auth(s.handleSync, true))
 	mux.Handle("GET /api/library/status", s.auth(s.handleSyncStatus, true))
 	mux.Handle("GET /api/library/facets", s.auth(s.handleFacets, true))

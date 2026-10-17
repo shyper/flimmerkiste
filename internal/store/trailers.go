@@ -130,7 +130,7 @@ func nonNil(v []string) []string {
 // MoviesWithoutExtras returns library movies whose extras were never looked up
 // or not since before (new trailers appear for a while after a release).
 func (s *Store) MoviesWithoutExtras(ctx context.Context, before time.Time) ([]*Media, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT `+prefixed("m.", mediaCols)+` FROM media m
+	rows, err := s.DB.QueryContext(ctx, `SELECT `+selectCols("m.")+` FROM media m
 		JOIN libraries l ON l.id = m.library_id WHERE l.enabled = 1 AND m.type = 'movie' AND m.extras_checked < ?
 		ORDER BY m.extras_checked, m.added_at DESC`, before.Unix())
 	if err != nil {

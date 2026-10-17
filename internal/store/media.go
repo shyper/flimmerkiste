@@ -70,19 +70,68 @@ const mediaCols = `rating_key, library_id, type, title, sort_title, year, durati
 	content_rating, rating, studio, added_at, released, view_count, show_key, show_title, show_thumb,
 	season, episode, part_key, container, video_codec, audio_codec, resolution, tags, guid, ext`
 
+// selectCols returns the columns scanMedia reads, those of a sync plus the
+// tags of the full metadata of the item and of its show, with the media
+// table named p (e.g. "m." or "").
+func selectCols(p string) string {
+	cols := mediaCols + `, detail_tags`
+	if p != "" {
+		cols = prefixed(p, cols)
+	}
+	return cols + `, (SELECT sd.detail_tags FROM show_details sd WHERE sd.key = ` + p + `show_key)`
+}
+
 func scanMedia(sc interface{ Scan(...any) error }) (*Media, error) {
 	var m Media
-	var tags, ext string
+	var tags, ext, detailTags string
+	var showTags sql.NullString
 	err := sc.Scan(&m.RatingKey, &m.LibraryID, &m.Type, &m.Title, &m.SortTitle, &m.Year, &m.DurationMs,
 		&m.Summary, &m.Thumb, &m.Art, &m.ContentRating, &m.Rating, &m.Studio, &m.AddedAt, &m.Released,
 		&m.ViewCount, &m.ShowKey, &m.ShowTitle, &m.ShowThumb, &m.Season, &m.Episode, &m.PartKey,
-		&m.Container, &m.VideoCodec, &m.AudioCodec, &m.Resolution, &tags, &m.GUID, &ext)
+		&m.Container, &m.VideoCodec, &m.AudioCodec, &m.Resolution, &tags, &m.GUID, &ext, &detailTags, &showTags)
 	if err != nil {
 		return nil, err
 	}
 	_ = json.Unmarshal([]byte(tags), &m.Tags)
 	_ = json.Unmarshal([]byte(ext), &m.Ext)
+	var d Tags
+	if json.Unmarshal([]byte(detailTags), &d) == nil {
+		m.Tags.Add(d)
+	}
+	if showTags.Valid {
+		var st Tags
+		if json.Unmarshal([]byte(showTags.String), &st) == nil {
+			// Like the sync does with the listed show (see library.convert).
+			m.Tags.Add(Tags{Genre: st.Genre, Actor: st.Actor, Country: st.Country})
+		}
+	}
 	return &m, nil
+}
+
+// Add merges the values of o that t lacks, keeping the order of t first.
+func (t *Tags) Add(o Tags) {
+	t.Genre = union(t.Genre, o.Genre)
+	t.Actor = union(t.Actor, o.Actor)
+	t.Director = union(t.Director, o.Director)
+	t.Writer = union(t.Writer, o.Writer)
+	t.Collection = union(t.Collection, o.Collection)
+	t.Label = union(t.Label, o.Label)
+	t.Country = union(t.Country, o.Country)
+}
+
+func union(a, b []string) []string {
+	if len(b) == 0 {
+		return a
+	}
+	seen := make(map[string]bool, len(a)+len(b))
+	out := make([]string, 0, len(a)+len(b))
+	for _, s := range append(a[:len(a):len(a)], b...) {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // UpsertMedia writes a batch of items in one transaction.
@@ -151,7 +200,7 @@ func (s *Store) DeleteStaleMedia(ctx context.Context, libraryID string, syncedAt
 }
 
 func (s *Store) GetMedia(ctx context.Context, key string) (*Media, error) {
-	m, err := scanMedia(s.DB.QueryRowContext(ctx, `SELECT `+mediaCols+` FROM media WHERE rating_key = ?`, key))
+	m, err := scanMedia(s.DB.QueryRowContext(ctx, `SELECT `+selectCols("")+` FROM media WHERE rating_key = ?`, key))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -161,7 +210,7 @@ func (s *Store) GetMedia(ctx context.Context, key string) (*Media, error) {
 // AllMedia loads every playable item of enabled libraries. Libraries of a few
 // ten-thousand items fit comfortably in memory, which keeps the rule engine simple.
 func (s *Store) AllMedia(ctx context.Context) ([]*Media, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT `+prefixed("m.", mediaCols)+` FROM media m
+	rows, err := s.DB.QueryContext(ctx, `SELECT `+selectCols("m.")+` FROM media m
 		JOIN libraries l ON l.id = m.library_id WHERE l.enabled = 1
 		ORDER BY m.sort_title, m.show_title, m.season, m.episode`)
 	if err != nil {
@@ -187,6 +236,162 @@ func prefixed(p, cols string) string {
 	return strings.Join(parts, ", ")
 }
 
+// ---- full metadata ----
+
+// Details is the full metadata of one item as fetched on its own.
+type Details struct {
+	RatingKey string
+	Tags      Tags   // complete cast, genres … – added to the tags of the sync
+	Raw       []byte // everything the server returned, as JSON
+	FetchedAt int64
+	DueAt     int64 // when to fetch it again
+}
+
+// Full metadata is kept for movies (table media) and shows (show_details).
+type detailsTable struct{ name, key string }
+
+var (
+	movieDetails = detailsTable{"media", "rating_key"}
+	showDetails  = detailsTable{"show_details", "key"}
+)
+
+// DueDetails returns the movies of a library whose full metadata is missing or
+// due at now, those never fetched first.
+func (s *Store) DueDetails(ctx context.Context, libraryID string, now int64) ([]string, error) {
+	return s.dueDetails(ctx, movieDetails, libraryID, now)
+}
+
+// DueShowDetails is DueDetails for the shows of a library.
+func (s *Store) DueShowDetails(ctx context.Context, libraryID string, now int64) ([]string, error) {
+	return s.dueDetails(ctx, showDetails, libraryID, now)
+}
+
+func (s *Store) dueDetails(ctx context.Context, t detailsTable, libraryID string, now int64) ([]string, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT `+t.key+` FROM `+t.name+` WHERE library_id = ? AND details_due <= ?
+		ORDER BY details_at, details_due`, libraryID, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			return nil, err
+		}
+		out = append(out, k)
+	}
+	return out, rows.Err()
+}
+
+// SetDetails stores the full metadata of a batch of movies in one transaction.
+func (s *Store) SetDetails(ctx context.Context, items []Details) error {
+	return s.setDetails(ctx, movieDetails, items)
+}
+
+// SetShowDetails is SetDetails for shows.
+func (s *Store) SetShowDetails(ctx context.Context, items []Details) error {
+	return s.setDetails(ctx, showDetails, items)
+}
+
+func (s *Store) setDetails(ctx context.Context, t detailsTable, items []Details) error {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	stmt, err := tx.PrepareContext(ctx, `UPDATE `+t.name+` SET detail_tags = ?, details = ?, details_at = ?, details_due = ?
+		WHERE `+t.key+` = ?`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	for _, d := range items {
+		tags, _ := json.Marshal(d.Tags)
+		if _, err := stmt.ExecContext(ctx, string(tags), string(d.Raw), d.FetchedAt, d.DueAt, d.RatingKey); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// SyncShows records the shows a library lists now: new ones become due,
+// those gone are dropped with their metadata.
+func (s *Store) SyncShows(ctx context.Context, libraryID string, keys []string) error {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	rows, err := tx.QueryContext(ctx, `SELECT key FROM show_details WHERE library_id = ?`, libraryID)
+	if err != nil {
+		return err
+	}
+	known := map[string]bool{}
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			rows.Close()
+			return err
+		}
+		known[k] = true
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, k := range keys {
+		if known[k] {
+			delete(known, k)
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO show_details (key, library_id) VALUES (?, ?)
+			ON CONFLICT(key) DO UPDATE SET library_id = excluded.library_id`, k, libraryID); err != nil {
+			return err
+		}
+	}
+	for k := range known {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM show_details WHERE key = ?`, k); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// ResetDetails makes the full metadata of every movie and show of a library
+// due, so the next sync fetches all of it again.
+func (s *Store) ResetDetails(ctx context.Context, libraryID string) error {
+	for _, t := range []detailsTable{movieDetails, showDetails} {
+		if _, err := s.DB.ExecContext(ctx, `UPDATE `+t.name+` SET details_due = 0 WHERE library_id = ?`, libraryID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// MediaDetails returns the stored full metadata of an item as JSON (nil if
+// it was not fetched yet).
+func (s *Store) MediaDetails(ctx context.Context, key string) ([]byte, error) {
+	return s.rawDetails(ctx, movieDetails, key)
+}
+
+// ShowDetails is MediaDetails for a show.
+func (s *Store) ShowDetails(ctx context.Context, key string) ([]byte, error) {
+	return s.rawDetails(ctx, showDetails, key)
+}
+
+func (s *Store) rawDetails(ctx context.Context, t detailsTable, key string) ([]byte, error) {
+	var raw string
+	err := s.DB.QueryRowContext(ctx, `SELECT details FROM `+t.name+` WHERE `+t.key+` = ?`, key).Scan(&raw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil || raw == "" {
+		return nil, err
+	}
+	return []byte(raw), nil
+}
+
 // ---- libraries ----
 
 type Library struct {
@@ -196,11 +401,16 @@ type Library struct {
 	Enabled  bool   `json:"enabled"`
 	SyncedAt int64  `json:"syncedAt"`
 	Items    int    `json:"items"`
+	Detailed int    `json:"detailed"` // movies or shows with full metadata
+	Shows    int    `json:"shows,omitempty"`
 }
 
 func (s *Store) ListLibraries(ctx context.Context) ([]Library, error) {
 	rows, err := s.DB.QueryContext(ctx, `SELECT l.id, l.title, l.type, l.enabled, l.synced_at,
-		(SELECT COUNT(*) FROM media m WHERE m.library_id = l.id) FROM libraries l ORDER BY l.title`)
+		(SELECT COUNT(*) FROM media m WHERE m.library_id = l.id),
+		(SELECT COUNT(*) FROM media m WHERE m.library_id = l.id AND m.details_at > 0)
+			+ (SELECT COUNT(*) FROM show_details sd WHERE sd.library_id = l.id AND sd.details_at > 0),
+		(SELECT COUNT(*) FROM show_details sd WHERE sd.library_id = l.id) FROM libraries l ORDER BY l.title`)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +418,7 @@ func (s *Store) ListLibraries(ctx context.Context) ([]Library, error) {
 	var out []Library
 	for rows.Next() {
 		var l Library
-		if err := rows.Scan(&l.ID, &l.Title, &l.Type, &l.Enabled, &l.SyncedAt, &l.Items); err != nil {
+		if err := rows.Scan(&l.ID, &l.Title, &l.Type, &l.Enabled, &l.SyncedAt, &l.Items, &l.Detailed, &l.Shows); err != nil {
 			return nil, err
 		}
 		out = append(out, l)
@@ -234,6 +444,9 @@ func (s *Store) SetLibraryEnabled(ctx context.Context, id string, enabled bool) 
 
 func (s *Store) DeleteLibrary(ctx context.Context, id string) error {
 	if _, err := s.DB.ExecContext(ctx, `DELETE FROM media WHERE library_id = ?`, id); err != nil {
+		return err
+	}
+	if _, err := s.DB.ExecContext(ctx, `DELETE FROM show_details WHERE library_id = ?`, id); err != nil {
 		return err
 	}
 	_, err := s.DB.ExecContext(ctx, `DELETE FROM libraries WHERE id = ?`, id)

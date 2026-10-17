@@ -48,6 +48,7 @@ var en = map[string]string{
 	"library.load":             "Loading libraries: %v",
 	"library.movies":           "%s: %d movies",
 	"library.episodes":         "%s: %d episodes",
+	"library.details":          "%s: full metadata %d of %d",
 	"library.notLinked":        "no media server linked",
 	"library.trailersProgress": "Trailers: %d of %d movies checked",
 	"library.trailersDone":     "Trailers: %d movies checked, %d trailers found",

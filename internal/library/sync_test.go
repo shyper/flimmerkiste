@@ -29,6 +29,10 @@ func (f *failingServer) Items(_ context.Context, lib string, _ mediaserver.Kind,
 	return fn(f.movies)
 }
 
+func (f *failingServer) Item(context.Context, string) (*mediaserver.Item, error) {
+	return nil, mediaserver.ErrNotFound
+}
+
 func movieItem(id string) mediaserver.Item {
 	return mediaserver.Item{ID: id, Type: "movie", Title: id, Duration: 60000,
 		Media: []mediaserver.MediaInfo{{Parts: []mediaserver.Part{{Key: "/p/" + id}}}}}

@@ -49,6 +49,7 @@ var de = map[string]string{
 	"library.load":             "Bibliotheken laden: %v",
 	"library.movies":           "%s: %d Filme",
 	"library.episodes":         "%s: %d Episoden",
+	"library.details":          "%s: vollständige Daten %d von %d",
 	"library.notLinked":        "kein Medienserver verknüpft",
 	"library.trailersProgress": "Trailer: %d von %d Filmen geprüft",
 	"library.trailersDone":     "Trailer: %d Filme geprüft, %d Trailer gefunden",

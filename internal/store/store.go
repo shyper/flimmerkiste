@@ -161,6 +161,23 @@ var migrations = []string{
 	);
 	CREATE INDEX trailers_media ON trailers(media_key);
 	CREATE INDEX trailers_guid ON trailers(guid);`,
+	// Full metadata of single items: media server listings shorten the cast,
+	// so each movie is fetched on its own now and then (see SetMediaDetails).
+	`ALTER TABLE media ADD COLUMN detail_tags TEXT NOT NULL DEFAULT '{}';
+	ALTER TABLE media ADD COLUMN details TEXT NOT NULL DEFAULT '';
+	ALTER TABLE media ADD COLUMN details_at INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE media ADD COLUMN details_due INTEGER NOT NULL DEFAULT 0;
+	CREATE INDEX media_details_due ON media(library_id, details_due);`,
+	// The same for shows; their episodes get the tags of the show.
+	`CREATE TABLE show_details (
+		key         TEXT PRIMARY KEY, -- media.show_key
+		library_id  TEXT NOT NULL,
+		detail_tags TEXT NOT NULL DEFAULT '{}',
+		details     TEXT NOT NULL DEFAULT '',
+		details_at  INTEGER NOT NULL DEFAULT 0,
+		details_due INTEGER NOT NULL DEFAULT 0
+	);
+	CREATE INDEX show_details_due ON show_details(library_id, details_due);`,
 }
 
 func (s *Store) migrate(ctx context.Context) error {
