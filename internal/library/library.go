@@ -275,11 +275,11 @@ func (l *Library) syncShows(ctx context.Context, srv mediaserver.Server, lib sto
 	if err != nil {
 		return 0, err
 	}
-	keys := make([]string, 0, len(shows))
-	for k := range shows {
-		keys = append(keys, k)
+	list := make([]store.Show, 0, len(shows))
+	for k, s := range shows {
+		list = append(list, store.Show{Key: k, Summary: s.Summary})
 	}
-	if err := l.store.SyncShows(ctx, lib.ID, keys); err != nil {
+	if err := l.store.SyncShows(ctx, lib.ID, list); err != nil {
 		return 0, err
 	}
 	total := 0
@@ -488,6 +488,8 @@ func convert(md *mediaserver.Item, libraryID string, show *mediaserver.Item) *st
 			}
 			m.Tags.Genre = merge(m.Tags.Genre, show.Genres)
 			m.Tags.Actor = merge(m.Tags.Actor, show.Actors)
+			m.Tags.Director = merge(m.Tags.Director, show.Directors)
+			m.Tags.Writer = merge(m.Tags.Writer, show.Writers)
 			m.Tags.Collection = merge(m.Tags.Collection, show.Collections)
 			m.Tags.Label = merge(m.Tags.Label, show.Labels)
 			m.Tags.Country = merge(m.Tags.Country, show.Countries)

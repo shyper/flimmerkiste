@@ -25,6 +25,7 @@ var en = map[string]string{
 	"promo.onChannel":    "Coming up on %s",
 	"release.cinemaSoon": "Coming to theaters",
 	"release.soon":       "Coming soon",
+	"release.newShow":    "New series",
 	"release.cinemaNow":  "Now in theaters",
 	"release.new":        "New",
 	"release.from":       "From %s",
@@ -90,7 +91,7 @@ var en = map[string]string{
 	"ai.httpError":    "AI endpoint: HTTP %d: %s",
 	"ai.empty":        "AI endpoint: empty answer",
 	"ai.testTheme":    "A cozy movie night",
-	"ai.noMovies":     "No movies in the library to test with",
+	"ai.noTitles":     "No movies or shows in the library to test with",
 
 	// hardware
 	"gpu.notSetUp":        "not set up",

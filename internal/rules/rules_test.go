@@ -71,3 +71,18 @@ func TestWithout(t *testing.T) {
 		t.Fatal("nil group matches everything")
 	}
 }
+
+// Episodes rarely describe their show, so they match its description too.
+func TestSummaryOfShow(t *testing.T) {
+	ep := &store.Media{RatingKey: "e1", Type: "episode", Title: "Pilot", ShowTitle: "Montalbano", DurationMs: 60 * 60000,
+		Summary: "Ein Toter am Strand.", ShowSummary: "Ein Kommissar ermittelt auf Sizilien."}
+	now := time.Now()
+	in := &Group{Match: "all", Rules: []Rule{{Field: "summary", Op: "contains", Values: []string{"sizilien"}}}}
+	if !in.Matches(ep, now) {
+		t.Error("contains misses the description of the show")
+	}
+	out := &Group{Match: "all", Rules: []Rule{{Field: "summary", Op: "notContains", Values: []string{"Sizilien"}}}}
+	if out.Matches(ep, now) {
+		t.Error("notContains ignores the description of the show")
+	}
+}

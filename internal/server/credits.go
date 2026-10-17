@@ -114,11 +114,11 @@ func pickHighlights(all []highlight, n int) []highlight {
 	return out
 }
 
-// highlightScore: movies before single episodes, well rated and new titles,
-// prime time, and the sooner the better.
+// highlightScore: movies and season premieres before other episodes, well
+// rated and new titles, prime time, and the sooner the better.
 func highlightScore(m *store.Media, start, at time.Time) float64 {
 	score := m.Rating / 2
-	if m.Type == "movie" {
+	if m.Type == "movie" || premiere(m) {
 		score += 3
 	}
 	if m.AddedAt > 0 && at.Sub(time.Unix(m.AddedAt, 0)) < 30*24*time.Hour {
@@ -128,6 +128,12 @@ func highlightScore(m *store.Media, start, at time.Time) float64 {
 		score += 1.5
 	}
 	return score - start.Sub(at).Hours()*0.5
+}
+
+// premiere reports whether m is the first episode of a season (specials aside),
+// worth announcing like a movie.
+func premiere(m *store.Media) bool {
+	return m.Type == "episode" && m.Season > 0 && m.Episode == 1
 }
 
 // creditsOptions describes the panel for credits at at, followed on c by the
@@ -193,12 +199,12 @@ const (
 	// creditsCardScale: the card over credits that are not shrunk, relative to
 	// the caption of trailers.
 	creditsCardScale = 0.8
-	// creditsCardFilms: films on other channels on that card.
+	// creditsCardFilms: films and season premieres on other channels on that card.
 	creditsCardFilms = 3
 )
 
 // creditsCardPages describes the small card over credits at at that are not
-// shrunk: the next title on c, then films on other channels.
+// shrunk: the next title on c, then films and season premieres on other channels.
 func (s *Server) creditsCardPages(ctx context.Context, c *store.Channel, nextAfter, at time.Time, height int) ([]logo.CaptionOptions, string) {
 	var pages []logo.CaptionOptions
 	l := s.lang(ctx)
@@ -216,7 +222,7 @@ func (s *Server) creditsCardPages(ctx context.Context, c *store.Channel, nextAft
 	}
 	var films []highlight
 	for _, h := range s.highlightCandidates(ctx, c, at) {
-		if h.m.Type == "movie" {
+		if h.m.Type == "movie" || premiere(h.m) {
 			films = append(films, h)
 		}
 	}

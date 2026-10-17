@@ -67,7 +67,15 @@ func (s *Scheduler) bindPreviews(ctx context.Context, channelID int64, until tim
 	}
 	for _, p := range progs {
 		if p.Kind == store.KindFiller && trailers.byKey[p.RatingKey] != nil {
-			lastPromo[trailers.byKey[p.RatingKey].MediaKey] = p.StartTime()
+			lastPromo[trailers.byKey[p.RatingKey].Advertised()] = p.StartTime()
+		}
+		// Episodes are advertised by the trailer of their show.
+		if p.IsMain() && trailers.byMedia[p.RatingKey] == nil {
+			if m := s.lib.Get(ctx, p.RatingKey); m != nil && m.Type == "episode" {
+				if t := trailers.byMedia["show:"+m.ShowKey]; t != nil {
+					trailers.byMedia[p.RatingKey] = t
+				}
+			}
 		}
 	}
 	rng := rand.New(rand.NewSource(now.UnixNano()))
@@ -81,11 +89,11 @@ func (s *Scheduler) bindPreviews(ctx context.Context, channelID int64, until tim
 }
 
 type trailerIndex struct {
-	byMedia map[string]*store.Trailer // library movie -> best trailer
+	byMedia map[string]*store.Trailer // library movie or "show:<key>" (see Trailer.Advertised) -> best trailer
 	byKey   map[string]*store.Trailer
 }
 
-// previewTrailers returns the best library trailer per movie in a preferred language.
+// previewTrailers returns the best library trailer per movie and show in a preferred language.
 func (s *Scheduler) previewTrailers(ctx context.Context) (*trailerIndex, error) {
 	all, err := s.store.Trailers(ctx)
 	if err != nil {
@@ -100,8 +108,8 @@ func (s *Scheduler) previewTrailers(ctx context.Context) (*trailerIndex, error) 
 			continue
 		}
 		idx.byKey[t.Key] = t
-		if cur, ok := idx.byMedia[t.MediaKey]; !ok || r < rank[cur.Key] {
-			idx.byMedia[t.MediaKey], rank[t.Key] = t, r
+		if cur, ok := idx.byMedia[t.Advertised()]; !ok || r < rank[cur.Key] {
+			idx.byMedia[t.Advertised()], rank[t.Key] = t, r
 		}
 	}
 	return idx, nil
@@ -131,7 +139,7 @@ func (s *Scheduler) bindSlot(slot store.Program, progs []store.Program, trailers
 		if h := p.StartTime().Local().Hour(); h >= 19 && h <= 22 {
 			score += 4 // prime time is worth announcing
 		}
-		if at, ok := lastPromo[p.RatingKey]; ok && slot.StartTime().Sub(at) < 6*time.Hour {
+		if at, ok := lastPromo[t.Advertised()]; ok && slot.StartTime().Sub(at) < 6*time.Hour {
 			score -= 10 // shown recently
 		}
 		if score > bestScore {
@@ -145,7 +153,7 @@ func (s *Scheduler) bindSlot(slot store.Program, progs []store.Program, trailers
 		return []store.Program{p}
 	}
 	promoted[best.Start] = true
-	lastPromo[best.RatingKey] = slot.StartTime()
+	lastPromo[bestTrailer.Advertised()] = slot.StartTime()
 
 	trailerStop := slot.Start + bestTrailer.DurationMs
 	promoStop := trailerStop + promoLen.Milliseconds()

@@ -37,6 +37,7 @@ func (f *shortListServer) Item(_ context.Context, id string) (*mediaserver.Item,
 	f.mu.Unlock()
 	it := movieItem(id)
 	it.Actors = []string{"Lead", "Willem Dafoe"}
+	it.Writers = []string{"Writer"}
 	it.Collections = []string{"Old collection"}
 	return &it, nil
 }
@@ -171,7 +172,7 @@ func TestSyncFetchesFullMetadataOfShows(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st.Close()
-	show := mediaserver.Item{ID: "show", Type: "show", Title: "Show", Actors: []string{"Lead"}}
+	show := mediaserver.Item{ID: "show", Type: "show", Title: "Show", Actors: []string{"Lead"}, Summary: "Ein Detektiv in Neapel"}
 	other := mediaserver.Item{ID: "other", Type: "show", Title: "Other"}
 	srv := &showServer{shows: []mediaserver.Item{show, other}}
 	l := New(st, func(context.Context) (mediaserver.Server, error) { return srv, nil }, slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -183,6 +184,9 @@ func TestSyncFetchesFullMetadataOfShows(t *testing.T) {
 	ep := l.Get(ctx, "show-e1")
 	if ep == nil || !slices.Equal(ep.Tags.Actor, []string{"Lead", "Willem Dafoe"}) {
 		t.Fatalf("episode actors: %+v", ep)
+	}
+	if !slices.Equal(ep.Tags.Writer, []string{"Writer"}) || ep.ShowSummary != "Ein Detektiv in Neapel" {
+		t.Errorf("episode lacks the writers or description of its show: %v %q", ep.Tags.Writer, ep.ShowSummary)
 	}
 	libs, _ := st.ListLibraries(ctx)
 	if len(libs) != 1 || libs[0].Detailed != 2 || libs[0].Shows != 2 {
@@ -200,5 +204,56 @@ func TestSyncFetchesFullMetadataOfShows(t *testing.T) {
 	}
 	if raw, err := st.ShowDetails(ctx, "show"); err != nil || len(raw) == 0 {
 		t.Errorf("metadata of the show: %q %v", raw, err)
+	}
+}
+
+// trailerShowServer has a trailer among the extras of the show "show".
+type trailerShowServer struct{ showServer }
+
+func (f *trailerShowServer) Extras(_ context.Context, id string) ([]mediaserver.Item, error) {
+	if id != "show" {
+		return nil, nil
+	}
+	return []mediaserver.Item{{ID: "x1", Type: "clip", Subtype: "trailer", Title: "Trailer", Duration: 90000,
+		Media: []mediaserver.MediaInfo{{Parts: []mediaserver.Part{{Key: "/p/x1"}}}}}}, nil
+}
+
+func TestSyncFindsTrailersOfShows(t *testing.T) {
+	ctx := context.Background()
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	srv := &trailerShowServer{showServer{shows: []mediaserver.Item{
+		{ID: "show", Type: "show", Title: "Show", Summary: "Ein Detektiv in Neapel"},
+		{ID: "other", Type: "show", Title: "Other"},
+	}}}
+	l := New(st, func(context.Context) (mediaserver.Server, error) { return srv, nil }, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	runSync(t, l)
+
+	// The trailer lookup runs after the sync.
+	var ts []*store.Trailer
+	for deadline := time.Now().Add(10 * time.Second); len(ts) == 0 && time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+		ts, _ = st.Trailers(ctx)
+	}
+	if len(ts) != 1 {
+		t.Fatalf("trailers: %d", len(ts))
+	}
+	tr := ts[0]
+	if tr.ShowKey != "show" || tr.MediaKey != "" || tr.Kind != "show" || tr.Title != "Show" ||
+		tr.Summary != "Ein Detektiv in Neapel" || tr.Advertised() != "show:show" {
+		t.Errorf("trailer: %+v", tr)
+	}
+	// Not due again for a while.
+	if keys, _ := st.ShowsWithoutExtras(ctx, time.Now().Add(-time.Hour)); len(keys) != 0 {
+		t.Errorf("checked shows still due: %v", keys)
+	}
+
+	// A show that is gone takes its trailers along.
+	srv.shows = srv.shows[1:]
+	runSync(t, l)
+	if ts, _ := st.Trailers(ctx); len(ts) != 0 {
+		t.Errorf("trailers of the removed show remain: %+v", ts)
 	}
 }

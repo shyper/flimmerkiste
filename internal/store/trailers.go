@@ -11,7 +11,7 @@ import (
 
 // Trailer origins.
 const (
-	OriginLibrary  = "library"  // extra of a movie in the library
+	OriginLibrary  = "library"  // extra of a movie or show in the library
 	OriginDiscover = "discover" // extra of a title from a Plex Discover list
 	OriginTMDb     = "tmdb"     // "coming to theaters" slate of a title from TMDb (no video)
 	OriginInfo     = "info"     // weather or news slate (not stored; see InfoPrefix)
@@ -25,6 +25,7 @@ type Trailer struct {
 	Key           string        `json:"key"`
 	Origin        string        `json:"origin"`
 	MediaKey      string        `json:"mediaKey,omitempty"` // library movie (origin library)
+	ShowKey       string        `json:"showKey,omitempty"`  // library show (origin library)
 	GUID          string        `json:"guid"`               // plex://movie/…
 	Title         string        `json:"title"`              // movie / show title
 	Kind          string        `json:"kind"`               // movie | show
@@ -69,6 +70,15 @@ func (t *Trailer) Part(height int) string {
 	return low
 }
 
+// Advertised names the library title a trailer advertises: the rating key of
+// a movie, "show:<key>" for a show, "" for titles not in the library.
+func (t *Trailer) Advertised() string {
+	if t.ShowKey != "" {
+		return "show:" + t.ShowKey
+	}
+	return t.MediaKey
+}
+
 // Item describes the advertised title like a library item, for filter rules.
 func (t *Trailer) Item() *Media {
 	return &Media{RatingKey: t.Key, GUID: t.GUID, Type: t.Kind, Title: t.Title, SortTitle: strings.ToLower(t.Title),
@@ -85,13 +95,13 @@ func (t *Trailer) Media(height int) *Media {
 }
 
 const trailerCols = `key, origin, COALESCE(media_key, ''), guid, title, kind, year, released, genres, content_rating,
-	summary, thumb, name, language, duration_ms, parts, hubs, last_seen, art, runtime_min`
+	summary, thumb, name, language, duration_ms, parts, hubs, last_seen, art, runtime_min, show_key`
 
 func scanTrailer(sc interface{ Scan(...any) error }) (*Trailer, error) {
 	var t Trailer
 	var genres, parts, hubs string
 	if err := sc.Scan(&t.Key, &t.Origin, &t.MediaKey, &t.GUID, &t.Title, &t.Kind, &t.Year, &t.Released, &genres,
-		&t.ContentRating, &t.Summary, &t.Thumb, &t.Name, &t.Language, &t.DurationMs, &parts, &hubs, &t.LastSeen, &t.Art, &t.RuntimeMin); err != nil {
+		&t.ContentRating, &t.Summary, &t.Thumb, &t.Name, &t.Language, &t.DurationMs, &parts, &hubs, &t.LastSeen, &t.Art, &t.RuntimeMin, &t.ShowKey); err != nil {
 		return nil, err
 	}
 	_ = json.Unmarshal([]byte(genres), &t.Genres)
@@ -109,14 +119,15 @@ func insertTrailer(ctx context.Context, tx *sql.Tx, t *Trailer) error {
 		mediaKey = t.MediaKey
 	}
 	_, err := tx.ExecContext(ctx, `INSERT INTO trailers (`+strings.Replace(trailerCols, "COALESCE(media_key, '')", "media_key", 1)+`)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(key) DO UPDATE SET origin=excluded.origin, media_key=excluded.media_key, guid=excluded.guid,
 			title=excluded.title, kind=excluded.kind, year=excluded.year, released=excluded.released,
 			genres=excluded.genres, content_rating=excluded.content_rating, summary=excluded.summary,
 			thumb=excluded.thumb, name=excluded.name, language=excluded.language, duration_ms=excluded.duration_ms,
-			parts=excluded.parts, hubs=excluded.hubs, last_seen=excluded.last_seen, art=excluded.art, runtime_min=excluded.runtime_min`,
+			parts=excluded.parts, hubs=excluded.hubs, last_seen=excluded.last_seen, art=excluded.art, runtime_min=excluded.runtime_min,
+			show_key=excluded.show_key`,
 		t.Key, t.Origin, mediaKey, t.GUID, t.Title, t.Kind, t.Year, t.Released, string(genres), t.ContentRating,
-		t.Summary, t.Thumb, t.Name, t.Language, t.DurationMs, string(parts), string(hubs), t.LastSeen, t.Art, t.RuntimeMin)
+		t.Summary, t.Thumb, t.Name, t.Language, t.DurationMs, string(parts), string(hubs), t.LastSeen, t.Art, t.RuntimeMin, t.ShowKey)
 	return err
 }
 
@@ -169,6 +180,48 @@ func (s *Store) SetLibraryTrailers(ctx context.Context, mediaKey string, trailer
 	return tx.Commit()
 }
 
+// ShowsWithoutExtras returns the keys of shows of enabled libraries whose
+// extras were never looked up or not since before.
+func (s *Store) ShowsWithoutExtras(ctx context.Context, before time.Time) ([]string, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT sd.key FROM show_details sd
+		JOIN libraries l ON l.id = sd.library_id WHERE l.enabled = 1 AND sd.extras_checked < ?
+		ORDER BY sd.extras_checked`, before.Unix())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			return nil, err
+		}
+		out = append(out, k)
+	}
+	return out, rows.Err()
+}
+
+// SetShowTrailers replaces the trailers of a library show and marks it as checked.
+func (s *Store) SetShowTrailers(ctx context.Context, showKey string, trailers []*Trailer, checked time.Time) error {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM trailers WHERE show_key = ?`, showKey); err != nil {
+		return err
+	}
+	for _, t := range trailers {
+		if err := insertTrailer(ctx, tx, t); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE show_details SET extras_checked = ? WHERE key = ?`, checked.Unix(), showKey); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // UpsertTrailers writes trailers (used for Discover titles).
 func (s *Store) UpsertTrailers(ctx context.Context, trailers []*Trailer) error {
 	tx, err := s.DB.BeginTx(ctx, nil)
@@ -199,7 +252,9 @@ func (s *Store) DeleteStaleTrailers(ctx context.Context, origin string, before t
 // Trailers returns all trailers (of enabled libraries for origin library).
 func (s *Store) Trailers(ctx context.Context) ([]*Trailer, error) {
 	rows, err := s.DB.QueryContext(ctx, `SELECT `+trailerCols+` FROM trailers
-		WHERE media_key IS NULL OR media_key IN (SELECT m.rating_key FROM media m JOIN libraries l ON l.id = m.library_id WHERE l.enabled = 1)
+		WHERE (media_key IS NULL AND show_key = '')
+			OR media_key IN (SELECT m.rating_key FROM media m JOIN libraries l ON l.id = m.library_id WHERE l.enabled = 1)
+			OR show_key IN (SELECT sd.key FROM show_details sd JOIN libraries l ON l.id = sd.library_id WHERE l.enabled = 1)
 		ORDER BY title, name`)
 	if err != nil {
 		return nil, err
@@ -233,7 +288,7 @@ type TrailerStats struct {
 }
 
 func (s *Store) TrailerStats(ctx context.Context) ([]TrailerStats, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT origin, language, COUNT(*), COUNT(DISTINCT guid || COALESCE(media_key, '')) FROM trailers
+	rows, err := s.DB.QueryContext(ctx, `SELECT origin, language, COUNT(*), COUNT(DISTINCT guid || COALESCE(media_key, '') || show_key) FROM trailers
 		GROUP BY origin, language ORDER BY origin, COUNT(*) DESC`)
 	if err != nil {
 		return nil, err

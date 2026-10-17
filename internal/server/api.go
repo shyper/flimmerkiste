@@ -1097,16 +1097,24 @@ func (s *Server) handleAITest(w http.ResponseWriter, r *http.Request) {
 	}
 	items, _ := s.lib.All(ctx)
 	var cands []ai.Candidate
+	titles := map[string]string{}
 	for _, m := range items {
-		if m.Type == "movie" {
-			cands = append(cands, ai.Candidate{ID: m.RatingKey, Kind: "movie", Title: m.Title, Year: m.Year, Genres: m.Tags.Genre})
-		}
 		if len(cands) >= 40 {
 			break
 		}
+		if m.Type == "episode" {
+			id := "show:" + m.ShowKey
+			if _, ok := titles[id]; !ok {
+				titles[id] = m.ShowTitle
+				cands = append(cands, ai.Candidate{ID: id, Kind: "show", Title: m.ShowTitle, Year: m.Year, Genres: m.Tags.Genre})
+			}
+			continue
+		}
+		titles[m.RatingKey] = m.Title
+		cands = append(cands, ai.Candidate{ID: m.RatingKey, Kind: "movie", Title: m.Title, Year: m.Year, Genres: m.Tags.Genre})
 	}
 	if len(cands) == 0 {
-		s.fail(w, r, http.StatusBadRequest, "ai.noMovies")
+		s.fail(w, r, http.StatusBadRequest, "ai.noTitles")
 		return
 	}
 	picks, err := p.Pick(ctx, ai.Request{Theme: i18n.T(s.reqLang(r), "ai.testTheme"), Count: 3, Candidates: cands, Lang: s.reqLang(r)})
@@ -1117,8 +1125,8 @@ func (s *Server) handleAITest(w http.ResponseWriter, r *http.Request) {
 	var out []map[string]string
 	for _, pk := range picks {
 		title := pk.ID
-		if m := s.lib.Get(ctx, pk.ID); m != nil {
-			title = m.Title
+		if t, ok := titles[pk.ID]; ok {
+			title = t
 		}
 		out = append(out, map[string]string{"title": title, "reason": pk.Reason})
 	}

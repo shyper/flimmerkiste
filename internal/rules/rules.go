@@ -248,6 +248,9 @@ func stringsFor(m *store.Media, field string) []string {
 		}
 		return []string{m.ContentRating}
 	case "summary":
+		if m.ShowSummary != "" {
+			return []string{m.Summary, m.ShowSummary}
+		}
 		return []string{m.Summary}
 	case "decade":
 		if m.Year == 0 {

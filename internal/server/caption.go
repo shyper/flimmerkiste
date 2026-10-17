@@ -65,10 +65,10 @@ func (s *Server) captionKicker(ctx context.Context, c *store.Channel, t *store.T
 		}
 		return i18n.T(l, "caption.sep", headline, date)
 	}
-	if t.MediaKey == "" {
+	if t.Advertised() == "" {
 		return ""
 	}
-	if at, ok := s.nextAiring(ctx, c.ID, t.MediaKey, now); ok {
+	if at, ok := s.nextAiring(ctx, c.ID, t, now); ok {
 		return airText(l, at, now)
 	}
 	chans, err := s.store.ListChannels(ctx)
@@ -81,7 +81,7 @@ func (s *Server) captionKicker(ctx context.Context, c *store.Channel, t *store.T
 		if other.ID == c.ID || !other.Enabled {
 			continue
 		}
-		if at, ok := s.nextAiring(ctx, other.ID, t.MediaKey, now); ok && (best.IsZero() || at.Before(best)) {
+		if at, ok := s.nextAiring(ctx, other.ID, t, now); ok && (best.IsZero() || at.Before(best)) {
 			best, name = at, other.Name
 		}
 	}
@@ -91,15 +91,24 @@ func (s *Server) captionKicker(ctx context.Context, c *store.Channel, t *store.T
 	return i18n.T(l, "air.onChannel", airText(l, best, now), name)
 }
 
-// nextAiring returns when a title starts next on a channel (within captionReach).
-func (s *Server) nextAiring(ctx context.Context, channelID int64, ratingKey string, now time.Time) (time.Time, bool) {
+// nextAiring returns when the title a library trailer advertises starts next
+// on a channel (within captionReach); for a show, any of its episodes.
+func (s *Server) nextAiring(ctx context.Context, channelID int64, t *store.Trailer, now time.Time) (time.Time, bool) {
 	progs, err := s.store.ProgramsBetween(ctx, channelID, now, now.Add(captionReach))
 	if err != nil {
 		return time.Time{}, false
 	}
 	for _, p := range progs {
-		if p.IsMain() && p.RatingKey == ratingKey && p.Start > now.UnixMilli() {
+		if !p.IsMain() || p.Start <= now.UnixMilli() {
+			continue
+		}
+		if t.ShowKey == "" && p.RatingKey == t.MediaKey {
 			return p.StartTime(), true
+		}
+		if t.ShowKey != "" {
+			if m := s.lib.Get(ctx, p.RatingKey); m != nil && m.ShowKey == t.ShowKey {
+				return p.StartTime(), true
+			}
 		}
 	}
 	return time.Time{}, false

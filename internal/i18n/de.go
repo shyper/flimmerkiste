@@ -26,6 +26,7 @@ var de = map[string]string{
 	"promo.onChannel":    "Demnächst auf %s",
 	"release.cinemaSoon": "Demnächst im Kino",
 	"release.soon":       "Demnächst",
+	"release.newShow":    "Neue Serie",
 	"release.cinemaNow":  "Jetzt im Kino",
 	"release.new":        "Neu",
 	"release.from":       "Ab %s",
@@ -91,7 +92,7 @@ var de = map[string]string{
 	"ai.httpError":    "KI-Endpunkt: HTTP %d: %s",
 	"ai.empty":        "KI-Endpunkt: leere Antwort",
 	"ai.testTheme":    "Ein gemütlicher Filmabend",
-	"ai.noMovies":     "Keine Filme in der Bibliothek zum Testen",
+	"ai.noTitles":     "Keine Filme oder Serien in der Bibliothek zum Testen",
 
 	// hardware
 	"gpu.notSetUp":        "nicht eingerichtet",

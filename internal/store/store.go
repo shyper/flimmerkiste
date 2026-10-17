@@ -178,6 +178,13 @@ var migrations = []string{
 		details_due INTEGER NOT NULL DEFAULT 0
 	);
 	CREATE INDEX show_details_due ON show_details(library_id, details_due);`,
+	// Episodes match rules and themes by the description of their show too.
+	`ALTER TABLE show_details ADD COLUMN summary TEXT NOT NULL DEFAULT '';`,
+	// Trailers of library shows: show_key instead of media_key (episodes come
+	// and go, the show stays).
+	`ALTER TABLE show_details ADD COLUMN extras_checked INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE trailers ADD COLUMN show_key TEXT NOT NULL DEFAULT '';
+	CREATE INDEX trailers_show ON trailers(show_key);`,
 }
 
 func (s *Store) migrate(ctx context.Context) error {

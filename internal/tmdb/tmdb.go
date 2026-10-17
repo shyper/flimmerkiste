@@ -1,5 +1,5 @@
-// Package tmdb reads upcoming movies from The Movie Database for the
-// "coming to theaters" slates: titles, dates, ratings and artwork, no video.
+// Package tmdb reads upcoming movies and new shows from The Movie Database
+// for the "coming soon" slates: titles, dates, ratings and artwork, no video.
 //
 // This product uses the TMDB API but is not endorsed or certified by TMDB.
 package tmdb
@@ -164,6 +164,85 @@ func (c *Client) Details(ctx context.Context, m *Movie, region, language string)
 		}
 	}
 	m.Year = year(m.ReleaseDate)
+	return nil
+}
+
+// Show is a show whose first season is about to start.
+type Show struct {
+	ID            int
+	Name          string
+	Overview      string
+	FirstAirDate  string // YYYY-MM-DD
+	Year          int
+	Genres        []string
+	Certification string // e.g. "12" (DE), "TV-MA" (US)
+	Poster        string // absolute URLs
+	Backdrop      string
+}
+
+// UpcomingShows lists the most popular shows starting within days, newest
+// season starts of running shows aside.
+func (c *Client) UpcomingShows(ctx context.Context, language string, days, pages int) ([]Show, error) {
+	now := time.Now()
+	var out []Show
+	for page := 1; page <= pages; page++ {
+		var r struct {
+			TotalPages int `json:"total_pages"`
+			Results    []struct {
+				ID           int    `json:"id"`
+				Name         string `json:"name"`
+				Overview     string `json:"overview"`
+				FirstAirDate string `json:"first_air_date"`
+				Poster       string `json:"poster_path"`
+				Backdrop     string `json:"backdrop_path"`
+			} `json:"results"`
+		}
+		q := url.Values{"language": {language}, "page": {strconv.Itoa(page)}, "sort_by": {"popularity.desc"},
+			"first_air_date.gte": {now.Format("2006-01-02")}, "first_air_date.lte": {now.AddDate(0, 0, days).Format("2006-01-02")}}
+		if err := c.get(ctx, "/discover/tv", q, &r); err != nil {
+			return nil, err
+		}
+		for _, m := range r.Results {
+			out = append(out, Show{ID: m.ID, Name: m.Name, Overview: m.Overview, FirstAirDate: m.FirstAirDate,
+				Year: year(m.FirstAirDate), Poster: image("w500", m.Poster), Backdrop: image("w1280", m.Backdrop)})
+		}
+		if page >= r.TotalPages {
+			break
+		}
+	}
+	return out, nil
+}
+
+// ShowDetails fills genres and the rating of a region.
+func (c *Client) ShowDetails(ctx context.Context, s *Show, region, language string) error {
+	var r struct {
+		Overview string `json:"overview"`
+		Genres   []struct {
+			Name string `json:"name"`
+		} `json:"genres"`
+		ContentRatings struct {
+			Results []struct {
+				Country string `json:"iso_3166_1"`
+				Rating  string `json:"rating"`
+			} `json:"results"`
+		} `json:"content_ratings"`
+	}
+	q := url.Values{"language": {language}, "append_to_response": {"content_ratings"}}
+	if err := c.get(ctx, "/tv/"+strconv.Itoa(s.ID), q, &r); err != nil {
+		return err
+	}
+	if r.Overview != "" {
+		s.Overview = r.Overview
+	}
+	s.Genres = s.Genres[:0]
+	for _, g := range r.Genres {
+		s.Genres = append(s.Genres, g.Name)
+	}
+	for _, cr := range r.ContentRatings.Results {
+		if strings.EqualFold(cr.Country, region) && cr.Rating != "" {
+			s.Certification = cr.Rating
+		}
+	}
 	return nil
 }
 

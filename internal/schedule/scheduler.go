@@ -855,7 +855,11 @@ func (g *generator) trailerItems(src *Source, extra *rules.Group) []*store.Media
 		}
 		item, ownRules, extraRules := t.Item(), ownDiscover, extraDiscover
 		if t.Origin == store.OriginLibrary {
-			if item = g.byKey[t.MediaKey]; item == nil {
+			item = g.byKey[t.MediaKey]
+			if eps := g.episodes[t.ShowKey]; t.ShowKey != "" && len(eps) > 0 {
+				item = eps[0] // a show matches the rules like its episodes
+			}
+			if item == nil {
 				continue // library disabled or title deleted
 			}
 			ownRules, extraRules = own, extra
@@ -863,7 +867,7 @@ func (g *generator) trailerItems(src *Source, extra *rules.Group) []*store.Media
 		if !ownRules.Matches(item, now) || !extraRules.Matches(item, now) {
 			continue
 		}
-		id := t.MediaKey
+		id := t.Advertised()
 		if id == "" {
 			id = t.GUID
 		}
@@ -1140,8 +1144,8 @@ func (g *generator) refillAI(ss *SourceState, cfg *AIConfig, pool []*store.Media
 			}
 			seenShow[m.ShowKey] = true
 			cands = append(cands, ai.Candidate{ID: "show:" + m.ShowKey, Kind: "show", Title: m.ShowTitle, Year: m.Year,
-				Genres: m.Tags.Genre, Collections: m.Tags.Collection})
-			score["show:"+m.ShowKey] = matchCount(words, m.ShowTitle, strings.Join(m.Tags.Collection, " "), strings.Join(m.Tags.Genre, " "))
+				Genres: m.Tags.Genre, Collections: m.Tags.Collection, Summary: truncate(m.ShowSummary, 140)})
+			score["show:"+m.ShowKey] = matchCount(words, m.ShowTitle, strings.Join(m.Tags.Collection, " "), strings.Join(m.Tags.Genre, " "), m.ShowSummary)
 			continue
 		}
 		if at, ok := g.lastAired[m.RatingKey]; ok && t.Sub(at) < window {

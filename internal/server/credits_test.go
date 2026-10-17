@@ -35,3 +35,20 @@ func TestPickHighlights(t *testing.T) {
 		t.Fatalf("a second title per channel fills up, got %d", len(got))
 	}
 }
+
+// Season premieres are announced like movies, other episodes and specials not.
+func TestPremiereScoresLikeMovie(t *testing.T) {
+	at := time.Date(2026, 10, 14, 19, 50, 0, 0, time.Local)
+	start := at.Add(30 * time.Minute)
+	score := func(m *store.Media) float64 { return highlightScore(m, start, at) }
+	film := score(&store.Media{Type: "movie", Rating: 8})
+	if p := score(&store.Media{Type: "episode", Rating: 8, Season: 2, Episode: 1}); p != film {
+		t.Errorf("premiere %v, movie %v", p, film)
+	}
+	if e := score(&store.Media{Type: "episode", Rating: 8, Season: 2, Episode: 5}); e >= film {
+		t.Errorf("regular episode %v scores like a movie", e)
+	}
+	if sp := score(&store.Media{Type: "episode", Rating: 8, Season: 0, Episode: 1}); sp >= film {
+		t.Errorf("special %v scores like a movie", sp)
+	}
+}

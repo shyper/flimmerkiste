@@ -42,6 +42,8 @@ type Media struct {
 	AudioCodec    string  `json:"audioCodec,omitempty"`
 	Resolution    string  `json:"resolution,omitempty"`
 	Tags          Tags    `json:"tags"`
+	// ShowSummary is the description of the show of an episode.
+	ShowSummary string `json:"-"`
 	// Ext holds external ids (tmdb, imdb, tvdb; for episodes also show.tmdb …),
 	// used to find the same title in another library.
 	Ext map[string]string `json:"-"`
@@ -78,17 +80,18 @@ func selectCols(p string) string {
 	if p != "" {
 		cols = prefixed(p, cols)
 	}
-	return cols + `, (SELECT sd.detail_tags FROM show_details sd WHERE sd.key = ` + p + `show_key)`
+	return cols + `, (SELECT sd.detail_tags FROM show_details sd WHERE sd.key = ` + p + `show_key)` +
+		`, (SELECT sd.summary FROM show_details sd WHERE sd.key = ` + p + `show_key)`
 }
 
 func scanMedia(sc interface{ Scan(...any) error }) (*Media, error) {
 	var m Media
 	var tags, ext, detailTags string
-	var showTags sql.NullString
+	var showTags, showSummary sql.NullString
 	err := sc.Scan(&m.RatingKey, &m.LibraryID, &m.Type, &m.Title, &m.SortTitle, &m.Year, &m.DurationMs,
 		&m.Summary, &m.Thumb, &m.Art, &m.ContentRating, &m.Rating, &m.Studio, &m.AddedAt, &m.Released,
 		&m.ViewCount, &m.ShowKey, &m.ShowTitle, &m.ShowThumb, &m.Season, &m.Episode, &m.PartKey,
-		&m.Container, &m.VideoCodec, &m.AudioCodec, &m.Resolution, &tags, &m.GUID, &ext, &detailTags, &showTags)
+		&m.Container, &m.VideoCodec, &m.AudioCodec, &m.Resolution, &tags, &m.GUID, &ext, &detailTags, &showTags, &showSummary)
 	if err != nil {
 		return nil, err
 	}
@@ -102,9 +105,10 @@ func scanMedia(sc interface{ Scan(...any) error }) (*Media, error) {
 		var st Tags
 		if json.Unmarshal([]byte(showTags.String), &st) == nil {
 			// Like the sync does with the listed show (see library.convert).
-			m.Tags.Add(Tags{Genre: st.Genre, Actor: st.Actor, Country: st.Country})
+			m.Tags.Add(Tags{Genre: st.Genre, Actor: st.Actor, Director: st.Director, Writer: st.Writer, Country: st.Country})
 		}
 	}
+	m.ShowSummary = showSummary.String
 	return &m, nil
 }
 
@@ -218,10 +222,19 @@ func (s *Store) AllMedia(ctx context.Context) ([]*Media, error) {
 	}
 	defer rows.Close()
 	var out []*Media
+	// Episodes of a show share one copy of its description.
+	summaries := map[string]string{}
 	for rows.Next() {
 		m, err := scanMedia(rows)
 		if err != nil {
 			return nil, err
+		}
+		if m.ShowSummary != "" {
+			if s, ok := summaries[m.ShowKey]; ok {
+				m.ShowSummary = s
+			} else {
+				summaries[m.ShowKey] = m.ShowSummary
+			}
 		}
 		out = append(out, m)
 	}
@@ -315,9 +328,15 @@ func (s *Store) setDetails(ctx context.Context, t detailsTable, items []Details)
 	return tx.Commit()
 }
 
+// Show is a show as a library lists it.
+type Show struct {
+	Key     string
+	Summary string
+}
+
 // SyncShows records the shows a library lists now: new ones become due,
 // those gone are dropped with their metadata.
-func (s *Store) SyncShows(ctx context.Context, libraryID string, keys []string) error {
+func (s *Store) SyncShows(ctx context.Context, libraryID string, shows []Show) error {
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -340,17 +359,18 @@ func (s *Store) SyncShows(ctx context.Context, libraryID string, keys []string) 
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	for _, k := range keys {
-		if known[k] {
-			delete(known, k)
-			continue
-		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO show_details (key, library_id) VALUES (?, ?)
-			ON CONFLICT(key) DO UPDATE SET library_id = excluded.library_id`, k, libraryID); err != nil {
+	for _, sh := range shows {
+		delete(known, sh.Key)
+		if _, err := tx.ExecContext(ctx, `INSERT INTO show_details (key, library_id, summary) VALUES (?, ?, ?)
+			ON CONFLICT(key) DO UPDATE SET library_id = excluded.library_id, summary = excluded.summary`,
+			sh.Key, libraryID, sh.Summary); err != nil {
 			return err
 		}
 	}
 	for k := range known {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM trailers WHERE show_key = ?`, k); err != nil {
+			return err
+		}
 		if _, err := tx.ExecContext(ctx, `DELETE FROM show_details WHERE key = ?`, k); err != nil {
 			return err
 		}
@@ -444,6 +464,10 @@ func (s *Store) SetLibraryEnabled(ctx context.Context, id string, enabled bool) 
 
 func (s *Store) DeleteLibrary(ctx context.Context, id string) error {
 	if _, err := s.DB.ExecContext(ctx, `DELETE FROM media WHERE library_id = ?`, id); err != nil {
+		return err
+	}
+	if _, err := s.DB.ExecContext(ctx, `DELETE FROM trailers WHERE show_key IN
+		(SELECT key FROM show_details WHERE library_id = ?)`, id); err != nil {
 		return err
 	}
 	if _, err := s.DB.ExecContext(ctx, `DELETE FROM show_details WHERE library_id = ?`, id); err != nil {

@@ -71,6 +71,46 @@ func TestBindSlot(t *testing.T) {
 	}
 }
 
+// A show trailer stands for every episode, so its last run counts for all of them.
+func TestBindSlotShowTrailer(t *testing.T) {
+	s := &Scheduler{}
+	base := time.Date(2026, 10, 10, 19, 57, 0, 0, time.Local)
+	ms := func(d time.Duration) int64 { return base.Add(d).UnixMilli() }
+	slot := store.Program{ID: 9, ChannelID: 1, Start: ms(0), Stop: ms(3 * time.Minute), RatingKey: store.PreviewKey, Kind: store.KindPreview}
+	progs := []store.Program{slot, {Start: ms(2 * time.Hour), Stop: ms(3 * time.Hour), RatingKey: "ep2"}}
+	show := &store.Trailer{Key: "t:s", ShowKey: "s", DurationMs: 60000}
+	idx := &trailerIndex{byMedia: map[string]*store.Trailer{"show:s": show, "ep2": show}}
+	out := s.bindSlot(slot, progs, idx, map[int64]bool{}, map[string]time.Time{}, rand.New(rand.NewSource(1)))
+	if len(out) < 2 || out[0].RatingKey != "t:s" {
+		t.Fatalf("expected the show trailer: %+v", out)
+	}
+	lastPromo := map[string]time.Time{}
+	s.bindSlot(slot, progs, idx, map[int64]bool{}, lastPromo, rand.New(rand.NewSource(1)))
+	if _, ok := lastPromo["show:s"]; !ok {
+		t.Fatalf("last run not recorded for the show: %v", lastPromo)
+	}
+}
+
+func TestShowTrailersFollowChannelFilter(t *testing.T) {
+	ep := &store.Media{RatingKey: "e1", LibraryID: "2", Type: "episode", Title: "Pilot", ShowKey: "s1", ShowTitle: "Krimi",
+		Season: 1, Episode: 1, Tags: store.Tags{Genre: []string{"Krimi"}}}
+	cfg := &Config{
+		Source: Source{Type: "rules", Rules: &rules.Group{Match: "all", Rules: []rules.Rule{{Field: "genre", Op: "is", Values: []string{"Krimi"}}}}},
+		Filler: &Source{Type: "trailers", TrailerOrigin: "library", ChannelFilter: true},
+	}
+	g := &generator{ch: &store.Channel{Kind: KindSmart}, cfg: cfg, catalog: []*store.Media{ep},
+		resolved: map[string][]*store.Media{}, langs: []string{"deu"},
+		trailers: []*store.Trailer{
+			{Key: "t:s1", Origin: store.OriginLibrary, ShowKey: "s1", Kind: "show", Title: "Krimi", Language: "deu", DurationMs: 1000},
+			{Key: "t:gone", Origin: store.OriginLibrary, ShowKey: "gone", Kind: "show", Title: "Weg", Language: "deu", DurationMs: 1000},
+		}}
+	g.index()
+	pool := g.fillerPool(time.Now())
+	if len(pool) != 1 || pool[0].RatingKey != "t:s1" {
+		t.Fatalf("expected the trailer of the show on the channel, got %+v", pool)
+	}
+}
+
 func TestTrailersFollowChannelFilter(t *testing.T) {
 	horror := &store.Media{RatingKey: "1", LibraryID: "1", Type: "movie", Title: "Grusel", Tags: store.Tags{Genre: []string{"Horror"}}}
 	comedy := &store.Media{RatingKey: "2", LibraryID: "1", Type: "movie", Title: "Spaß", Tags: store.Tags{Genre: []string{"Komödie"}}}

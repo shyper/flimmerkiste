@@ -292,6 +292,9 @@ func releaseText(l i18n.Lang, t *store.Trailer, now time.Time) (string, string) 
 		cinema = cinema || strings.Contains(h, "blockbuster")
 	}
 	switch {
+	case rel.After(now) && t.Origin == store.OriginTMDb && t.Kind == "show":
+		// TMDb lists shows by their first air date: a new show, not a new season
+		return i18n.T(l, "release.newShow"), i18n.T(l, "release.from", date)
 	case rel.After(now) && (cinema || t.Kind == "movie"):
 		// A plain "From <date>" would read as if the film came to this server then;
 		// Discover gives upcoming films their theatrical release date.
@@ -304,8 +307,8 @@ func releaseText(l i18n.Lang, t *store.Trailer, now time.Time) (string, string) 
 	return i18n.T(l, "release.new"), i18n.T(l, "release.since", date)
 }
 
-// describeSlate adds what a TMDb "coming to theaters" slate shows: genres,
-// rating and running time, the summary, the backdrop and the source.
+// describeSlate adds what a TMDb slate shows: genres, rating and running time
+// (movies), the summary, the backdrop and the source.
 func (s *Server) describeSlate(ctx context.Context, l i18n.Lang, o *logo.CardOptions, t *store.Trailer) {
 	var parts []string
 	if len(t.Genres) > 0 {
