@@ -19,6 +19,11 @@ const (
 	// within tmdbShowDays.
 	tmdbShowPages = 1
 	tmdbShowDays  = 90
+	// tmdbGiveUp failures in a row end a list: TMDb is down or hangs (every
+	// request may wait 20 s), and the slates found so far are kept.
+	tmdbGiveUp = 5
+	// tmdbSeasonsTime bounds the new season check (one request per show).
+	tmdbSeasonsTime = 3 * time.Minute
 )
 
 // SyncTMDb stores "coming to theaters" slates for upcoming movies of a region,
@@ -47,6 +52,7 @@ func (l *Library) SyncTMDb(ctx context.Context, c *tmdb.Client, region, language
 	now := time.Now()
 	today := now.Format("2006-01-02")
 	var found []*store.Trailer
+	failed := 0
 	for i := range movies {
 		m := &movies[i]
 		if owned[strconv.Itoa(m.ID)] {
@@ -54,8 +60,13 @@ func (l *Library) SyncTMDb(ctx context.Context, c *tmdb.Client, region, language
 		}
 		if err := c.Details(ctx, m, region, language); err != nil {
 			l.log.Debug("tmdb details", "title", m.Title, "err", err)
+			if failed++; failed >= tmdbGiveUp || ctx.Err() != nil {
+				l.log.Warn("tmdb movies stopped", "err", err)
+				break
+			}
 			continue
 		}
+		failed = 0
 		if m.ReleaseDate == "" || m.ReleaseDate < today || m.Backdrop == "" {
 			continue
 		}
@@ -72,11 +83,15 @@ func (l *Library) SyncTMDb(ctx context.Context, c *tmdb.Client, region, language
 		})
 	}
 	found = append(found, l.tmdbShows(ctx, c, region, language, slate, ownedShows, &res)...)
-	found = append(found, l.tmdbSeasons(ctx, c, region, language, slate, ownedShows, &res)...)
+	// stored before the season check, which takes a request per show
 	if err := l.store.UpsertTrailers(ctx, found); err != nil {
 		return res, err
 	}
-	res.Trailers = len(found)
+	seasons := l.tmdbSeasons(ctx, c, region, language, slate, ownedShows, &res)
+	if err := l.store.UpsertTrailers(ctx, seasons); err != nil {
+		return res, err
+	}
+	res.Trailers = len(found) + len(seasons)
 	res.Removed, err = l.store.DeleteStaleTrailers(ctx, store.OriginTMDb, now.Add(-staleDiscover))
 	l.log.Info("tmdb slates synced", "titles", res.Titles, "removed", res.Removed)
 	return res, err
@@ -92,6 +107,7 @@ func (l *Library) tmdbShows(ctx context.Context, c *tmdb.Client, region, languag
 	}
 	now := time.Now()
 	var out []*store.Trailer
+	failed := 0
 	for i := range shows {
 		sh := &shows[i]
 		// without a description in the language, the show is hardly aired here
@@ -100,8 +116,13 @@ func (l *Library) tmdbShows(ctx context.Context, c *tmdb.Client, region, languag
 		}
 		if err := c.ShowDetails(ctx, sh, region, language); err != nil {
 			l.log.Debug("tmdb show details", "title", sh.Name, "err", err)
+			if failed++; failed >= tmdbGiveUp || ctx.Err() != nil {
+				l.log.Warn("tmdb shows stopped", "err", err)
+				break
+			}
 			continue
 		}
+		failed = 0
 		res.Titles++
 		rating := sh.Certification
 		if rating != "" && region == "DE" {
@@ -118,11 +139,15 @@ func (l *Library) tmdbShows(ctx context.Context, c *tmdb.Client, region, languag
 }
 
 // tmdbSeasons returns slates of new seasons of library shows starting within
-// tmdbShowDays: one request per show of the library that TMDb knows.
+// tmdbShowDays: one request per show of the library that TMDb knows, for at
+// most tmdbSeasonsTime.
 func (l *Library) tmdbSeasons(ctx context.Context, c *tmdb.Client, region, language string, slate time.Duration, owned map[string]int, res *DiscoverResult) []*store.Trailer {
+	ctx, cancel := context.WithTimeout(ctx, tmdbSeasonsTime)
+	defer cancel()
 	now := time.Now()
 	today, until := now.Format("2006-01-02"), now.AddDate(0, 0, tmdbShowDays).Format("2006-01-02")
 	var out []*store.Trailer
+	failed := 0
 	for idText, lastSeason := range owned {
 		id, err := strconv.Atoi(idText)
 		if err != nil {
@@ -130,12 +155,14 @@ func (l *Library) tmdbSeasons(ctx context.Context, c *tmdb.Client, region, langu
 		}
 		tv, err := c.TV(ctx, id, region, language)
 		if err != nil {
-			if ctx.Err() != nil {
+			l.log.Debug("tmdb show", "id", id, "err", err)
+			if failed++; failed >= tmdbGiveUp || ctx.Err() != nil {
+				l.log.Warn("tmdb seasons stopped", "err", err)
 				break
 			}
-			l.log.Debug("tmdb show", "id", id, "err", err)
 			continue
 		}
+		failed = 0
 		// the first episode of a season the library does not have yet
 		if tv.NextEpisode != 1 || tv.NextSeason <= lastSeason || tv.NextAirDate < today || tv.NextAirDate > until || tv.Backdrop == "" {
 			continue

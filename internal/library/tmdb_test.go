@@ -3,10 +3,12 @@ package library
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -107,5 +109,50 @@ func TestSyncTMDb(t *testing.T) {
 	}
 	if _, err := l.SyncTMDb(ctx, &tmdb.Client{Key: "wrong", Base: api.URL}, "DE", "de-DE", time.Second); err == nil {
 		t.Error("wrong key accepted")
+	}
+}
+
+// A failing TMDb costs neither the movie slates nor minutes per show.
+func TestSyncTMDbSeasonsGiveUp(t *testing.T) {
+	future := time.Now().AddDate(0, 1, 0).Format("2006-01-02")
+	var tvCalls atomic.Int32
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /movie/upcoming", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{"total_pages": 1, "results": []map[string]any{
+			{"id": 1, "title": "Neu im Kino", "release_date": future, "backdrop_path": "/b1.jpg"}}})
+	})
+	mux.HandleFunc("GET /movie/{id}", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(`{"runtime": 90}`)) })
+	mux.HandleFunc("GET /discover/tv", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusInternalServerError) })
+	mux.HandleFunc("GET /tv/{id}", func(w http.ResponseWriter, r *http.Request) {
+		tvCalls.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	api := httptest.NewServer(mux)
+	defer api.Close()
+
+	ctx := context.Background()
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	st.UpsertLibrary(ctx, store.Library{ID: "1", Title: "Serien", Type: "show"})
+	var eps []*store.Media
+	for i := range 20 {
+		eps = append(eps, &store.Media{RatingKey: fmt.Sprint("e", i), LibraryID: "1", Type: "episode", Title: "x", ShowKey: fmt.Sprint("s", i),
+			Season: 1, DurationMs: 1, Ext: map[string]string{"show.tmdb": fmt.Sprint(100 + i)}})
+	}
+	st.UpsertMedia(ctx, eps, time.Now().Unix())
+	l := New(st, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	res, err := l.SyncTMDb(ctx, &tmdb.Client{Key: "k", Base: api.URL}, "DE", "de-DE", 20*time.Second)
+	if err != nil || res.Titles != 1 {
+		t.Fatalf("sync: %+v %v", res, err)
+	}
+	if _, err := st.GetTrailer(ctx, store.TrailerPrefix+"tmdb-1"); err != nil {
+		t.Errorf("movie slate lost: %v", err)
+	}
+	if n := tvCalls.Load(); n != tmdbGiveUp {
+		t.Errorf("%d show requests, want to give up after %d", n, tmdbGiveUp)
 	}
 }

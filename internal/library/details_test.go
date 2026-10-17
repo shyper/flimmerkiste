@@ -281,3 +281,43 @@ func TestSyncFindsTrailersOfShows(t *testing.T) {
 		t.Errorf("trailers of the removed show remain: %+v", ts)
 	}
 }
+
+// Loading a large catalog takes seconds; while a reload runs, callers get the
+// previous catalog instead of waiting.
+func TestCatalogServesWhileReloading(t *testing.T) {
+	ctx := context.Background()
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	st.UpsertLibrary(ctx, store.Library{ID: "m", Title: "Filme", Type: "movie"})
+	st.UpsertMedia(ctx, []*store.Media{{RatingKey: "a", LibraryID: "m", Type: "movie", Title: "a", DurationMs: 1}}, 1)
+	l := New(st, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if all, _ := l.All(ctx); len(all) != 1 {
+		t.Fatalf("catalog: %d", len(all))
+	}
+	l.loadMu.Lock() // a reload is running
+	done := make(chan int)
+	go func() {
+		all, _ := l.All(ctx)
+		l.Status()
+		done <- len(all)
+	}()
+	select {
+	case n := <-done:
+		if n != 1 {
+			t.Errorf("catalog during reload: %d", n)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("All waited for the reload")
+	}
+	l.loadMu.Unlock()
+
+	// A reload picks up changes.
+	st.UpsertMedia(ctx, []*store.Media{{RatingKey: "b", LibraryID: "m", Type: "movie", Title: "b", DurationMs: 1}}, 1)
+	l.reload(ctx)
+	if l.Get(ctx, "b") == nil {
+		t.Error("reload missed the new title")
+	}
+}

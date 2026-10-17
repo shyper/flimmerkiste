@@ -48,6 +48,11 @@ type Library struct {
 	catalog []*store.Media
 	byKey   map[string]*store.Media
 	loaded  bool
+	// gen counts invalidations: a catalog loaded meanwhile is outdated.
+	gen int
+	// loadMu lets one caller at a time load the catalog, without holding mu
+	// (loading a large library takes seconds).
+	loadMu sync.Mutex
 
 	trailersRunning bool
 	// detailsMu keeps a sync and RefreshDetails from fetching the same titles.
@@ -79,20 +84,53 @@ func (l *Library) setStatus(msg string) {
 // Callers must treat the returned items as read-only.
 func (l *Library) All(ctx context.Context) ([]*store.Media, error) {
 	l.mu.Lock()
-	defer l.mu.Unlock()
-	if !l.loaded {
-		items, err := l.store.AllMedia(ctx)
-		if err != nil {
-			return nil, err
-		}
-		l.catalog = items
-		l.byKey = make(map[string]*store.Media, len(items))
-		for _, m := range items {
-			l.byKey[m.RatingKey] = m
-		}
-		l.loaded = true
+	if l.loaded {
+		defer l.mu.Unlock()
+		return l.catalog, nil
 	}
-	return l.catalog, nil
+	l.mu.Unlock()
+	l.loadMu.Lock()
+	defer l.loadMu.Unlock()
+	l.mu.Lock()
+	if l.loaded { // loaded while waiting
+		defer l.mu.Unlock()
+		return l.catalog, nil
+	}
+	l.mu.Unlock()
+	return l.load(ctx)
+}
+
+// load reads the catalog from SQLite and makes it current unless it was
+// invalidated meanwhile. The caller holds loadMu.
+func (l *Library) load(ctx context.Context) ([]*store.Media, error) {
+	l.mu.Lock()
+	gen := l.gen
+	l.mu.Unlock()
+	items, err := l.store.AllMedia(ctx)
+	if err != nil {
+		return nil, err
+	}
+	byKey := make(map[string]*store.Media, len(items))
+	for _, m := range items {
+		byKey[m.RatingKey] = m
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.gen == gen {
+		l.catalog, l.byKey, l.loaded = items, byKey, true
+	}
+	return items, nil
+}
+
+// reload replaces the catalog with a fresh one; until it is loaded, callers
+// keep getting the previous one instead of waiting.
+func (l *Library) reload(ctx context.Context) {
+	l.loadMu.Lock()
+	defer l.loadMu.Unlock()
+	if _, err := l.load(ctx); err != nil {
+		l.log.Warn("reload catalog", "err", err)
+		l.Invalidate()
+	}
 }
 
 // Get returns one item from the catalog, or nil.
@@ -108,6 +146,7 @@ func (l *Library) Get(ctx context.Context, key string) *store.Media {
 // Invalidate drops the in-memory catalog; it is reloaded lazily.
 func (l *Library) Invalidate() {
 	l.mu.Lock()
+	l.gen++
 	l.catalog, l.byKey, l.loaded = nil, nil, false
 	l.mu.Unlock()
 }
@@ -143,14 +182,14 @@ func (l *Library) StartSync() bool {
 			l.log.Error("library sync failed", "err", err)
 			// Libraries synced before the error are stored already: their
 			// changes are not seen again, so they apply now.
-			l.Invalidate()
+			l.reload(context.Background())
 			if l.onSynced != nil && !changes.Empty() {
 				l.onSynced(changes)
 			}
 			return
 		}
 		_ = l.store.SetSetting(context.Background(), store.SetLastSync, fmt.Sprint(time.Now().Unix()))
-		l.Invalidate()
+		l.reload(context.Background())
 		if l.onSynced != nil {
 			l.onSynced(changes)
 		}
@@ -402,7 +441,7 @@ func (l *Library) RefreshDetails(ctx context.Context) error {
 		}
 	}
 	if fetched {
-		l.Invalidate()
+		l.reload(ctx) // the old catalog serves meanwhile
 	}
 	return nil
 }
