@@ -22,7 +22,7 @@ const (
 	// pagedMin: shorter slates keep a single page.
 	pagedMin = 20 * time.Second
 	// pageEvery: how long a page stands, including the blend into the next one.
-	pageEvery = 8 * time.Second
+	pageEvery = 15 * time.Second
 	// pageFade: the blend between two pages, and the fade to black at the end.
 	pageFade = time.Second
 	// pageLastMin: the last page stands at least this long before the fade to black.

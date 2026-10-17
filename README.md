@@ -114,7 +114,7 @@ Details are under [Installation](#installation-docker).
   (music videos, short films) and an “up next” slate with poster, title and start time of the next program
   fill the gap. The last clip of a break may run up to 45 seconds over so the slate doesn't stand too long.
   Breaks don't show in the guide.
-- **Pages on long slates**: an “up next” slate of 20 seconds or more turns a page every 8 seconds, blending softly:
+- **Pages on long slates**: an “up next” slate of 20 seconds or more turns a page every 15 seconds, blending softly:
   the slate, what the coming title is about (if it has a summary), the weather and the news (if set up, on every
   platform), the last two with a box naming the coming title. It ends on whatever page it is on, fading to black;
   the music plays on. Shorter slates stay as they are.
