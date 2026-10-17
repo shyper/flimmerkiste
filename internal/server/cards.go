@@ -292,6 +292,8 @@ func releaseText(l i18n.Lang, t *store.Trailer, now time.Time) (string, string) 
 		cinema = cinema || strings.Contains(h, "blockbuster")
 	}
 	switch {
+	case rel.After(now) && t.Origin == store.OriginTMDb && t.Kind == "show" && t.Season > 0:
+		return i18n.T(l, "release.newSeason"), i18n.T(l, "release.seasonFrom", t.Season, date)
 	case rel.After(now) && t.Origin == store.OriginTMDb && t.Kind == "show":
 		// TMDb lists shows by their first air date: a new show, not a new season
 		return i18n.T(l, "release.newShow"), i18n.T(l, "release.from", date)

@@ -111,6 +111,30 @@ func TestSyncFetchesFullMetadataOfNewMovies(t *testing.T) {
 		t.Errorf("sync dropped the full cast: %v", m.Tags.Actor)
 	}
 
+	// Due titles are left to RefreshDetails, which spreads them over the day.
+	if err := st.SetDetails(ctx, []store.Details{{RatingKey: "a", FetchedAt: 1, DueAt: 1}}); err != nil {
+		t.Fatal(err)
+	}
+	runSync(t, l)
+	if got := srv.takeFetched(); len(got) != 0 {
+		t.Fatalf("sync fetched due titles %v", got)
+	}
+	if err := l.RefreshDetails(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := srv.takeFetched(); !slices.Equal(got, []string{"a"}) {
+		t.Fatalf("refresh fetched %v, want the due one", got)
+	}
+	if m := l.Get(ctx, "a"); !slices.Contains(m.Tags.Actor, "Willem Dafoe") {
+		t.Errorf("refreshed tags not in the catalog: %v", m.Tags.Actor)
+	}
+	if err := l.RefreshDetails(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := srv.takeFetched(); len(got) != 0 {
+		t.Fatalf("refresh fetched %v, nothing is due", got)
+	}
+
 	// A full scan fetches everything again.
 	if err := st.ResetDetails(ctx, "m"); err != nil {
 		t.Fatal(err)
@@ -178,8 +202,8 @@ func TestSyncFetchesFullMetadataOfShows(t *testing.T) {
 	l := New(st, func(context.Context) (mediaserver.Server, error) { return srv, nil }, slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	runSync(t, l)
-	if got := srv.takeFetched(); !slices.Equal(got, []string{"other", "show"}) {
-		t.Fatalf("fetched %v, want the shows, not their episodes", got)
+	if got := srv.takeFetched(); !slices.Equal(got, []string{"other", "other-e1", "show", "show-e1"}) {
+		t.Fatalf("fetched %v, want the shows and their episodes", got)
 	}
 	ep := l.Get(ctx, "show-e1")
 	if ep == nil || !slices.Equal(ep.Tags.Actor, []string{"Lead", "Willem Dafoe"}) {
@@ -189,7 +213,7 @@ func TestSyncFetchesFullMetadataOfShows(t *testing.T) {
 		t.Errorf("episode lacks the writers or description of its show: %v %q", ep.Tags.Writer, ep.ShowSummary)
 	}
 	libs, _ := st.ListLibraries(ctx)
-	if len(libs) != 1 || libs[0].Detailed != 2 || libs[0].Shows != 2 {
+	if len(libs) != 1 || libs[0].Detailed != 2 || libs[0].Shows != 2 || libs[0].ShowsDetailed != 2 {
 		t.Errorf("libraries: %+v", libs)
 	}
 

@@ -191,6 +191,7 @@ func (s *Server) Background(ctx context.Context) {
 		defer t.Stop()
 		for {
 			s.maybeSync(ctx)
+			go s.refreshDetails(ctx)
 			s.maybeDiscover(ctx)
 			s.maybeSlates(ctx)
 			s.maybeInfo(ctx)
@@ -203,6 +204,17 @@ func (s *Server) Background(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+// refreshDetails fetches the full metadata of titles that are due again, a
+// few at a time (see library.RefreshDetails).
+func (s *Server) refreshDetails(ctx context.Context) {
+	if url, _ := s.store.GetSetting(ctx, store.SetServerURL); url == "" {
+		return
+	}
+	if err := s.lib.RefreshDetails(ctx); err != nil && !errors.Is(err, library.ErrNotLinked) && ctx.Err() == nil {
+		s.log.Warn("refresh details", "err", err)
+	}
 }
 
 func (s *Server) maybeSync(ctx context.Context) {

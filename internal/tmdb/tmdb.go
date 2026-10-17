@@ -213,13 +213,49 @@ func (c *Client) UpcomingShows(ctx context.Context, language string, days, pages
 	return out, nil
 }
 
-// ShowDetails fills genres and the rating of a region.
-func (c *Client) ShowDetails(ctx context.Context, s *Show, region, language string) error {
+// TV is what a slate needs of a show: its details, the rating of a region
+// and the next episode to air.
+type TV struct {
+	Name          string
+	Overview      string
+	Genres        []string
+	Certification string
+	Poster        string // absolute URLs
+	Backdrop      string
+	// NextSeason, NextAirDate: the season and air date of the next episode,
+	// NextEpisode its number (0 = none announced).
+	NextSeason, NextEpisode int
+	NextAirDate             string
+	// Seasons by number: their description and poster, if any.
+	Seasons map[int]Season
+}
+
+// Season is one season of a show.
+type Season struct {
+	Overview string
+	Poster   string
+}
+
+// TV reads a show.
+func (c *Client) TV(ctx context.Context, id int, region, language string) (*TV, error) {
 	var r struct {
+		Name     string `json:"name"`
 		Overview string `json:"overview"`
+		Poster   string `json:"poster_path"`
+		Backdrop string `json:"backdrop_path"`
 		Genres   []struct {
 			Name string `json:"name"`
 		} `json:"genres"`
+		Next *struct {
+			AirDate string `json:"air_date"`
+			Season  int    `json:"season_number"`
+			Episode int    `json:"episode_number"`
+		} `json:"next_episode_to_air"`
+		Seasons []struct {
+			Number   int    `json:"season_number"`
+			Overview string `json:"overview"`
+			Poster   string `json:"poster_path"`
+		} `json:"seasons"`
 		ContentRatings struct {
 			Results []struct {
 				Country string `json:"iso_3166_1"`
@@ -228,21 +264,38 @@ func (c *Client) ShowDetails(ctx context.Context, s *Show, region, language stri
 		} `json:"content_ratings"`
 	}
 	q := url.Values{"language": {language}, "append_to_response": {"content_ratings"}}
-	if err := c.get(ctx, "/tv/"+strconv.Itoa(s.ID), q, &r); err != nil {
-		return err
+	if err := c.get(ctx, "/tv/"+strconv.Itoa(id), q, &r); err != nil {
+		return nil, err
 	}
-	if r.Overview != "" {
-		s.Overview = r.Overview
-	}
-	s.Genres = s.Genres[:0]
+	tv := &TV{Name: r.Name, Overview: r.Overview, Poster: image("w500", r.Poster), Backdrop: image("w1280", r.Backdrop),
+		Seasons: map[int]Season{}}
 	for _, g := range r.Genres {
-		s.Genres = append(s.Genres, g.Name)
+		tv.Genres = append(tv.Genres, g.Name)
 	}
 	for _, cr := range r.ContentRatings.Results {
 		if strings.EqualFold(cr.Country, region) && cr.Rating != "" {
-			s.Certification = cr.Rating
+			tv.Certification = cr.Rating
 		}
 	}
+	if r.Next != nil && len(r.Next.AirDate) >= 10 {
+		tv.NextSeason, tv.NextEpisode, tv.NextAirDate = r.Next.Season, r.Next.Episode, r.Next.AirDate[:10]
+	}
+	for _, s := range r.Seasons {
+		tv.Seasons[s.Number] = Season{Overview: s.Overview, Poster: image("w500", s.Poster)}
+	}
+	return tv, nil
+}
+
+// ShowDetails fills genres and the rating of a region.
+func (c *Client) ShowDetails(ctx context.Context, s *Show, region, language string) error {
+	tv, err := c.TV(ctx, s.ID, region, language)
+	if err != nil {
+		return err
+	}
+	if tv.Overview != "" {
+		s.Overview = tv.Overview
+	}
+	s.Genres, s.Certification = tv.Genres, tv.Certification
 	return nil
 }
 

@@ -26,6 +26,8 @@ var en = map[string]string{
 	"release.cinemaSoon": "Coming to theaters",
 	"release.soon":       "Coming soon",
 	"release.newShow":    "New series",
+	"release.newSeason":  "New season",
+	"release.seasonFrom": "Season %d from %s",
 	"release.cinemaNow":  "Now in theaters",
 	"release.new":        "New",
 	"release.from":       "From %s",

@@ -44,6 +44,10 @@ type Media struct {
 	Tags          Tags    `json:"tags"`
 	// ShowSummary is the description of the show of an episode.
 	ShowSummary string `json:"-"`
+	// ShowFirstYear and ShowLastYear: the years the first and last episode of
+	// the show in the library aired (AllMedia only).
+	ShowFirstYear int `json:"-"`
+	ShowLastYear  int `json:"-"`
 	// Ext holds external ids (tmdb, imdb, tvdb; for episodes also show.tmdb …),
 	// used to find the same title in another library.
 	Ext map[string]string `json:"-"`
@@ -238,7 +242,33 @@ func (s *Store) AllMedia(ctx context.Context) ([]*Media, error) {
 		}
 		out = append(out, m)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	showYears(out)
+	return out, nil
+}
+
+// showYears sets the years the episodes of each show span.
+func showYears(items []*Media) {
+	type span struct{ first, last int }
+	spans := map[string]span{}
+	for _, m := range items {
+		if m.Type != "episode" || m.Year == 0 {
+			continue
+		}
+		sp, ok := spans[m.ShowKey]
+		if !ok || m.Year < sp.first {
+			sp.first = m.Year
+		}
+		sp.last = max(sp.last, m.Year)
+		spans[m.ShowKey] = sp
+	}
+	for _, m := range items {
+		if sp, ok := spans[m.ShowKey]; ok && m.Type == "episode" {
+			m.ShowFirstYear, m.ShowLastYear = sp.first, sp.last
+		}
+	}
 }
 
 func prefixed(p, cols string) string {
@@ -421,16 +451,19 @@ type Library struct {
 	Enabled  bool   `json:"enabled"`
 	SyncedAt int64  `json:"syncedAt"`
 	Items    int    `json:"items"`
-	Detailed int    `json:"detailed"` // movies or shows with full metadata
+	Detailed int    `json:"detailed"` // movies or episodes with full metadata
 	Shows    int    `json:"shows,omitempty"`
+	// ShowsDetailed counts the shows with full metadata.
+	ShowsDetailed int `json:"showsDetailed,omitempty"`
 }
 
 func (s *Store) ListLibraries(ctx context.Context) ([]Library, error) {
 	rows, err := s.DB.QueryContext(ctx, `SELECT l.id, l.title, l.type, l.enabled, l.synced_at,
 		(SELECT COUNT(*) FROM media m WHERE m.library_id = l.id),
-		(SELECT COUNT(*) FROM media m WHERE m.library_id = l.id AND m.details_at > 0)
-			+ (SELECT COUNT(*) FROM show_details sd WHERE sd.library_id = l.id AND sd.details_at > 0),
-		(SELECT COUNT(*) FROM show_details sd WHERE sd.library_id = l.id) FROM libraries l ORDER BY l.title`)
+		(SELECT COUNT(*) FROM media m WHERE m.library_id = l.id AND m.details_at > 0),
+		(SELECT COUNT(*) FROM show_details sd WHERE sd.library_id = l.id),
+		(SELECT COUNT(*) FROM show_details sd WHERE sd.library_id = l.id AND sd.details_at > 0)
+		FROM libraries l ORDER BY l.title`)
 	if err != nil {
 		return nil, err
 	}
@@ -438,7 +471,7 @@ func (s *Store) ListLibraries(ctx context.Context) ([]Library, error) {
 	var out []Library
 	for rows.Next() {
 		var l Library
-		if err := rows.Scan(&l.ID, &l.Title, &l.Type, &l.Enabled, &l.SyncedAt, &l.Items, &l.Detailed, &l.Shows); err != nil {
+		if err := rows.Scan(&l.ID, &l.Title, &l.Type, &l.Enabled, &l.SyncedAt, &l.Items, &l.Detailed, &l.Shows, &l.ShowsDetailed); err != nil {
 			return nil, err
 		}
 		out = append(out, l)

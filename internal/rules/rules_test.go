@@ -86,3 +86,21 @@ func TestSummaryOfShow(t *testing.T) {
 		t.Error("notContains ignores the description of the show")
 	}
 }
+
+// An episode counts for every decade its show ran in, its year stays its own.
+func TestDecadeOfShow(t *testing.T) {
+	ep := &store.Media{RatingKey: "e1", Type: "episode", ShowKey: "s", Year: 1994, DurationMs: 60 * 60000,
+		ShowFirstYear: 1987, ShowLastYear: 2001}
+	now := time.Now()
+	for _, d := range []string{"1980", "1990", "2000"} {
+		if !(&Group{Match: "all", Rules: []Rule{{Field: "decade", Op: "is", Values: []string{d}}}}).Matches(ep, now) {
+			t.Errorf("decade %s does not match", d)
+		}
+	}
+	if (&Group{Match: "all", Rules: []Rule{{Field: "decade", Op: "is", Values: []string{"1970"}}}}).Matches(ep, now) {
+		t.Error("decade 1970 matches")
+	}
+	if (&Group{Match: "all", Rules: []Rule{{Field: "year", Op: "is", Values: []string{"1987"}}}}).Matches(ep, now) {
+		t.Error("year is the episode's, not the show's")
+	}
+}

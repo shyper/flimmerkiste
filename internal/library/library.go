@@ -50,6 +50,8 @@ type Library struct {
 	loaded  bool
 
 	trailersRunning bool
+	// detailsMu keeps a sync and RefreshDetails from fetching the same titles.
+	detailsMu sync.Mutex
 
 	onSynced func(Changes)
 }
@@ -298,35 +300,119 @@ func (l *Library) syncShows(ctx context.Context, srv mediaserver.Server, lib sto
 	return total, err
 }
 
-// Listings carry only the first few actors, directors and writers of a movie
-// or show (Plex), so each movie and show is also fetched on its own: new ones
-// right away, the others about every detailsEvery. The jitter spreads the
-// first fetch of a whole library over the following weeks. Episodes get the
-// tags of their show.
+// Listings carry only the first few actors, directors and writers of a title
+// (Plex), so each movie, show and episode is also fetched on its own: new ones
+// during the sync that finds them, the others about every detailsEvery. The
+// jitter spreads the first fetch of a whole library over the following weeks,
+// and RefreshDetails, called every few minutes, fetches the due ones in small
+// portions over the day.
 const (
 	detailsEvery   = 30 * 24 * time.Hour
 	detailsJitter  = 10 * 24 * time.Hour
 	detailsWorkers = 4
 	detailsBatch   = 50
-	// detailsGiveUp failures in a row end the fetch for this sync; the items
-	// stay due for the next one.
+	// detailsGiveUp failures in a row end a fetch; the items stay due.
 	detailsGiveUp = 10
+	// detailsPerRefresh caps one RefreshDetails, e.g. after a long downtime.
+	detailsPerRefresh = 300
 )
 
 func nextDetails(now time.Time) int64 {
 	return now.Add(detailsEvery - detailsJitter + rand.N(2*detailsJitter)).Unix()
 }
 
-// syncDetails fetches the full metadata of the movies or shows of a library
-// that are new or due.
-func (l *Library) syncDetails(ctx context.Context, srv mediaserver.Server, lib store.Library) error {
-	due, save := l.store.DueDetails, l.store.SetDetails
+// detailsSet is a kind of title with full metadata: movies and episodes
+// (table media) or shows.
+type detailsSet struct {
+	due  func(ctx context.Context, libraryID string, now int64) ([]string, error)
+	save func(ctx context.Context, items []store.Details) error
+}
+
+func (l *Library) detailsSets(lib store.Library) []detailsSet {
+	media := detailsSet{l.store.DueDetails, l.store.SetDetails}
 	if lib.Type == "show" {
-		due, save = l.store.DueShowDetails, l.store.SetShowDetails
+		return []detailsSet{{l.store.DueShowDetails, l.store.SetShowDetails}, media}
 	}
-	keys, err := due(ctx, lib.ID, time.Now().Unix())
-	if err != nil || len(keys) == 0 {
+	return []detailsSet{media}
+}
+
+// syncDetails fetches the full metadata of the titles of a library that are
+// new or reset by a full scan; RefreshDetails takes care of the due ones.
+func (l *Library) syncDetails(ctx context.Context, srv mediaserver.Server, lib store.Library) error {
+	l.detailsMu.Lock()
+	defer l.detailsMu.Unlock()
+	lang := l.lang(ctx)
+	for _, set := range l.detailsSets(lib) {
+		keys, err := set.due(ctx, lib.ID, 0)
+		if err != nil {
+			return err
+		}
+		progress := func(done int) { l.setStatus(i18n.T(lang, "library.details", lib.Title, done, len(keys))) }
+		if err := l.fetchDetails(ctx, srv, lib, keys, set.save, progress); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// RefreshDetails fetches the full metadata that is due by now, at most
+// detailsPerRefresh titles. As due times are spread at random, calling it
+// every few minutes spreads the requests over the day. It leaves the work to
+// a running sync.
+func (l *Library) RefreshDetails(ctx context.Context) error {
+	if !l.detailsMu.TryLock() {
+		return nil
+	}
+	defer l.detailsMu.Unlock()
+	if l.Status().Running {
+		return nil
+	}
+	libs, err := l.store.ListLibraries(ctx)
+	if err != nil {
 		return err
+	}
+	var srv mediaserver.Server
+	budget, fetched := detailsPerRefresh, false
+	for _, lib := range libs {
+		if !lib.Enabled {
+			continue
+		}
+		for _, set := range l.detailsSets(lib) {
+			if budget == 0 {
+				break
+			}
+			keys, err := set.due(ctx, lib.ID, time.Now().Unix())
+			if err != nil || len(keys) == 0 {
+				if err != nil {
+					return err
+				}
+				continue
+			}
+			if srv == nil {
+				if srv, err = l.server(ctx); err != nil {
+					return err
+				}
+			}
+			keys = keys[:min(len(keys), budget)]
+			budget -= len(keys)
+			fetched = true
+			if err := l.fetchDetails(ctx, srv, lib, keys, set.save, nil); err != nil {
+				return err
+			}
+		}
+	}
+	if fetched {
+		l.Invalidate()
+	}
+	return nil
+}
+
+// fetchDetails fetches and stores the full metadata of keys; progress, if
+// given, learns how many are done.
+func (l *Library) fetchDetails(ctx context.Context, srv mediaserver.Server, lib store.Library, keys []string,
+	save func(context.Context, []store.Details) error, progress func(done int)) error {
+	if len(keys) == 0 {
+		return nil
 	}
 	type result struct {
 		key string
@@ -358,7 +444,6 @@ func (l *Library) syncDetails(ctx context.Context, srv mediaserver.Server, lib s
 	}
 	go func() { wg.Wait(); close(results) }()
 
-	lang := l.lang(ctx)
 	var batch []store.Details
 	var flushErr error
 	flush := func() {
@@ -386,15 +471,19 @@ func (l *Library) syncDetails(ctx context.Context, srv mediaserver.Server, lib s
 		if len(batch) >= detailsBatch {
 			flush()
 		}
-		if done%10 == 0 || done == len(keys) {
-			l.setStatus(i18n.T(lang, "library.details", lib.Title, done, len(keys)))
+		if progress != nil && (done%10 == 0 || done == len(keys)) {
+			progress(done)
 		}
 	}
 	flush()
 	if flushErr != nil {
 		return flushErr
 	}
-	l.log.Info("details fetched", "library", lib.Title, "items", fetched, "due", len(keys))
+	log := l.log.Info
+	if progress == nil {
+		log = l.log.Debug // the refresh every few minutes
+	}
+	log("details fetched", "library", lib.Title, "items", fetched, "due", len(keys))
 	return ctx.Err()
 }
 

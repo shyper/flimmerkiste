@@ -185,6 +185,8 @@ var migrations = []string{
 	`ALTER TABLE show_details ADD COLUMN extras_checked INTEGER NOT NULL DEFAULT 0;
 	ALTER TABLE trailers ADD COLUMN show_key TEXT NOT NULL DEFAULT '';
 	CREATE INDEX trailers_show ON trailers(show_key);`,
+	// Season a TMDb slate announces (0 = a new show).
+	`ALTER TABLE trailers ADD COLUMN season INTEGER NOT NULL DEFAULT 0;`,
 }
 
 func (s *Store) migrate(ctx context.Context) error {

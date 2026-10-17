@@ -50,8 +50,13 @@ func TestSyncTMDb(t *testing.T) {
 		}})
 	})
 	mux.HandleFunc("GET /tv/{id}", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{"genres": []map[string]string{{"name": "Krimi"}},
-			"content_ratings": map[string]any{"results": []map[string]any{{"iso_3166_1": "US", "rating": "TV-MA"}, {"iso_3166_1": "DE", "rating": "16"}}}})
+		out := map[string]any{"name": "Habe ich schon", "genres": []map[string]string{{"name": "Krimi"}}, "backdrop_path": "/b11.jpg",
+			"content_ratings": map[string]any{"results": []map[string]any{{"iso_3166_1": "US", "rating": "TV-MA"}, {"iso_3166_1": "DE", "rating": "16"}}}}
+		if r.PathValue("id") == "11" {
+			out["next_episode_to_air"] = map[string]any{"air_date": future, "season_number": 3, "episode_number": 1}
+			out["seasons"] = []map[string]any{{"season_number": 3, "overview": "Die dritte Staffel", "poster_path": "/s3.jpg"}}
+		}
+		json.NewEncoder(w).Encode(out)
 	})
 	api := httptest.NewServer(mux)
 	defer api.Close()
@@ -64,11 +69,11 @@ func TestSyncTMDb(t *testing.T) {
 	defer st.Close()
 	st.UpsertLibrary(ctx, store.Library{ID: "1", Title: "Filme", Type: "movie"})
 	st.UpsertMedia(ctx, []*store.Media{{RatingKey: "m3", LibraryID: "1", Type: "movie", Title: "Habe ich schon", DurationMs: 1, Ext: map[string]string{"tmdb": "3"}},
-		{RatingKey: "e11", LibraryID: "1", Type: "episode", Title: "Pilot", ShowKey: "s11", DurationMs: 1, Ext: map[string]string{"tmdb": "99", "show.tmdb": "11"}}}, time.Now().Unix())
+		{RatingKey: "e11", LibraryID: "1", Type: "episode", Title: "Pilot", ShowKey: "s11", Season: 2, DurationMs: 1, Ext: map[string]string{"tmdb": "99", "show.tmdb": "11"}}}, time.Now().Unix())
 	l := New(st, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	res, err := l.SyncTMDb(ctx, &tmdb.Client{Key: "k", Base: api.URL}, "DE", "de-DE", 20*time.Second)
-	if err != nil || res.Titles != 2 {
+	if err != nil || res.Titles != 3 {
 		t.Fatalf("sync: %+v %v", res, err)
 	}
 	tr, err := st.GetTrailer(ctx, store.TrailerPrefix+"tmdb-1")
@@ -86,6 +91,14 @@ func TestSyncTMDb(t *testing.T) {
 	if show.Kind != "show" || show.Title != "Neue Serie" || show.ContentRating != "de/16" || show.Released != future ||
 		len(show.Genres) != 1 || show.Genres[0] != "Krimi" || show.Art != "https://image.tmdb.org/t/p/w1280/b10.jpg" {
 		t.Errorf("show slate: %+v", show)
+	}
+	season, err := st.GetTrailer(ctx, store.TrailerPrefix+"tmdb-tv-11-s3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if season.Season != 3 || season.Kind != "show" || season.Summary != "Die dritte Staffel" || season.Released != future ||
+		season.Thumb != "https://image.tmdb.org/t/p/w500/s3.jpg" {
+		t.Errorf("season slate: %+v", season)
 	}
 	for _, key := range []string{"tmdb-tv-11", "tmdb-tv-12"} {
 		if _, err := st.GetTrailer(ctx, store.TrailerPrefix+key); err == nil {

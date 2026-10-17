@@ -253,6 +253,14 @@ func stringsFor(m *store.Media, field string) []string {
 		}
 		return []string{m.Summary}
 	case "decade":
+		if m.Type == "episode" && m.ShowFirstYear > 0 {
+			// an episode counts for every decade its show ran in
+			var out []string
+			for d := m.ShowFirstYear / 10 * 10; d <= m.ShowLastYear; d += 10 {
+				out = append(out, strconv.Itoa(d))
+			}
+			return out
+		}
 		if m.Year == 0 {
 			return nil
 		}
@@ -403,15 +411,17 @@ func Facets(items []*store.Media, limit int) map[string][]FacetValue {
 	seenShow := map[string]bool{}
 	for _, m := range items {
 		for _, f := range fields {
-			// Count each show once for show-level tags so episodes don't dominate.
-			if m.Type == "episode" && f != "show" && seenShow[m.ShowKey+"|"+f] {
-				continue
-			}
 			for _, v := range stringsFor(m, f) {
+				// Count a value once per show so episodes don't dominate, but
+				// from every episode (guest stars).
+				if m.Type == "episode" && f != "show" {
+					k := m.ShowKey + "|" + f + "|" + v
+					if seenShow[k] {
+						continue
+					}
+					seenShow[k] = true
+				}
 				counts[f][v]++
-			}
-			if m.Type == "episode" {
-				seenShow[m.ShowKey+"|"+f] = true
 			}
 		}
 	}

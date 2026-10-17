@@ -842,8 +842,9 @@
      "syncedAt": 1792098297,
      "title": "Serien",
      "type": "show",
-     "detailed": 1,
-     "shows": 2
+     "detailed": 4,
+     "shows": 2,
+     "showsDetailed": 1
     }
    ],
    "status": {

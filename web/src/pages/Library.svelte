@@ -112,7 +112,7 @@
             <h3>{l.title}</h3>
             <p class="small muted">{l.type === 'movie' ? t('library.movieInfo', [fmtNumber(l.items), fmtAgo(l.syncedAt)]) : t('library.showInfo', [fmtNumber(l.items), fmtAgo(l.syncedAt)])}</p>
             {#if l.enabled && l.items}
-              <p class="tiny muted">{l.type === 'movie' ? t('library.details', [fmtNumber(l.detailed), fmtNumber(l.items)]) : t('library.showDetails', [fmtNumber(l.detailed), fmtNumber(l.shows || 0)])}</p>
+              <p class="tiny muted">{l.type === 'movie' ? t('library.details', [fmtNumber(l.detailed), fmtNumber(l.items)]) : t('library.showDetails', [fmtNumber(l.showsDetailed || 0), fmtNumber(l.shows || 0), fmtNumber(l.detailed), fmtNumber(l.items)])}</p>
             {/if}
           </div>
           {#if l.enabled}

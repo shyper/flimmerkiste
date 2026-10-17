@@ -1,6 +1,7 @@
 package library
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"strconv"
@@ -20,24 +21,26 @@ const (
 	tmdbShowDays  = 90
 )
 
-// SyncTMDb stores "coming to theaters" slates for upcoming movies of a region
-// and "new show" slates for shows about to start (TMDb): no video, the slate
-// itself is the filler. Titles already in the library and those released are
-// left out; slates of titles that left the lists expire after staleDiscover.
+// SyncTMDb stores "coming to theaters" slates for upcoming movies of a region,
+// "new show" slates for shows about to start and "new season" slates for shows
+// of the library (TMDb): no video, the slate itself is the filler. Titles
+// already in the library and those released are left out; slates of titles
+// that left the lists expire after staleDiscover.
 func (l *Library) SyncTMDb(ctx context.Context, c *tmdb.Client, region, language string, slate time.Duration) (DiscoverResult, error) {
 	var res DiscoverResult
 	movies, err := c.Upcoming(ctx, region, language, tmdbPages)
 	if err != nil {
 		return res, i18n.E("tmdb.load", err)
 	}
-	owned, ownedShows := map[string]bool{}, map[string]bool{}
+	// ownedShows: the last season of each show in the library
+	owned, ownedShows := map[string]bool{}, map[string]int{}
 	if all, err := l.All(ctx); err == nil {
 		for _, m := range all {
 			if id := m.Ext["tmdb"]; id != "" && m.Type == "movie" {
 				owned[id] = true
 			}
 			if id := m.Ext["show.tmdb"]; id != "" {
-				ownedShows[id] = true
+				ownedShows[id] = max(ownedShows[id], m.Season)
 			}
 		}
 	}
@@ -69,6 +72,7 @@ func (l *Library) SyncTMDb(ctx context.Context, c *tmdb.Client, region, language
 		})
 	}
 	found = append(found, l.tmdbShows(ctx, c, region, language, slate, ownedShows, &res)...)
+	found = append(found, l.tmdbSeasons(ctx, c, region, language, slate, ownedShows, &res)...)
 	if err := l.store.UpsertTrailers(ctx, found); err != nil {
 		return res, err
 	}
@@ -80,7 +84,7 @@ func (l *Library) SyncTMDb(ctx context.Context, c *tmdb.Client, region, language
 
 // tmdbShows returns slates of popular shows about to start. Errors only cost
 // these slates, not those of the movies.
-func (l *Library) tmdbShows(ctx context.Context, c *tmdb.Client, region, language string, slate time.Duration, owned map[string]bool, res *DiscoverResult) []*store.Trailer {
+func (l *Library) tmdbShows(ctx context.Context, c *tmdb.Client, region, language string, slate time.Duration, owned map[string]int, res *DiscoverResult) []*store.Trailer {
 	shows, err := c.UpcomingShows(ctx, language, tmdbShowDays, tmdbShowPages)
 	if err != nil {
 		l.log.Warn("tmdb shows", "err", err)
@@ -91,7 +95,7 @@ func (l *Library) tmdbShows(ctx context.Context, c *tmdb.Client, region, languag
 	for i := range shows {
 		sh := &shows[i]
 		// without a description in the language, the show is hardly aired here
-		if owned[strconv.Itoa(sh.ID)] || sh.Overview == "" || sh.Backdrop == "" || sh.FirstAirDate == "" {
+		if _, ok := owned[strconv.Itoa(sh.ID)]; ok || sh.Overview == "" || sh.Backdrop == "" || sh.FirstAirDate == "" {
 			continue
 		}
 		if err := c.ShowDetails(ctx, sh, region, language); err != nil {
@@ -108,6 +112,48 @@ func (l *Library) tmdbShows(ctx context.Context, c *tmdb.Client, region, languag
 			Title: sh.Name, Kind: "show", Year: sh.Year, Released: sh.FirstAirDate, Genres: sh.Genres, ContentRating: rating,
 			Summary: sh.Overview, Thumb: sh.Poster, Art: sh.Backdrop, Name: sh.Name, DurationMs: slate.Milliseconds(),
 			LastSeen: now.Unix(),
+		})
+	}
+	return out
+}
+
+// tmdbSeasons returns slates of new seasons of library shows starting within
+// tmdbShowDays: one request per show of the library that TMDb knows.
+func (l *Library) tmdbSeasons(ctx context.Context, c *tmdb.Client, region, language string, slate time.Duration, owned map[string]int, res *DiscoverResult) []*store.Trailer {
+	now := time.Now()
+	today, until := now.Format("2006-01-02"), now.AddDate(0, 0, tmdbShowDays).Format("2006-01-02")
+	var out []*store.Trailer
+	for idText, lastSeason := range owned {
+		id, err := strconv.Atoi(idText)
+		if err != nil {
+			continue
+		}
+		tv, err := c.TV(ctx, id, region, language)
+		if err != nil {
+			if ctx.Err() != nil {
+				break
+			}
+			l.log.Debug("tmdb show", "id", id, "err", err)
+			continue
+		}
+		// the first episode of a season the library does not have yet
+		if tv.NextEpisode != 1 || tv.NextSeason <= lastSeason || tv.NextAirDate < today || tv.NextAirDate > until || tv.Backdrop == "" {
+			continue
+		}
+		year, _ := strconv.Atoi(tv.NextAirDate[:4])
+		season := tv.Seasons[tv.NextSeason]
+		summary, poster := cmp.Or(season.Overview, tv.Overview), cmp.Or(season.Poster, tv.Poster)
+		res.Titles++
+		rating := tv.Certification
+		if rating != "" && region == "DE" {
+			rating = "de/" + rating
+		}
+		out = append(out, &store.Trailer{
+			Key:    store.TrailerPrefix + "tmdb-tv-" + idText + "-s" + strconv.Itoa(tv.NextSeason),
+			Origin: store.OriginTMDb, GUID: fmt.Sprintf("tmdb://tv/%d", id),
+			Title: tv.Name, Kind: "show", Season: tv.NextSeason, Year: year, Released: tv.NextAirDate,
+			Genres: tv.Genres, ContentRating: rating, Summary: summary, Thumb: poster, Art: tv.Backdrop, Name: tv.Name,
+			DurationMs: slate.Milliseconds(), LastSeen: now.Unix(),
 		})
 	}
 	return out

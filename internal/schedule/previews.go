@@ -65,14 +65,18 @@ func (s *Scheduler) bindPreviews(ctx context.Context, channelID int64, until tim
 	if err != nil {
 		return err
 	}
+	seenShow := map[string]bool{}
 	for _, p := range progs {
 		if p.Kind == store.KindFiller && trailers.byKey[p.RatingKey] != nil {
 			lastPromo[trailers.byKey[p.RatingKey].Advertised()] = p.StartTime()
 		}
-		// Episodes are advertised by the trailer of their show.
+		// Episodes are advertised by the trailer of their show, but not every one:
+		// a season premiere, or the first episode of the show around now.
 		if p.IsMain() && trailers.byMedia[p.RatingKey] == nil {
 			if m := s.lib.Get(ctx, p.RatingKey); m != nil && m.Type == "episode" {
-				if t := trailers.byMedia["show:"+m.ShowKey]; t != nil {
+				first := !seenShow[m.ShowKey]
+				seenShow[m.ShowKey] = true
+				if t := trailers.byMedia["show:"+m.ShowKey]; t != nil && (first || m.Season > 0 && m.Episode == 1) {
 					trailers.byMedia[p.RatingKey] = t
 				}
 			}

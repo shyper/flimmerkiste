@@ -57,3 +57,27 @@ func TestConcurrentWrites(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+// The catalog knows the years the episodes of a show span.
+func TestShowYears(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	ctx := context.Background()
+	st.UpsertLibrary(ctx, Library{ID: "s", Title: "Serien", Type: "show"})
+	ep := func(key string, year int) *Media {
+		return &Media{RatingKey: key, LibraryID: "s", Type: "episode", Title: key, ShowKey: "sh", Year: year, DurationMs: 1}
+	}
+	st.UpsertMedia(ctx, []*Media{ep("a", 1994), ep("b", 1987), ep("c", 0), ep("d", 2001)}, 1)
+	all, err := st.AllMedia(ctx)
+	if err != nil || len(all) != 4 {
+		t.Fatalf("%d items, %v", len(all), err)
+	}
+	for _, m := range all {
+		if m.ShowFirstYear != 1987 || m.ShowLastYear != 2001 {
+			t.Errorf("%s: %d–%d", m.RatingKey, m.ShowFirstYear, m.ShowLastYear)
+		}
+	}
+}

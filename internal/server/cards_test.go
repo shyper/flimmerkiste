@@ -44,6 +44,14 @@ func TestReleaseText(t *testing.T) {
 	if h, d := releaseText(i18n.DE, show, now); h != "Demnächst" || d != "Ab 7. Januar 2027" {
 		t.Errorf("show: %q %q", h, d)
 	}
+	newShow := &store.Trailer{Origin: store.OriginTMDb, Kind: "show", Released: "2026-11-05"}
+	if h, d := releaseText(i18n.DE, newShow, now); h != "Neue Serie" || d != "Ab 5. November" {
+		t.Errorf("new show: %q %q", h, d)
+	}
+	season := &store.Trailer{Origin: store.OriginTMDb, Kind: "show", Season: 3, Released: "2026-11-05"}
+	if h, d := releaseText(i18n.DE, season, now); h != "Neue Staffel" || d != "Staffel 3 ab 5. November" {
+		t.Errorf("new season: %q %q", h, d)
+	}
 	old := &store.Trailer{Kind: "movie", Released: "2026-09-01"}
 	if h, _ := releaseText(i18n.DE, old, now); h != "Neu" {
 		t.Errorf("released: %q", h)

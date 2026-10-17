@@ -43,6 +43,7 @@ type Trailer struct {
 	LastSeen      int64         `json:"lastSeen,omitempty"`
 	Art           string        `json:"art,omitempty"`        // backdrop (absolute URL), TMDb slates
 	RuntimeMin    int           `json:"runtimeMin,omitempty"` // length of the movie, TMDb slates
+	Season        int           `json:"season,omitempty"`     // TMDb slates of a show: the new season (0 = a new show)
 }
 
 // TrailerPart is one quality of a trailer. URL is a Plex path for library
@@ -95,13 +96,13 @@ func (t *Trailer) Media(height int) *Media {
 }
 
 const trailerCols = `key, origin, COALESCE(media_key, ''), guid, title, kind, year, released, genres, content_rating,
-	summary, thumb, name, language, duration_ms, parts, hubs, last_seen, art, runtime_min, show_key`
+	summary, thumb, name, language, duration_ms, parts, hubs, last_seen, art, runtime_min, show_key, season`
 
 func scanTrailer(sc interface{ Scan(...any) error }) (*Trailer, error) {
 	var t Trailer
 	var genres, parts, hubs string
 	if err := sc.Scan(&t.Key, &t.Origin, &t.MediaKey, &t.GUID, &t.Title, &t.Kind, &t.Year, &t.Released, &genres,
-		&t.ContentRating, &t.Summary, &t.Thumb, &t.Name, &t.Language, &t.DurationMs, &parts, &hubs, &t.LastSeen, &t.Art, &t.RuntimeMin, &t.ShowKey); err != nil {
+		&t.ContentRating, &t.Summary, &t.Thumb, &t.Name, &t.Language, &t.DurationMs, &parts, &hubs, &t.LastSeen, &t.Art, &t.RuntimeMin, &t.ShowKey, &t.Season); err != nil {
 		return nil, err
 	}
 	_ = json.Unmarshal([]byte(genres), &t.Genres)
@@ -119,15 +120,15 @@ func insertTrailer(ctx context.Context, tx *sql.Tx, t *Trailer) error {
 		mediaKey = t.MediaKey
 	}
 	_, err := tx.ExecContext(ctx, `INSERT INTO trailers (`+strings.Replace(trailerCols, "COALESCE(media_key, '')", "media_key", 1)+`)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(key) DO UPDATE SET origin=excluded.origin, media_key=excluded.media_key, guid=excluded.guid,
 			title=excluded.title, kind=excluded.kind, year=excluded.year, released=excluded.released,
 			genres=excluded.genres, content_rating=excluded.content_rating, summary=excluded.summary,
 			thumb=excluded.thumb, name=excluded.name, language=excluded.language, duration_ms=excluded.duration_ms,
 			parts=excluded.parts, hubs=excluded.hubs, last_seen=excluded.last_seen, art=excluded.art, runtime_min=excluded.runtime_min,
-			show_key=excluded.show_key`,
+			show_key=excluded.show_key, season=excluded.season`,
 		t.Key, t.Origin, mediaKey, t.GUID, t.Title, t.Kind, t.Year, t.Released, string(genres), t.ContentRating,
-		t.Summary, t.Thumb, t.Name, t.Language, t.DurationMs, string(parts), string(hubs), t.LastSeen, t.Art, t.RuntimeMin, t.ShowKey)
+		t.Summary, t.Thumb, t.Name, t.Language, t.DurationMs, string(parts), string(hubs), t.LastSeen, t.Art, t.RuntimeMin, t.ShowKey, t.Season)
 	return err
 }
 

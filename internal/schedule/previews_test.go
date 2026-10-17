@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/shyper/flimmerkiste/internal/ai"
+	"github.com/shyper/flimmerkiste/internal/library"
 	"github.com/shyper/flimmerkiste/internal/rules"
 	"github.com/shyper/flimmerkiste/internal/store"
 )
@@ -245,5 +246,69 @@ func TestFillGapOverrun(t *testing.T) {
 	g.overrun = 0
 	if progs := g.fillGap(from, to); len(progs) != 1 || progs[0].Kind != store.KindCard || progs[0].Stop != to.UnixMilli() {
 		t.Fatalf("without overrun the slate fills the gap, got %+v", progs)
+	}
+}
+
+// A show trailer advertises a season premiere or the first episode of the
+// show in the program, not every episode.
+func TestBindPreviewsShowTrailer(t *testing.T) {
+	ctx := context.Background()
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	s := New(st, library.New(st, nil, log), nil, time.Hour, log)
+	st.UpsertLibrary(ctx, store.Library{ID: "s", Title: "Serien", Type: "show"})
+	ep := func(key string, season, episode int) *store.Media {
+		return &store.Media{RatingKey: key, LibraryID: "s", Type: "episode", Title: key, ShowKey: "sh", ShowTitle: "Show",
+			Season: season, Episode: episode, DurationMs: 3600000}
+	}
+	st.UpsertMedia(ctx, []*store.Media{ep("e3", 1, 3), ep("e4", 1, 4), ep("s2e1", 2, 1)}, 1)
+	st.SyncShows(ctx, "s", []store.Show{{Key: "sh"}})
+	st.SetShowTrailers(ctx, "sh", []*store.Trailer{{Key: "t:x", Origin: store.OriginLibrary, ShowKey: "sh", Kind: "show",
+		Title: "Show", Language: "deu", DurationMs: 60000, Parts: []store.TrailerPart{{Height: 720, URL: "/x"}}}}, time.Now())
+
+	number := 0
+	run := func(name string, eps ...string) []store.Program {
+		t.Helper()
+		number++
+		ch := &store.Channel{Number: number, Name: name, Enabled: true, Kind: KindSmart}
+		if err := st.CreateChannel(ctx, ch); err != nil {
+			t.Fatal(err)
+		}
+		base := time.Now().Add(10 * time.Minute).Truncate(time.Minute)
+		progs := []store.Program{{ChannelID: ch.ID, Start: base.UnixMilli(), Stop: base.Add(3 * time.Minute).UnixMilli(),
+			RatingKey: store.PreviewKey, Kind: store.KindPreview}}
+		at := base.Add(-6 * time.Hour)
+		for _, e := range eps {
+			if e == "|" { // the slot
+				at = base.Add(time.Hour)
+				continue
+			}
+			progs = append(progs, store.Program{ChannelID: ch.ID, Start: at.UnixMilli(), Stop: at.Add(time.Hour).UnixMilli(), RatingKey: e})
+			at = at.Add(time.Hour)
+		}
+		if err := st.InsertPrograms(ctx, progs); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.BindPreviews(ctx, ch.ID, base.Add(time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+		out, err := st.ProgramsBetween(ctx, ch.ID, base, base.Add(3*time.Minute))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	if out := run("first", "|", "e3", "e4"); len(out) == 0 || out[0].RatingKey != "t:x" {
+		t.Errorf("first episode of the show: %+v", out)
+	}
+	if out := run("again", "e3", "|", "e4"); len(out) == 0 || out[0].RatingKey == "t:x" {
+		t.Errorf("an episode after another one got the trailer: %+v", out)
+	}
+	if out := run("premiere", "e4", "|", "s2e1"); len(out) == 0 || out[0].RatingKey != "t:x" {
+		t.Errorf("season premiere: %+v", out)
 	}
 }
