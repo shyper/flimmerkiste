@@ -30,6 +30,11 @@ const (
 	CreditsPage = 8 * time.Second
 	// CreditsFPS is the rate of the fade frames between pages.
 	CreditsFPS = 25
+	// creditsFadeOut: at their end the credits (picture, panel and sound)
+	// fade to black this long, then stay black for creditsBlack, so whatever
+	// follows does not cut into them.
+	creditsFadeOut = 1500 * time.Millisecond
+	creditsBlack   = 500 * time.Millisecond
 )
 
 // Credits that are not shrunk (not marked final, a scene follows them) get a
@@ -250,6 +255,14 @@ func (s *Streamer) clockList(ctx context.Context, start time.Time, length time.D
 	return writeConcat(s.CacheDir, entries)
 }
 
+// prefixed returns s after sep, or "" for an empty s.
+func prefixed(sep, s string) string {
+	if s == "" {
+		return ""
+	}
+	return sep + s
+}
+
 // creditsEase is the progress of the zoom at output time t (0 → 1, eased out),
 // with the credits starting at second at.
 func creditsEase(at float64) string {
@@ -259,7 +272,8 @@ func creditsEase(at float64) string {
 // buildCreditsArgs plays a title from offset with the credits starting at at
 // seconds (output time; negative when they are already running): the logo
 // fades out, then the picture shrinks onto the panel frames of list, with the
-// time of clock (a list too, "" = none) at the top right.
+// time of clock (a list too, "" = none) at the top right. At the end
+// everything fades to black (creditsFadeOut).
 func buildCreditsArgs(input string, offset, length, tsOffset, burst time.Duration, videoIdx, audioIdx int, at float64, list, clock string, opts Options) []string {
 	gpu := opts.VAAPI != ""
 	args := sourceArgs(input, offset, burst, gpu, opts)
@@ -306,6 +320,12 @@ func buildCreditsArgs(input string, offset, length, tsOffset, burst time.Duratio
 		cur = "wmd"
 	}
 	e := creditsEase(at)
+	// the fade to black at the end (shorter if tuned in just before it)
+	fadeOut := ""
+	if black := length - creditsBlack; black > 0 {
+		d := min(creditsFadeOut, black)
+		fadeOut = fmt.Sprintf("fade=t=out:st=%s:d=%s", secs(black-d), secs(d))
+	}
 	// The panel and the clock change rarely: both are combined and converted
 	// while they are still single stills, and only then repeated at the frame
 	// rate. The clock sits on the panel, so it appears as the picture shrinks,
@@ -326,8 +346,12 @@ func buildCreditsArgs(input string, offset, length, tsOffset, burst time.Duratio
 		// rounded: overlay cuts off the fraction, and the eased position only
 		// reaches its last pixel at the very end, so the picture would sit a
 		// little off and then jump into place
-		fmt.Sprintf("[panel][small]overlay=x='round(%d+(%d)*%s)':y='round(%d+(%d)*%s)':eval=frame", pic.Min.X, small.Min.X-pic.Min.X, e, pic.Min.Y, small.Min.Y-pic.Min.Y, e)+encodeTail(gpu, opts.GPUEncoder))
+		fmt.Sprintf("[panel][small]overlay=x='round(%d+(%d)*%s)':y='round(%d+(%d)*%s)':eval=frame", pic.Min.X, small.Min.X-pic.Min.X, e, pic.Min.Y, small.Min.Y-pic.Min.Y, e)+
+			prefixed(",", fadeOut)+encodeTail(gpu, opts.GPUEncoder))
 	args = append(args, "-filter_complex", strings.Join(parts, ";"), "-map", "[v]")
 	args = append(args, encodeArgs(opts, gpu, "ultrafast")...)
+	if fadeOut != "" {
+		args = append(args, "-filter:a", "a"+fadeOut) // afade, same timing
+	}
 	return append(args, outputArgs(audioIdx, tsOffset)...)
 }

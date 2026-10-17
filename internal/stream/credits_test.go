@@ -177,7 +177,9 @@ func TestCreditsArgs(t *testing.T) {
 	opts := Options{Mode: "full", NormalizeRes: 720, Watermark: &Watermark{Path: "logo.png", Position: "tr", Opacity: 70, Size: 14}}
 	args := strings.Join(buildCreditsArgs("in.mkv", 90*time.Second, 60*time.Second, time.Hour, 0, 0, 1, 2, "list.ffconcat", "", opts), " ")
 	for _, want := range []string{"-ss 90.000", "-f concat -safe 0 -i list.ffconcat", "-loop 1 -framerate 25 -t 2.500 -i logo.png",
-		"fade=t=out:st=0.000:d=2.000:alpha=1", "eval=frame", "-output_ts_offset 3600.000", "-map 0:1"} {
+		"fade=t=out:st=0.000:d=2.000:alpha=1", "eval=frame", "-output_ts_offset 3600.000", "-map 0:1",
+		// the end fades to black, picture and sound
+		"eval=frame,fade=t=out:st=58.000:d=1.500,format=yuv420p[v]", "-filter:a afade=t=out:st=58.000:d=1.500"} {
 		if !strings.Contains(args, want) {
 			t.Errorf("missing %q in %s", want, args)
 		}
@@ -204,13 +206,14 @@ func TestCreditsSegment(t *testing.T) {
 	logo := filepath.Join(dir, "logo.png")
 	ffmpeg(t, "-f", "lavfi", "-i", "color=red:s=200x100", "-frames:v", "1", logo)
 	p := &CreditsPanel{Pages: []string{page, page}, Fades: [][]string{{page}, {page}}}
-	list, err := creditsList(dir, p, 3*time.Second, 6*time.Second, nil)
+	list, err := creditsList(dir, p, 3*time.Second, 8*time.Second, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// credits from 4s, the segment from 2s: 2s full size, 1s zoom, then small
+	// credits from 4s, the segment from 2s: 2s full size, 1s zoom, then small,
+	// fading to black from 6s, black from 7.5s
 	opts := Options{Mode: "full", NormalizeRes: 720, Watermark: &Watermark{Path: logo, Position: "tr", Opacity: 100, Size: 14}}
-	args := buildCreditsArgs(movie, 2*time.Second, 6*time.Second, 0, 0, 0, 1, 2, list, "", opts)
+	args := buildCreditsArgs(movie, 2*time.Second, 8*time.Second, 0, 0, 0, 1, 2, list, "", opts)
 	out := filepath.Join(dir, "credits.ts")
 	args[len(args)-1] = out
 	ffmpeg(t, args[2:]...)
@@ -220,7 +223,7 @@ func TestCreditsSegment(t *testing.T) {
 	for _, at := range []struct {
 		frame          int
 		inside, beside bool
-	}{{20, true, true}, {100, true, false}, {140, true, false}} {
+	}{{20, true, true}, {100, true, false}, {140, true, false}, {195, false, false}} {
 		if got := brightIn(t, out, at.frame, inside); got != at.inside {
 			t.Errorf("frame %d: picture in the corner = %v, want %v", at.frame, got, at.inside)
 		}
@@ -248,12 +251,12 @@ func TestCreditsZoomSettles(t *testing.T) {
 				"-t", "5", "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", movie)
 			page := filepath.Join(dir, "page.png")
 			ffmpeg(t, "-f", "lavfi", "-i", "color=black:s=1280x720", "-frames:v", "1", page)
-			list, err := creditsList(dir, &CreditsPanel{Pages: []string{page}}, 3*time.Second, 3*time.Second, nil)
+			list, err := creditsList(dir, &CreditsPanel{Pages: []string{page}}, 3*time.Second, 5*time.Second, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
-			// credits after 1s: zoom from frame 25 to 50
-			args := buildCreditsArgs(movie, 0, 3*time.Second, 0, 0, 0, 1, 1, list, "", Options{Mode: "full", NormalizeRes: 720, Aspect: tc.aspect})
+			// credits after 1s: zoom from frame 25 to 50 (the fade to black comes after frame 70)
+			args := buildCreditsArgs(movie, 0, 5*time.Second, 0, 0, 0, 1, 1, list, "", Options{Mode: "full", NormalizeRes: 720, Aspect: tc.aspect})
 			out := filepath.Join(dir, "credits.ts")
 			args[len(args)-1] = out
 			ffmpeg(t, args[2:]...)
