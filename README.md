@@ -85,6 +85,9 @@ Details are under [Installation](#installation-docker).
 
 - **Smart channels**: filter rules with nested AND / OR / exclusion groups
   (genre, decade, actor, collection, label, rating, duration, watched …) and a live preview.
+  Actors, directors and writers come from each title's full metadata, so supporting roles and guest stars count
+  too. Episodes also match the description of their show, and the decade of an episode is every decade its show
+  ran in (as far as its episodes are in the library).
 - **Manual channels**: movies, whole shows, seasons or single episodes by drag & drop.
 - **Seasonal channels**: the programme changes with the calendar, e.g. Christmas, winter,
   Easter, spring, summer, Halloween and autumn. A template is included; periods and content are up to you.
@@ -99,6 +102,11 @@ Details are under [Installation](#installation-docker).
   Deleted titles leave the programme at once, also from manual lists, where the editor marks them.
   New matching titles join the programme from about 2 hours ahead, so what has been announced stays.
   Manually added shows and seasons get new episodes automatically. Fixed orders continue seamlessly.
+- **Full metadata**: library listings name only the first few actors of a title (Plex), so every movie, show and
+  episode is also fetched on its own and its whole answer is stored. New titles are fetched during the sync that
+  finds them, the others again about every 30 days at a random time, a few every 10 minutes, so the requests spread
+  over the day. The first sync after setup fetches everything once. The library page shows how many titles have
+  full metadata, and a full scan per library fetches them all again.
 
 ### On screen
 
@@ -120,12 +128,13 @@ Details are under [Installation](#installation-docker).
   the music plays on. Shorter slates stay as they are.
 - **Credits with an info panel**: during the credits the logo fades out and the picture shrinks to the top left
   (without black bars for 4:3 or widescreen). Next to it you see what's up next, below highlights of the other
-  channels take turns. The sound stays unchanged. If a scene follows the credits, the picture stays big and a small
+  channels take turns (movies and season premieres first). The sound stays unchanged. If a scene follows the credits, the picture stays big and a small
   card takes turns at the bottom left instead. Can be chosen globally and per channel; needs the “Fully normalize”
   mode. Where the credits are comes from Plex's credits detection (Plex Pass); Jellyfin and Emby don't report it,
   so there the small card shows over the last minute of a title.
-- **Programme preview**: at the end of longer breaks the trailer of a movie airing later on the same channel plays,
-  followed by a slate “Today at 10:00 PM”. Movies in prime time are preferred.
+- **Programme preview**: at the end of longer breaks the trailer of a movie or show airing later on the same channel
+  plays, followed by a slate “Today at 10:00 PM”. A show is announced for a season premiere or its first episode in
+  the programme, not for every episode. Titles in prime time are preferred.
 - **Forced subtitles**: subtitles for foreign-language parts (a track marked “forced”, in the language of the audio)
   are burned into the picture automatically, because Live TV apps show no subtitle tracks. Works with picture
   subtitles (PGS, VobSub) and text subtitles (SRT, ASS, also as separate files), only in “Fully normalize” mode.
@@ -139,9 +148,9 @@ Details are under [Installation](#installation-docker).
 
 - **Trailers**: only trailers in the preferred audio languages are used, optionally narrowed down by a filter
   (e.g. horror only). Sources:
-  - *Library movies*: on Plex its online trailers, available for many movies in many languages; on Jellyfin and
-    Emby the local trailers in the media folders. They are looked up during the library sync (new movies at once,
-    otherwise every 30 days).
+  - *Library movies and shows*: on Plex its online trailers, available for many titles in many languages; on
+    Jellyfin and Emby the local trailers in the media folders. They are looked up during the library sync (new
+    titles at once, otherwise every 30 days).
   - *Cinema & streaming* (Plex): titles from Plex lists such as “Upcoming blockbusters” or “Coming soon” (chosen in
     the settings), fetched every 12 hours. After the trailer a slate shows the release date. Titles that have not
     been in any list for 14 days disappear again. On Jellyfin and Emby the TMDb slates below take their place.
@@ -149,10 +158,12 @@ Details are under [Installation](#installation-docker).
   Online trailers stream on demand; only titles and links are stored. Shortly before it airs, a trailer is
   downloaded ahead and deleted after playing. The Plex lists use an interface that is not officially documented.
   If it fails, the other clips or the slate play instead.
-- **“Coming to theaters” slates (Jellyfin, Emby)**: upcoming movies from The Movie Database (TMDb), with your own
-  free API key (Settings → Trailers and previews). A slate shows the backdrop, poster, release date, genres, rating
-  and plot for 15–30 seconds and is used as a filler like a trailer. Movies already in the library or already
-  released are skipped; refreshed every 12 hours.
+- **“Coming soon” slates (Jellyfin, Emby)**: from The Movie Database (TMDb), with your own free API key
+  (Settings → Trailers and previews): movies coming to theaters, the most popular new shows starting within three
+  months (with a description in your language) and new seasons of your shows starting within three months. A slate
+  shows the backdrop, poster, release date, genres, rating and plot for 15–30 seconds and is used as a filler like a
+  trailer. Titles already in the library or already released are skipped; refreshed every 12 hours. New seasons
+  take one request per show with a TMDb id on each refresh.
 - **Weather and news slates**: on Jellyfin and Emby, so long breaks don't show the same few theater slates, weather
   and news slates join them; on every platform they are pages of long “up next” slates. The weather for one place
   (current conditions with the coming hours, and a four-day outlook) and the search for the place come from
@@ -359,7 +370,7 @@ into `internal/schedule/testdata/configs/`. Go tests and editor tests open each 
 
 Layout: `internal/mediaserver` (what Flimmerkiste needs from a media server), `internal/plex` (plex.tv sign-in,
 server API and its implementation of `mediaserver`), `internal/jellyfin` (the same for Jellyfin and Emby),
-`internal/tmdb` (upcoming movies for the slates), `internal/weather` and `internal/news` (weather and news slates),
+`internal/tmdb` (upcoming movies, new shows and seasons for the slates), `internal/weather` and `internal/news` (weather and news slates),
 `internal/library` (metadata mirror), `internal/rules`
 (filter engine), `internal/schedule` (planning, seasons, AI), `internal/stream` (ffmpeg/MPEG-TS),
 `internal/logo` (logo generator, slates), `internal/i18n` (texts and formats), `internal/server`
