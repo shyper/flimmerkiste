@@ -52,7 +52,21 @@ const (
 	cardCreditsReach = 3 * time.Minute
 	// cardFallback: without such credits the card shows over the last minute.
 	cardFallback = time.Minute
+	// cardLead: a title whose card comes later than this is played in two
+	// parts, the second one starting this long before the card (see cardSplit).
+	cardLead = 10 * time.Second
 )
+
+// cardSplit returns where a title played from offset for length is split so
+// that only its second part carries the card starting at from (false: one
+// part). Its pages held for most of a film before turning stall ffmpeg 7.
+func cardSplit(from, offset, length time.Duration) (time.Duration, bool) {
+	at := from - cardLead
+	if at-offset < cardLead || offset+length-at < 5*time.Second {
+		return 0, false
+	}
+	return at, true
+}
 
 // CardOverlay is the small card over credits: an ffconcat list of its pages
 // (transparent, with the margin of logo.CaptionPad), shown from From to To

@@ -254,7 +254,7 @@ func (s *Streamer) Serve(w http.ResponseWriter, r *http.Request, ch *store.Chann
 				wake = time.AfterFunc(max(remaining-burst-wakeLead, 0), func() { s.wake(ctx, next, log) })
 			}
 		}
-		started := time.Now()
+		started, written := time.Now(), out.n
 		label := "Slate"
 		if prog.Kind == store.KindCard {
 			s.setTitle(sess.ID, label)
@@ -296,6 +296,10 @@ func (s *Streamer) Serve(w http.ResponseWriter, r *http.Request, ch *store.Chann
 			wake.Stop()
 		}
 		if ctx.Err() != nil || errors.Is(err, errClientGone) {
+			if out.n == written && time.Since(started) > silentWait {
+				// The client gave up waiting: ffmpeg had not delivered anything.
+				log.Warn("client disconnected, the item had not sent anything yet", "title", label, "waited", time.Since(started).Round(time.Second))
+			}
 			return
 		}
 		if errors.Is(err, errNotStarted) && retries < len(retryDelays) {
@@ -523,13 +527,34 @@ func (s *Streamer) play(ctx context.Context, out *flushWriter, ch *store.Channel
 	split := credits - creditsLead
 	end := offset + length
 	if !hasCredits || end-max(split, offset) < 5*time.Second {
-		if hasCard {
-			if c := s.creditsCard(ctx, ch, prog, m, cardFrom, cardTo, offset, length, opts, log); c != nil {
-				defer os.Remove(c.List)
-				opts.CardOverlay = c
-			}
+		if !hasCard {
+			return plain(offset, length, tsOffset, burst)
 		}
-		return plain(offset, length, tsOffset, burst)
+		at, parted := cardSplit(cardFrom, offset, length)
+		if parted {
+			// The card's pages only join in a second part shortly before it:
+			// held for most of a film before turning, they stall ffmpeg 7
+			// (no output at all).
+			fadeOut := opts.LogoFadeOut
+			opts.LogoFadeOut = false
+			first := at - offset
+			if err := plain(offset, first, tsOffset, burst); err != nil {
+				return err
+			}
+			offset, length, tsOffset = at, length-first, tsOffset+first
+			burst = topUp(tsOffset)
+			// the logo simply stays where it is
+			opts.LogoFadeOut, opts.LogoFadeIn, opts.LogoFrom = fadeOut, false, *logoAt
+		}
+		if c := s.creditsCard(ctx, ch, prog, m, cardFrom, cardTo, offset, length, opts, log); c != nil {
+			defer os.Remove(c.List)
+			opts.CardOverlay = c
+		}
+		err := plain(offset, length, tsOffset, burst)
+		if parted {
+			err = mustNotRetry(err)
+		}
+		return err
 	}
 	// the credits fade the logo out themselves, not the part before them
 	opts.LogoFadeOut = false
@@ -938,6 +963,10 @@ var errNotStarted = errors.New("source failed before sending data")
 // retryDelays: waits before trying a failed source again. Together they stay
 // below DefaultBuffer; after that the slot is filled (Substitute).
 var retryDelays = []time.Duration{time.Second, 2 * time.Second, 3 * time.Second}
+
+// silentWait: an item that has sent nothing for this long when the client
+// disconnects is logged (the client gave up on it, not the viewer switching).
+const silentWait = 5 * time.Second
 
 // wakeLead: how long before an item starts its file is touched (see wake).
 const wakeLead = 45 * time.Second
@@ -1414,10 +1443,12 @@ func redact(args []string) string {
 type flushWriter struct {
 	w  io.Writer
 	rc *http.ResponseController
+	n  int64 // bytes written
 }
 
 func (f *flushWriter) Write(p []byte) (int, error) {
 	n, err := f.w.Write(p)
+	f.n += int64(n)
 	if err == nil {
 		err = f.rc.Flush()
 	}

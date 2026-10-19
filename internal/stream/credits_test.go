@@ -83,6 +83,27 @@ func TestCardCredits(t *testing.T) {
 	}
 }
 
+func TestCardSplit(t *testing.T) {
+	from := 99 * time.Minute
+	for _, c := range []struct {
+		name           string
+		offset, length time.Duration
+		at             time.Duration
+		ok             bool
+	}{
+		{"from the start", 0, 100 * time.Minute, from - cardLead, true},
+		{"tuned in mid-film", 20 * time.Minute, 80 * time.Minute, from - cardLead, true},
+		{"just before the card", from - 15*time.Second, 75 * time.Second, 0, false},
+		{"during the card", from + 10*time.Second, 50 * time.Second, 0, false},
+		{"title cut before the card", 0, from - 8*time.Second, 0, false},
+	} {
+		at, ok := cardSplit(from, c.offset, c.length)
+		if at != c.at || ok != c.ok {
+			t.Errorf("%s: got %v %v, want %v %v", c.name, at, ok, c.at, c.ok)
+		}
+	}
+}
+
 func TestCardOverlayArgs(t *testing.T) {
 	card := &CardOverlay{List: "card.ffconcat", From: 6, To: 27}
 	opts := Options{Mode: "full", NormalizeRes: 720, CardOverlay: card, Watermark: &Watermark{Path: "logo.png", Position: "tr", Opacity: 70, Size: 14}}
@@ -372,6 +393,84 @@ func TestServeCreditsCard(t *testing.T) {
 		frame int
 		shown bool
 	}{{25, true}, {75, true}, {150, false}, {200, false}} {
+		if got := brightIn(t, out, at.frame, card); got != at.shown {
+			t.Errorf("frame %d: card shown = %v, want %v", at.frame, got, at.shown)
+		}
+	}
+}
+
+// TestServeCreditsCardSplit tunes in long before the card: the title plays in
+// two parts, and only the second one carries the card's pages, which held for
+// most of a film before turning stall ffmpeg 7.
+func TestServeCreditsCardSplit(t *testing.T) {
+	if os.Getenv("FLIMMERKISTE_E2E") != "1" {
+		t.Skip("set FLIMMERKISTE_E2E=1 to run")
+	}
+	dir := t.TempDir()
+	movie := filepath.Join(dir, "movie.mkv")
+	ffmpeg(t, "-f", "lavfi", "-i", "color=black:s=640x360:r=25:d=150", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
+		"-t", "150", "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", movie)
+	var pages []string
+	for _, c := range []string{"white", "gray"} {
+		page := filepath.Join(dir, c+".png")
+		ffmpeg(t, "-f", "lavfi", "-i", "color="+c+":s=300x120", "-frames:v", "1", page)
+		pages = append(pages, page)
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/library/metadata/1", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"MediaContainer":{"Metadata":[{"ratingKey":"1","Media":[{"Part":[{"key":"/library/parts/1","Stream":[
+			{"streamType":1,"index":0,"codec":"h264"},{"streamType":2,"index":1,"codec":"aac"}]}]}],
+			"Marker":[{"type":"credits","startTimeOffset":100000,"endTimeOffset":136000}]}]}}`)
+	})
+	mux.HandleFunc("/library/parts/1", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, movie) })
+	plexSrv := httptest.NewServer(mux)
+	defer plexSrv.Close()
+
+	// tuned in 1:10 after the start: the second part begins at 1:30 (20s of
+	// output), the card slides in at 1:42 (32s)
+	start := time.Now().Add(-70 * time.Second)
+	prog := &store.Program{ChannelID: 1, Start: start.UnixMilli(), Stop: start.Add(150 * time.Second).UnixMilli(), RatingKey: "1"}
+	rec := httptest.NewRecorder()
+	sentBefore := -1
+	s := &Streamer{
+		FFmpeg: "ffmpeg",
+		Server: func(context.Context) (mediaserver.Server, error) {
+			return plex.NewBackend(&plex.Server{BaseURL: plexSrv.URL}, nil), nil
+		},
+		Program: func(context.Context, int64, time.Time) (*store.Program, error) { return prog, nil },
+		Media: func(context.Context, string) (*store.Media, error) {
+			return &store.Media{RatingKey: "1", Type: "movie", Title: "Film", DurationMs: 150000, PartKey: "/library/parts/1"}, nil
+		},
+		Credits: func(context.Context, *store.Channel, *store.Program, time.Time, image.Rectangle, image.Rectangle, int) (*CreditsPanel, error) {
+			t.Error("credits shrunk although a scene follows")
+			return nil, nil
+		},
+		CreditsCard: func(context.Context, *store.Channel, *store.Program, time.Time, int) (*CreditsPanel, error) {
+			// rendered for the second part, after the first one was sent
+			sentBefore = rec.Body.Len()
+			return &CreditsPanel{Pages: pages}, nil
+		},
+		Log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+		CacheDir: dir,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	req := httptest.NewRequest("GET", "/stream/1", nil).WithContext(ctx)
+	// a large buffer delivers the 35s needed within the test
+	s.Serve(rec, req, &store.Channel{ID: 1, Name: "Test"}, Options{Mode: "full", NormalizeRes: 720, Credits: true, Buffer: 40 * time.Second})
+
+	if sentBefore <= 0 {
+		t.Errorf("card rendered before the first part was sent (%d bytes)", sentBefore)
+	}
+	out := filepath.Join(dir, "out.ts")
+	os.WriteFile(out, rec.Body.Bytes(), 0o644)
+	card := [4]int{80, 600, 100, 50}
+	for _, at := range []struct {
+		frame int
+		shown bool
+	}{{250, false}, {600, false}, {850, true}} {
 		if got := brightIn(t, out, at.frame, card); got != at.shown {
 			t.Errorf("frame %d: card shown = %v, want %v", at.frame, got, at.shown)
 		}
