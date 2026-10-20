@@ -40,7 +40,7 @@ func TestToneMapArgs(t *testing.T) {
 	tm := toneMapFilters("smpte2084", true, false)
 	opts := Options{Mode: "full", NormalizeRes: 720, ToneMap: tm}
 	args := strings.Join(buildArgs("in.mkv", 0, time.Hour, 0, 10*time.Second, 0, 1, opts), " ")
-	if !strings.Contains(args, "setsar=1"+tm+",format=yuv420p[v]") {
+	if !strings.Contains(args, "setsar=1"+tm+videoPad+",format=yuv420p[v]") {
 		t.Errorf("film: %s", args)
 	}
 	credits := strings.Join(buildCreditsArgs("in.mkv", 0, time.Minute, 0, 10*time.Second, 0, 1, 1, "list.txt", "", opts), " ")

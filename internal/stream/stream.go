@@ -1165,6 +1165,19 @@ func encodeArgs(opts Options, gpu bool, preset string) []string {
 	return append(args, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
 }
 
+// Many files end their audio a few seconds before the picture (or the other
+// way round). Plex closes such a gap when converting the stream, which leaves
+// the next titles that far out of sync until the channel is tuned in again.
+// Wherever it is encoded anyway, the shorter one is filled up to the end of the
+// title: the audio with silence, the picture with its last frame (at most
+// padMax, in case the duration Plex gives is far off).
+const padMax = 30
+
+var (
+	audioPad = fmt.Sprintf("apad=pad_dur=%d", padMax)
+	videoPad = fmt.Sprintf(",tpad=stop_mode=clone:stop_duration=%d", padMax)
+)
+
 // outputArgs map the audio track and write MPEG-TS continuing at tsOffset.
 func outputArgs(audioIdx int, tsOffset time.Duration) []string {
 	var args []string
@@ -1225,7 +1238,7 @@ func buildArgs(input string, offset, length, tsOffset, burst time.Duration, vide
 			videoIn = "sub"
 		}
 		// HDR becomes SDR after scaling: much cheaper at the output size than at 4K
-		base := pre + scaleFilter(videoIn, w, h, "bicubic") + opts.ToneMap
+		base := pre + scaleFilter(videoIn, w, h, "bicubic") + opts.ToneMap + videoPad
 		out := encodeTail(gpu, opts.GPUEncoder)
 		graph := base + out
 		if wm || len(windows) > 0 {
@@ -1253,8 +1266,9 @@ func buildArgs(input string, offset, length, tsOffset, burst time.Duration, vide
 		}
 		args = append(args, "-filter_complex", graph, "-map", "[v]")
 		args = append(args, encodeArgs(opts, gpu, "veryfast")...)
+		args = append(args, "-filter:a", audioPad)
 	case "audio":
-		args = append(args, "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
+		args = append(args, "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000", "-filter:a", audioPad)
 	default:
 		args = append(args, "-c", "copy")
 	}

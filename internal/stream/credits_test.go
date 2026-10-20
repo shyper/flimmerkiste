@@ -200,7 +200,7 @@ func TestCreditsArgs(t *testing.T) {
 	for _, want := range []string{"-ss 90.000", "-f concat -safe 0 -i list.ffconcat", "-loop 1 -framerate 25 -t 2.500 -i logo.png",
 		"fade=t=out:st=0.000:d=2.000:alpha=1", "eval=frame", "-output_ts_offset 3600.000", "-map 0:1",
 		// the end fades to black, picture and sound
-		"eval=frame,fade=t=out:st=58.000:d=1.500,format=yuv420p[v]", "-filter:a afade=t=out:st=58.000:d=1.500"} {
+		"eval=frame,fade=t=out:st=58.000:d=1.500,format=yuv420p[v]", "-filter:a apad=pad_dur=30,afade=t=out:st=58.000:d=1.500"} {
 		if !strings.Contains(args, want) {
 			t.Errorf("missing %q in %s", want, args)
 		}

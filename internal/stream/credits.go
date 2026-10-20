@@ -364,8 +364,11 @@ func buildCreditsArgs(input string, offset, length, tsOffset, burst time.Duratio
 			prefixed(",", fadeOut)+encodeTail(gpu, opts.GPUEncoder))
 	args = append(args, "-filter_complex", strings.Join(parts, ";"), "-map", "[v]")
 	args = append(args, encodeArgs(opts, gpu, "ultrafast")...)
+	// the picture needs no padding: the panel goes on, with its last frame
+	audio := audioPad
 	if fadeOut != "" {
-		args = append(args, "-filter:a", "a"+fadeOut) // afade, same timing
+		audio += ",a" + fadeOut // afade, same timing
 	}
+	args = append(args, "-filter:a", audio)
 	return append(args, outputArgs(audioIdx, tsOffset)...)
 }
