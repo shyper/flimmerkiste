@@ -12,6 +12,7 @@ import Setup from '../pages/Setup.svelte'
 import Channels from '../pages/Channels.svelte'
 import Guide from '../pages/Guide.svelte'
 import Library from '../pages/Library.svelte'
+import History from '../pages/History.svelte'
 import Settings from '../pages/Settings.svelte'
 import NewChannel from '../pages/NewChannel.svelte'
 import ChannelEditor from '../pages/ChannelEditor.svelte'
@@ -102,6 +103,18 @@ function pages(lang) {
   it('Sender', async () => snap('channels', Channels))
   it('Programm', async () => snap('guide', Guide))
   it('Bibliothek', async () => snap('library', Library))
+  it('Verlauf', async () => {
+    const at = (h) => fixtures.now - h * 3600e3
+    mockApi({ '/api/history': [
+      { id: 3, channelId: 1, channelName: 'Komödien', start: at(1), stop: at(-0.5), ratingKey: '7', type: 'movie', title: 'Die Ärzte', year: 1999,
+        watched: true, failed: false, times: 3, previous: at(49) },
+      { id: 2, channelId: 2, channelName: 'Krimi', start: at(2), stop: at(1), ratingKey: '8', type: 'episode', title: 'Lösegeld für einen Toten',
+        showTitle: 'Columbo', season: 1, episode: 2, watched: true, failed: true, times: 1 },
+      { id: 1, channelId: 1, channelName: 'Komödien', start: at(26), stop: at(24.5), ratingKey: '9', type: 'movie', title: 'Hot Fuzz', year: 2007,
+        watched: false, failed: false, times: 1 },
+    ] })
+    await snap('history', History)
+  })
   for (const section of ['server', 'livetv', 'playback', 'presentation', 'trailers', 'hardware', 'ai', 'users', 'general']) {
     it(`Einstellungen ${section}`, async () => {
       route.path = `/settings/${section}`

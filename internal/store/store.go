@@ -187,6 +187,29 @@ var migrations = []string{
 	CREATE INDEX trailers_show ON trailers(show_key);`,
 	// Season a TMDb slate announces (0 = a new show).
 	`ALTER TABLE trailers ADD COLUMN season INTEGER NOT NULL DEFAULT 0;`,
+	// What aired: movies and episodes once their start has passed, whether
+	// anyone watched or not (see RecordHistory). Kept when a channel or title
+	// goes, so it carries their names.
+	`CREATE TABLE history (
+		id           INTEGER PRIMARY KEY,
+		channel_id   INTEGER NOT NULL,
+		channel_name TEXT NOT NULL,
+		start        INTEGER NOT NULL, -- unix milliseconds
+		stop         INTEGER NOT NULL,
+		rating_key   TEXT NOT NULL,
+		type         TEXT NOT NULL,    -- movie | episode
+		title        TEXT NOT NULL,
+		show_title   TEXT NOT NULL DEFAULT '',
+		season       INTEGER NOT NULL DEFAULT 0,
+		episode      INTEGER NOT NULL DEFAULT 0,
+		year         INTEGER NOT NULL DEFAULT 0,
+		search       TEXT NOT NULL DEFAULT '', -- title and show in lower case
+		watched      INTEGER NOT NULL DEFAULT 0, -- a stream of the channel sent it
+		failed       INTEGER NOT NULL DEFAULT 0  -- it could not be played and was replaced
+	);
+	CREATE UNIQUE INDEX history_slot ON history(channel_id, start);
+	CREATE INDEX history_start ON history(start);
+	CREATE INDEX history_title ON history(rating_key, start);`,
 }
 
 func (s *Store) migrate(ctx context.Context) error {

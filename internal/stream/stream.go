@@ -118,6 +118,9 @@ type Streamer struct {
 	// airs ("" for everything else). Files go to CacheDir and are removed after use.
 	Prefetch func(ctx context.Context, prog *store.Program) string
 	CacheDir string
+	// Aired notes for the history that a stream sends a title of the guide, or
+	// that it could not be played and its slot was filled with something else.
+	Aired func(ctx context.Context, ch *store.Channel, prog *store.Program, failed bool)
 	// Substitute returns what fills [from, to) when a title cannot be played
 	// (clips, trailers, slate), so the following titles stay on time.
 	Substitute func(ctx context.Context, ch *store.Channel, failed string, from, to time.Time) []store.Program
@@ -270,6 +273,9 @@ func (s *Streamer) Serve(w http.ResponseWriter, r *http.Request, ch *store.Chann
 			} else {
 				label = titleOf(m)
 				s.setTitle(sess.ID, label)
+				if s.Aired != nil && !isSubst && prog.Kind == "" {
+					s.Aired(ctx, ch, prog, false)
+				}
 				local := pf.take(prog.RatingKey)
 				o := opts
 				o.Caption = s.caption(ctx, ch, prog, opts, log)
@@ -328,6 +334,9 @@ func (s *Streamer) Serve(w http.ResponseWriter, r *http.Request, ch *store.Chann
 				part := min(remaining, time.Since(started)+burst+time.Second)
 				sent += part
 				cursor = cursor.Add(part)
+			}
+			if s.Aired != nil && !isSubst && prog.Kind == "" {
+				s.Aired(ctx, ch, prog, true)
 			}
 			switch {
 			case !isSubst && prog.Kind != store.KindCard && s.Substitute != nil:

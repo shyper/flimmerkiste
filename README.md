@@ -182,6 +182,9 @@ Details are under [Installation](#installation-docker).
   it. Emby needs Emby Premiere for Live TV. With Plex you add the tuner once by hand (see below).
 - **Guide always current**: when the programme changes, Flimmerkiste asks the media server to reload the guide –
   but not while someone is watching, because a reload ends running Live TV streams.
+- **History**: every movie and episode that aired, with channel and start, also when nobody watched; a title is
+  noted once it has started, never ahead. It shows how often each title aired and how long before the last time,
+  to check the shuffle, marks what someone tuned in to and what could not be played, and can be searched.
 - **Export & import**: channels and their settings go into a JSON file (all or single channels) and into another
   installation, also from Plex to Jellyfin: titles are found again by their TMDb/IMDb/TVDB ids or by title and year.
   Conflicts with existing channel numbers can be skipped, replaced or added as new channels.

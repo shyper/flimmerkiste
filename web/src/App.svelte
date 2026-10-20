@@ -13,6 +13,7 @@
   import ChannelEditor from './pages/ChannelEditor.svelte'
   import Guide from './pages/Guide.svelte'
   import Library from './pages/Library.svelte'
+  import History from './pages/History.svelte'
   import Settings from './pages/Settings.svelte'
 
   let menuOpen = $state(false)
@@ -41,6 +42,7 @@
     { href: '/', get label() { return t('app.nav.channels') }, icon: 'tv' },
     { href: '/guide', get label() { return t('app.nav.guide') }, icon: 'guide' },
     { href: '/library', get label() { return t('app.nav.library') }, icon: 'library', admin: true },
+    { href: '/history', get label() { return t('app.nav.history') }, icon: 'clock', admin: true },
     { href: '/settings', get label() { return t('app.nav.settings') }, icon: 'settings', admin: true },
   ]
   const activeNav = (href) => (href === '/' ? route.path === '/' || route.path.startsWith('/channels') : route.path.startsWith(href))
@@ -106,6 +108,8 @@
         <Guide />
       {:else if route.path === '/library' && isAdmin()}
         <Library />
+      {:else if route.path === '/history' && isAdmin()}
+        <History />
       {:else if route.path.startsWith('/settings') && isAdmin()}
         <Settings onchange={refresh} />
       {:else}

@@ -136,6 +136,11 @@ func New(cfg config.Config, st *store.Store, log *slog.Logger, web fs.FS) (*Serv
 	s.streamer.Clock = s.renderClock
 	s.streamer.ClockText = func(t time.Time) string { return i18n.Clock(s.lang(context.Background()), t) }
 	s.streamer.LocalFile = s.localFile
+	s.streamer.Aired = func(ctx context.Context, ch *store.Channel, prog *store.Program, failed bool) {
+		if err := s.store.MarkHistory(ctx, ch.ID, prog.Start, failed); err != nil && ctx.Err() == nil {
+			s.log.Warn("history", "channel", ch.Name, "err", err)
+		}
+	}
 	s.streamer.Prefetch = s.prefetchURL
 	s.streamer.Substitute = s.sched.Substitute
 	return s, nil
@@ -196,6 +201,9 @@ func (s *Server) Background(ctx context.Context) {
 			s.maybeDiscover(ctx)
 			s.maybeSlates(ctx)
 			s.syncFolder(ctx)
+			if _, err := s.store.RecordHistory(ctx, time.Now()); err != nil {
+				s.log.Warn("history", "err", err)
+			}
 			s.maybeInfo(ctx)
 			_ = s.store.PurgeSessions(ctx)
 			s.purgeCache()
@@ -333,6 +341,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/channels/{id}", s.auth(s.handleGetChannel, false))
 	mux.Handle("GET /api/guide", s.auth(s.handleGuide, false))
 	mux.Handle("GET /api/sessions", s.auth(s.handleSessions, false))
+	mux.Handle("GET /api/history", s.auth(s.handleHistory, true))
 
 	// --- API (admin) ---
 	mux.Handle("GET /api/setup/servers", s.auth(s.handleSetupServers, true))
