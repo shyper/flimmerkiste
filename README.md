@@ -292,7 +292,8 @@ none for tracks inside a video, and Jellyfin and Emby extract them by reading th
 long when a channel is tuned in. The
 scripts copy those tracks out once (ffmpeg reads each file completely, with low priority) and name them the way all
 three servers read them. By default only forced tracks are saved, `--all` saves every text track. In ordinary apps
-the track then shows twice, embedded and as a file.
+the track then shows twice, embedded and as a file. Flimmerkiste always uses the file. If the media folders are
+mounted (Library page), it also finds the file next to the video before the server has picked it up.
 
 The themes scripts need yt-dlp (current version), ffmpeg and deno or node; the subtitle scripts ffmpeg and ffprobe.
 Except for `plex_themes.py`, they write into the media folders: run them where the files are writable, and if the

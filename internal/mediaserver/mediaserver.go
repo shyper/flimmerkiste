@@ -160,7 +160,7 @@ type Server interface {
 	Theme(ctx context.Context, id string) ([]byte, error)
 	// StreamURL is the URL ffmpeg reads a part from (with range requests).
 	StreamURL(partKey string) string
-	// SubtitleURL is the URL of an external or extracted subtitle track ("" = none).
+	// SubtitleURL is the URL of an external subtitle track ("" = none).
 	SubtitleURL(s Stream) string
 	// ImageURL returns artwork scaled to fit width × height.
 	ImageURL(path string, width, height int) string

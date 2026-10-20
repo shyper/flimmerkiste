@@ -137,17 +137,13 @@ func (b *Backend) Extras(ctx context.Context, id string) ([]mediaserver.Item, er
 
 func (b *Backend) StreamURL(partKey string) string { return b.PartURL(partKey) }
 
-// SubtitleURL returns the file of an external subtitle track, or the track
-// extracted by Plex.
+// SubtitleURL returns the file of an external subtitle track. Plex answers
+// tracks inside the video ("/library/streams/<id>" without a key) with 501.
 func (b *Backend) SubtitleURL(s mediaserver.Stream) string {
-	key := s.Key
-	if key == "" {
-		if s.ID == "" {
-			return ""
-		}
-		key = "/library/streams/" + s.ID
+	if s.Key == "" {
+		return ""
 	}
-	return b.PartURL(key)
+	return b.PartURL(s.Key)
 }
 
 // ReloadGuide reloads the guide of every DVR that uses our tuner.

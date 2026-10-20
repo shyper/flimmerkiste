@@ -19,26 +19,38 @@ func TestForcedSubtitle(t *testing.T) {
 	full := mediaserver.Stream{StreamType: 3, Index: 2, Codec: "pgs", LanguageCode: "deu"}
 	forcedEng := mediaserver.Stream{StreamType: 3, Index: 3, Codec: "pgs", LanguageCode: "eng", Forced: true}
 	forcedDeu := mediaserver.Stream{StreamType: 3, Index: 4, Codec: "pgs", LanguageCode: "deu", Forced: true}
-	byTitle := mediaserver.Stream{StreamType: 3, Index: 5, Codec: "subrip", LanguageCode: "deu", TrackTitle: "Deutsch (Erzwungen)"}
+	byTitle := mediaserver.Stream{StreamType: 3, Index: 5, Codec: "pgs", LanguageCode: "deu", TrackTitle: "Deutsch (Erzwungen)"}
 	external := mediaserver.Stream{StreamType: 3, Codec: "srt", LanguageCode: "deu", Forced: true, Key: "/library/streams/77"}
+	externalByTitle := mediaserver.Stream{StreamType: 3, Codec: "srt", LanguageCode: "deu", TrackTitle: "Forced", Key: "/library/streams/79"}
 	externalImage := mediaserver.Stream{StreamType: 3, Codec: "pgs", LanguageCode: "deu", Forced: true, Key: "/library/streams/78"}
+	// a text track inside the video: the servers do not hand it out, the subtitle scripts save it as a file
+	embeddedText := mediaserver.Stream{StreamType: 3, Index: 6, Codec: "srt", LanguageCode: "deu", Forced: true, TrackTitle: "Forced Subs"}
+	embeddedTextEng := mediaserver.Stream{StreamType: 3, Index: 7, Codec: "subrip", LanguageCode: "eng", Forced: true}
 	cases := []struct {
-		name    string
-		streams []mediaserver.Stream
-		audio   int
-		want    int // index, -1 = none, -2 = the external track
+		name     string
+		streams  []mediaserver.Stream
+		audio    int
+		want     int  // index, -1 = none, -2 = the external track
+		embedded bool // an embedded text track without a file is reported
 	}{
-		{"forced in audio language", []mediaserver.Stream{audio, full, forcedEng, forcedDeu}, 1, 4},
-		{"only full subtitles", []mediaserver.Stream{audio, full}, 1, -1},
-		{"forced in another language", []mediaserver.Stream{audio, forcedEng}, 1, -1},
-		{"recognised by track title", []mediaserver.Stream{audio, byTitle}, 1, 5},
-		{"external text file", []mediaserver.Stream{audio, external}, 1, -2},
-		{"external picture file is not supported", []mediaserver.Stream{audio, externalImage}, 1, -1},
-		{"unknown audio language, one forced track", []mediaserver.Stream{forcedEng}, -1, 3},
-		{"unknown audio language, several forced tracks", []mediaserver.Stream{forcedEng, forcedDeu}, -1, -1},
+		{"forced in audio language", []mediaserver.Stream{audio, full, forcedEng, forcedDeu}, 1, 4, false},
+		{"only full subtitles", []mediaserver.Stream{audio, full}, 1, -1, false},
+		{"forced in another language", []mediaserver.Stream{audio, forcedEng}, 1, -1, false},
+		{"recognised by track title", []mediaserver.Stream{audio, byTitle}, 1, 5, false},
+		{"external text file", []mediaserver.Stream{audio, external}, 1, -2, false},
+		{"external text file recognised by track title", []mediaserver.Stream{audio, externalByTitle}, 1, -2, false},
+		{"external picture file is not supported", []mediaserver.Stream{audio, externalImage}, 1, -1, false},
+		{"embedded text track without a file", []mediaserver.Stream{audio, embeddedText}, 1, -1, true},
+		{"embedded text track in another language", []mediaserver.Stream{audio, embeddedTextEng}, 1, -1, false},
+		{"embedded text track and its file (Plex, Emby order)", []mediaserver.Stream{audio, embeddedText, external}, 1, -2, false},
+		{"file and embedded text track (Jellyfin order)", []mediaserver.Stream{audio, external, embeddedText}, 1, -2, false},
+		{"unknown audio language, one forced track", []mediaserver.Stream{forcedEng}, -1, 3, false},
+		{"unknown audio language, several forced tracks", []mediaserver.Stream{forcedEng, forcedDeu}, -1, -1, false},
+		{"unknown audio language, embedded text track and its file", []mediaserver.Stream{embeddedText, external}, -1, -2, false},
+		{"unknown audio language, only an embedded text track", []mediaserver.Stream{embeddedText}, -1, -1, true},
 	}
 	for _, c := range cases {
-		got := forcedSubtitle(c.streams, c.audio)
+		got, embedded := forcedSubtitle(c.streams, c.audio)
 		switch {
 		case c.want == -1 && got != nil:
 			t.Errorf("%s: got %+v, want none", c.name, got)
@@ -47,6 +59,44 @@ func TestForcedSubtitle(t *testing.T) {
 		case c.want >= 0 && (got == nil || got.Index != c.want || got.Key != ""):
 			t.Errorf("%s: got %+v, want index %d", c.name, got, c.want)
 		}
+		if embedded != c.embedded {
+			t.Errorf("%s: embedded = %v, want %v", c.name, embedded, c.embedded)
+		}
+	}
+}
+
+func TestLocalForcedSubtitle(t *testing.T) {
+	dir := t.TempDir()
+	video := filepath.Join(dir, "Around the World in 80 Days (2004) Bluray-720p.mkv")
+	for _, name := range []string{
+		"Around the World in 80 Days (2004) Bluray-720p.mkv",
+		"Around the World in 80 Days (2004) Bluray-720p.de.srt",        // full subtitles
+		"Around the World in 80 Days (2004) Bluray-720p.en.forced.srt", // another language
+		"Around the World in 80 Days (2004) Bluray-720p.de.forced.srt",
+		"Around the World in 80 Days (2004).de.forced.srt", // another video
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := filepath.Join(dir, "Around the World in 80 Days (2004) Bluray-720p.de.forced.srt")
+	for _, lang := range []string{"deu", "ger", "de"} {
+		if got := localForcedSubtitle(video, lang); got != want {
+			t.Errorf("%s: got %q, want %q", lang, got, want)
+		}
+	}
+	if got := localForcedSubtitle(video, "fra"); got != "" {
+		t.Errorf("fra: got %q, want none", got)
+	}
+	if got := localForcedSubtitle(video, ""); got != "" {
+		t.Errorf("unknown language: got %q, want none", got)
+	}
+	ass := filepath.Join(dir, "Other.mkv")
+	if err := os.WriteFile(filepath.Join(dir, "Other.DE.Forced.ASS"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := localForcedSubtitle(ass, "deu"); got != filepath.Join(dir, "Other.DE.Forced.ASS") {
+		t.Errorf("ass: got %q", got)
 	}
 }
 

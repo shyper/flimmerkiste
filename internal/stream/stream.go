@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -457,14 +458,25 @@ func (s *Streamer) play(ctx context.Context, out *flushWriter, ch *store.Channel
 						opts.ToneMap = s.toneMap(ctx, st.ColorTransfer)
 						log.Debug("HDR to SDR", "title", titleOf(m), "transfer", st.ColorTransfer, "filter", opts.ToneMap != "")
 					}
-					if st := forcedSubtitle(streams, audioIdx); st != nil {
-						opts.Subtitles = s.prepareSubtitles(ctx, srv, st, log)
+					st, embedded := forcedSubtitle(streams, audioIdx)
+					if st != nil {
+						opts.Subtitles = s.prepareSubtitles(ctx, srv, st, log.With("title", titleOf(m)))
 						if opts.Subtitles != nil {
 							log.Debug("burning in forced subtitles", "title", titleOf(m), "codec", st.Codec, "language", st.LanguageCode)
-							if f := opts.Subtitles.File; f != "" {
-								defer os.Remove(f)
+							if opts.Subtitles.Temp {
+								defer os.Remove(opts.Subtitles.File)
 							}
 						}
+					}
+					// the server does not know the subtitle file yet or did not hand it out
+					if opts.Subtitles == nil && direct != "" && (st != nil || embedded) {
+						if f := localForcedSubtitle(direct, audioLanguage(streams, audioIdx)); f != "" {
+							opts.Subtitles = &Subtitles{Index: -1, File: f}
+							log.Debug("burning in forced subtitles from the media folder", "title", titleOf(m), "file", filepath.Base(f))
+						}
+					}
+					if opts.Subtitles == nil && embedded {
+						log.Debug("forced subtitles only inside the video, the subtitle script saves them as a file", "title", titleOf(m))
 					}
 					if opts.Credits && s.Credits != nil {
 						credits, hasCredits = creditsStart(md.Markers, time.Duration(m.DurationMs)*time.Millisecond)
