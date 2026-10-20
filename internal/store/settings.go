@@ -24,7 +24,8 @@ const (
 	SetAIProvider      = "ai_provider" // "", "anthropic", "openai"
 	SetAIKey           = "ai_api_key"
 	SetAIModel         = "ai_model"
-	SetAIBaseURL       = "ai_base_url" // OpenAI-compatible endpoint (Ollama, OpenRouter, ...)
+	SetAIBaseURL       = "ai_base_url"   // OpenAI-compatible endpoint (Ollama, OpenRouter, ...)
+	SetAICandidates    = "ai_candidates" // titles offered to the model per request (prompt size, answer time)
 	SetFriendlyName    = "friendly_name"
 	SetAllowSharedUser = "allow_shared_users" // "1": users with access to the server may log in as viewers
 	SetEPGPrefix       = "epg_prefix"         // optional prefix for XMLTV channel ids, avoids clashes between EPG sources

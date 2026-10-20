@@ -382,6 +382,8 @@
   "seasonEditor.ueberschneiden_sich_zeitraeume_gewinnt_d": "If periods overlap, the season further up wins. That way “Halloween” can lie within “Autumn”, for example.",
   "seasonEditor.von": "From",
   "seasonEditor.vorschau": "Preview",
+  "settings.ai.candidates": "Titles per request",
+  "settings.ai.candidatesHint": "The most titles the AI gets to choose from, those matching the theme first. Each costs about 75 tokens (800 ≈ 60,000). Fewer answers faster, more finds better matches in large libraries.",
   "settings.ai.endpoint": "API endpoint",
   "settings.ai.endpointHint": "Also local models through Ollama (http://localhost:11434/v1) or LM Studio.",
   "settings.ai.intro": "For AI channels and AI-driven seasons. Only titles, years, genres and short descriptions are sent – no files and no credentials.",

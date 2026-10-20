@@ -50,6 +50,11 @@
       <input id="model" class="input" bind:value={s.aiModel} placeholder={s.aiProvider === 'anthropic' ? s.aiDefaultModel : t('settings.ai.modelName')} />
       <span class="hint">{modelHint}</span>
     </div>
+    <div class="field">
+      <label class="label" for="cands">{t('settings.ai.candidates')}</label>
+      <input id="cands" class="input num" type="number" min="50" max="5000" step="50" bind:value={s.aiCandidates} />
+      <span class="hint">{t('settings.ai.candidatesHint')}</span>
+    </div>
     <div class="row">
       <button class="btn" onclick={test} disabled={testing}>
         {#if testing}<span class="spinner"></span>{:else}<Icon name="wand" size={16} />{/if} {t('settings.ai.test')}

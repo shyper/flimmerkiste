@@ -1751,6 +1751,7 @@
   "/api/sessions": [],
   "/api/settings": {
    "aiBaseUrl": "",
+   "aiCandidates": 800,
    "aiDefaultModel": "claude-opus-5-5",
    "aiKey": "",
    "aiModel": "",

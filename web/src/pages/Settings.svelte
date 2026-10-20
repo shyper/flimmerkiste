@@ -28,7 +28,7 @@
   // What the server stores; anything else in the answer is information.
   const editable = ['language', 'friendlyName', 'epgPrefix', 'tunerCount', 'normalizeRes', 'audioLanguages', 'syncInterval',
     'streamBuffer', 'hwAccel', 'hwDecode', 'defaultTranscode', 'trailerHubs', 'trailerCaption', 'cardMusic', 'credits',
-    'allowSharedUsers', 'aiProvider', 'aiModel', 'aiBaseUrl', 'aiKey', 'serverUrl']
+    'allowSharedUsers', 'aiProvider', 'aiModel', 'aiBaseUrl', 'aiCandidates', 'aiKey', 'serverUrl']
   const pick = (v) => JSON.stringify(editable.map((k) => v?.[k]))
 
   let s = $state(null)

@@ -197,7 +197,7 @@ func TestAICandidatesPreferTheme(t *testing.T) {
 	s := &Scheduler{ai: func(context.Context) (ai.Provider, error) { return fake, nil },
 		log: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	var catalog []*store.Media
-	for i := 0; i < maxAICandidates+400; i++ {
+	for i := 0; i < DefaultAICandidates+400; i++ {
 		catalog = append(catalog, &store.Media{RatingKey: fmt.Sprint(i), Type: "movie", Title: fmt.Sprintf("Film %d", i), Summary: "Irgendein Film."})
 	}
 	// Relevant through the collection or late in the summary (not in the excerpt sent to the model).
@@ -216,12 +216,53 @@ func TestAICandidatesPreferTheme(t *testing.T) {
 		for _, c := range fake.cands {
 			got[c.ID] = true
 		}
-		if len(fake.cands) != maxAICandidates || !got["5"] || !got["700"] || !got["1100"] {
+		if len(fake.cands) != DefaultAICandidates || !got["5"] || !got["700"] || !got["1100"] {
 			t.Fatalf("seed %d: relevant titles missing among %d candidates", seed, len(fake.cands))
 		}
 	}
 	if w := themeWords("Edgar-Wallace-Krimis der 60er, bitte mit Spannung"); strings.Join(w, ",") != "edgar,wallace,krimis,60er,spannung" {
 		t.Fatalf("theme words: %v", w)
+	}
+}
+
+// The number of candidates per request comes from the settings, within bounds.
+func TestAICandidatesSetting(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	ctx := context.Background()
+	fake := &candidateAI{}
+	s := &Scheduler{store: st, ai: func(context.Context) (ai.Provider, error) { return fake, nil },
+		log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	var catalog []*store.Media
+	for i := 0; i < 300; i++ {
+		catalog = append(catalog, &store.Media{RatingKey: fmt.Sprint(i), Type: "movie", Title: fmt.Sprintf("Film %d", i)})
+	}
+	src := &Source{Type: "ai", AI: &AIConfig{Theme: "Krimis", BatchSize: 3, EpisodesPerShow: 1}}
+	for _, c := range []struct {
+		setting string
+		want    int
+	}{{"", 300}, {"120", 120}, {"10", MinAICandidates}, {"999999", 300}} {
+		if err := st.SetSetting(ctx, store.SetAICandidates, c.setting); err != nil {
+			t.Fatal(err)
+		}
+		g := &generator{s: s, ctx: ctx, ch: &store.Channel{Name: "KI"}, cfg: &Config{}, catalog: catalog,
+			rng: rand.New(rand.NewSource(1)), resolved: map[string][]*store.Media{}, lastAired: map[string]time.Time{}}
+		g.index()
+		if err := g.refillAI(&SourceState{ShowCursor: map[string]string{}}, src.AI, catalog, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+		if len(fake.cands) != c.want {
+			t.Errorf("setting %q: %d candidates, want %d", c.setting, len(fake.cands), c.want)
+		}
+	}
+	if err := st.SetSetting(ctx, store.SetAICandidates, "999999"); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.aiCandidates(ctx); got != MaxAICandidates {
+		t.Errorf("upper bound: %d, want %d", got, MaxAICandidates)
 	}
 }
 

@@ -855,6 +855,7 @@ func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 		"aiProvider":       s.store.Setting(ctx, store.SetAIProvider, ""),
 		"aiModel":          s.store.Setting(ctx, store.SetAIModel, ""),
 		"aiBaseUrl":        s.store.Setting(ctx, store.SetAIBaseURL, ""),
+		"aiCandidates":     s.store.SettingInt(ctx, store.SetAICandidates, schedule.DefaultAICandidates),
 		"aiKey":            key,
 		"tmdbKey":          masked(s.store.Setting(ctx, store.SetTMDbKey, "")),
 		"tmdbRegion":       s.store.Setting(ctx, store.SetTMDbRegion, ""),
@@ -891,6 +892,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		AIProvider       *string         `json:"aiProvider"`
 		AIModel          *string         `json:"aiModel"`
 		AIBaseURL        *string         `json:"aiBaseUrl"`
+		AICandidates     *int            `json:"aiCandidates"`
 		AIKey            *string         `json:"aiKey"`
 		TMDbKey          *string         `json:"tmdbKey"`
 		TMDbRegion       *string         `json:"tmdbRegion"`
@@ -999,6 +1001,9 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if in.AIBaseURL != nil {
 		v[store.SetAIBaseURL] = strings.TrimSpace(*in.AIBaseURL)
+	}
+	if in.AICandidates != nil {
+		v[store.SetAICandidates] = strconv.Itoa(min(max(*in.AICandidates, schedule.MinAICandidates), schedule.MaxAICandidates))
 	}
 	tmdbChanged := false
 	if in.TMDbKey != nil && *in.TMDbKey != maskedKey {

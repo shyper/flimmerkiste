@@ -88,6 +88,14 @@ func (s *Scheduler) lang(ctx context.Context) i18n.Lang {
 	return i18n.EN
 }
 
+// aiCandidates is how many titles one AI request offers at most.
+func (s *Scheduler) aiCandidates(ctx context.Context) int {
+	if s.store == nil {
+		return DefaultAICandidates
+	}
+	return min(max(s.store.SettingInt(ctx, store.SetAICandidates, DefaultAICandidates), MinAICandidates), MaxAICandidates)
+}
+
 // LastError returns the last generation problem of a channel (nil if fine).
 func (s *Scheduler) LastError(id int64) error {
 	s.mu.Lock()
@@ -1058,7 +1066,15 @@ func filter(items []*store.Media, keep func(*store.Media) bool) []*store.Media {
 
 // ---- AI curated sources ----
 
-const maxAICandidates = 800
+// DefaultAICandidates is how many titles one AI request offers at most when
+// the setting is not set: about 60,000 tokens.
+const DefaultAICandidates = 800
+
+// MinAICandidates and MaxAICandidates bound the setting.
+const (
+	MinAICandidates = 50
+	MaxAICandidates = 5000
+)
 
 func (g *generator) pickAI(id string, ss *SourceState, src *Source, t time.Time) (*store.Media, string, error) {
 	cfg := src.AI
@@ -1158,12 +1174,12 @@ func (g *generator) refillAI(ss *SourceState, cfg *AIConfig, pool []*store.Media
 	if len(cands) == 0 {
 		return ErrNoContent
 	}
-	if len(cands) > maxAICandidates {
+	if limit := g.s.aiCandidates(g.ctx); len(cands) > limit {
 		// Too many for one request: titles mentioning words of the theme first
 		// (a random sample could miss a niche theme entirely), the rest at random.
 		g.rng.Shuffle(len(cands), func(i, j int) { cands[i], cands[j] = cands[j], cands[i] })
 		sort.SliceStable(cands, func(i, j int) bool { return score[cands[i].ID] > score[cands[j].ID] })
-		cands = cands[:maxAICandidates]
+		cands = cands[:limit]
 	}
 
 	var recent []string
@@ -1187,12 +1203,15 @@ func (g *generator) refillAI(ss *SourceState, cfg *AIConfig, pool []*store.Media
 	if lang == i18n.DE {
 		date = t.Local().Format("Monday, 2. January 2006, 15:04 Uhr")
 	}
+	started := time.Now()
 	picks, err := provider.Pick(ctx, ai.Request{
 		Theme: cfg.Theme, Count: batch, Candidates: cands, Recent: recent, Date: date, Lang: lang,
 	})
 	if err != nil {
 		return err
 	}
+	g.s.log.Debug("ai selection", "channel", g.ch.Name, "candidates", len(cands), "picks", len(picks),
+		"took", time.Since(started).Round(100*time.Millisecond))
 	for _, p := range picks {
 		if strings.HasPrefix(p.ID, "show:") {
 			show := strings.TrimPrefix(p.ID, "show:")

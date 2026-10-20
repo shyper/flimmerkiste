@@ -370,6 +370,8 @@
   "seasonEditor.ueberschneiden_sich_zeitraeume_gewinnt_d": "Überschneiden sich Zeiträume, gewinnt die weiter oben stehende Saison. So kann z. B. „Halloween“ innerhalb von „Herbst“ liegen.",
   "seasonEditor.von": "Von",
   "seasonEditor.vorschau": "Vorschau",
+  "settings.ai.candidates": "Titel pro Anfrage",
+  "settings.ai.candidatesHint": "So viele Titel bekommt die KI höchstens zur Auswahl, passende zum Thema zuerst. Jeder kostet etwa 75 Tokens (800 ≈ 60.000). Weniger antwortet schneller, mehr findet in großen Mediatheken eher Passendes.",
   "settings.ai.endpoint": "API-Endpunkt",
   "settings.ai.endpointHint": "Auch lokale Modelle über Ollama (http://localhost:11434/v1) oder LM Studio.",
   "settings.ai.intro": "Für KI-Sender und KI-gesteuerte Saisons. Übertragen werden nur Titel, Jahr, Genres und Kurzbeschreibungen – keine Dateien und keine Zugangsdaten.",
