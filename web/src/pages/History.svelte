@@ -1,5 +1,5 @@
 <script>
-  import { t } from '../lib/i18n.svelte.js'
+  import { t, locale } from '../lib/i18n.svelte.js'
   import { onMount } from 'svelte'
   import Icon from '../components/Icon.svelte'
   import { get } from '../lib/api.js'
@@ -87,7 +87,7 @@
 
   {#if entries}
     {#each days as d (d.key)}
-      <h3 class="day-head">{fmtDay(d.start)} <span class="muted">{new Date(d.start).toLocaleDateString()}</span></h3>
+      <h3 class="day-head">{fmtDay(d.start)} <span class="muted">{new Date(d.start).toLocaleDateString(locale())}</span></h3>
       <div class="list card">
         {#each d.items as e (e.id)}
           <div class="row">
