@@ -112,7 +112,6 @@
 </script>
 
 <div class="stack">
-  <p class="small muted">{t('settings.trailers.intro')}</p>
   {#if trailers}
     <div class="tstats">
       <div><b>{counts.library.titles}</b><span>{t('settings.trailers.libraryCount')}</span></div>

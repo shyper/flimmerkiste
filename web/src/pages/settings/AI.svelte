@@ -27,7 +27,6 @@
 </script>
 
 <div class="stack">
-  <p class="small muted">{t('settings.ai.intro')}</p>
   <Segmented bind:value={s.aiProvider} options={[
     { value: '', label: t('settings.off') },
     { value: 'anthropic', label: 'Claude (Anthropic)' },
