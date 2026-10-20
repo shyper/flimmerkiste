@@ -98,7 +98,7 @@
 
   // Trailer counts per origin in the preferred languages (slates have no language).
   const counts = $derived.by(() => {
-    const out = { library: { titles: 0, count: 0 }, discover: { titles: 0, count: 0 }, tmdb: { titles: 0, count: 0 } }
+    const out = { library: { titles: 0, count: 0 }, discover: { titles: 0, count: 0 }, tmdb: { titles: 0, count: 0 }, folder: { titles: 0, count: 0 } }
     const langs = new Set(trailers?.languages || [])
     const alias = { deu: ['de', 'ger'], ger: ['de', 'deu'], eng: ['en'], fra: ['fr', 'fre'] }
     const wanted = (l) => !langs.size || langs.has(l) || [...langs].some((p) => alias[p]?.includes(l))
@@ -118,8 +118,13 @@
       <div><b>{counts.library.titles}</b><span>{t('settings.trailers.libraryCount')}</span></div>
       {#if plex}<div><b>{counts.discover.titles}</b><span>{t('settings.trailers.discoverCount')}</span></div>
       {:else}<div><b>{counts.tmdb.titles}</b><span>{t('settings.trailers.slatesCount')}</span></div>{/if}
+      {#if trailers.folder}<div><b>{counts.folder.titles}</b><span>{t('settings.trailers.folderCount')}</span></div>{/if}
     </div>
     {#if trailers.library}<div class="tiny muted">{trailers.library}</div>{/if}
+    {#if trailers.folder}
+      <div class="tiny muted">{t('settings.trailers.folderStatus', [trailers.folder.dir])}{#if trailers.folder.last} · {t('settings.trailers.last', [fmtAgo(trailers.folder.last)])}{/if}</div>
+      {#if trailers.folder.error}<div class="alert error small">{trailers.folder.error}</div>{/if}
+    {/if}
   {/if}
   {#if plex}
   <div class="field">
@@ -237,7 +242,7 @@
 </div>
 
 <style>
-  .tstats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; max-width: 520px; }
+  .tstats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem; max-width: 780px; }
   .tstats div { display: flex; flex-direction: column; padding: 0.6rem 0.75rem; background: var(--bg-2); border-radius: var(--radius-sm); }
   .tstats b { font-size: 1.3rem; }
   .tstats span { font-size: 0.78rem; color: var(--muted); }

@@ -523,7 +523,8 @@ func (g *generator) fillGap(from, to time.Time) []store.Program {
 const promoLen = 6 * time.Second
 
 // fillerPrograms schedules a filler clip at t. Trailers of upcoming Discover
-// titles get a short slate with their release date, if it fits before limit.
+// and trailer folder titles get a short slate with their release date, if it
+// fits before limit.
 func fillerPrograms(f *store.Media, t, limit time.Time) []store.Program {
 	stop := t.Add(time.Duration(f.DurationMs) * time.Millisecond)
 	if f.Type == store.TypeTrailer && (f.LibraryID == store.OriginTMDb || f.LibraryID == store.OriginInfo) {
@@ -531,7 +532,7 @@ func fillerPrograms(f *store.Media, t, limit time.Time) []store.Program {
 		return []store.Program{{Start: t.UnixMilli(), Stop: stop.UnixMilli(), RatingKey: store.PromoKey, Note: f.RatingKey, Kind: store.KindCard, SourceID: "filler"}}
 	}
 	out := []store.Program{{Start: t.UnixMilli(), Stop: stop.UnixMilli(), RatingKey: f.RatingKey, Kind: store.KindFiller, SourceID: "filler"}}
-	if f.Type == store.TypeTrailer && f.LibraryID == store.OriginDiscover && !stop.Add(promoLen).After(limit) {
+	if f.Type == store.TypeTrailer && (f.LibraryID == store.OriginDiscover || f.LibraryID == store.OriginFolder) && !stop.Add(promoLen).After(limit) {
 		out = append(out, store.Program{Start: stop.UnixMilli(), Stop: stop.Add(promoLen).UnixMilli(),
 			RatingKey: store.PromoKey, Note: f.RatingKey, Kind: store.KindCard})
 	}
@@ -847,16 +848,19 @@ func (g *generator) trailerItems(src *Source, extra *rules.Group) []*store.Media
 	rank := map[string]int{}
 	var order []string
 	for _, t := range g.trailers {
-		// TMDb slates stand for "cinema & streaming" where Plex Discover is missing
+		// TMDb slates and the trailer folder stand for "cinema & streaming"
+		// (where Plex Discover is missing, or besides it)
 		origin := t.Origin
-		if origin == store.OriginTMDb {
+		if origin == store.OriginTMDb || origin == store.OriginFolder {
 			origin = store.OriginDiscover
 		}
 		if src.TrailerOrigin != "all" && src.TrailerOrigin != origin {
 			continue
 		}
-		r := 0
-		if t.Origin != store.OriginTMDb { // slates have no audio track
+		// slates have no audio track; they only stand in where no video of the
+		// trailer folder advertises the title (same guid)
+		r := 1 << 20
+		if t.Origin != store.OriginTMDb {
 			if r = store.LanguageRank(t.Language, g.langs); r < 0 {
 				continue
 			}

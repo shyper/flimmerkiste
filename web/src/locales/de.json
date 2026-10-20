@@ -483,6 +483,8 @@
   "settings.title": "Einstellungen",
   "settings.trailers.chooseLists": "Listen auswählen",
   "settings.trailers.discoverCount": "Titel aus Kino & Streaming",
+  "settings.trailers.folderCount": "Trailer aus dem Trailer-Ordner",
+  "settings.trailers.folderStatus": "Trailer-Ordner: {0} (FLIMMERKISTE_TRAILER, gefüllt von scripts/trailers.py)",
   "settings.trailers.feeds": "Nachrichten-Feeds (RSS oder Atom)",
   "settings.trailers.feedsHint": "Eine Adresse pro Zeile, höchstens 8. Leer lassen, wenn keine Nachrichtentafeln laufen sollen.",
   "settings.trailers.fetchNow": "Jetzt abrufen",

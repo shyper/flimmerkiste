@@ -52,6 +52,7 @@ type Server struct {
 	guide guideReloader
 
 	slates slateSync
+	folder slateSync // the trailer folder (FLIMMERKISTE_TRAILER)
 	info   infoState
 
 	// clock replaces time.Now in tests (nil = the real time).
@@ -194,6 +195,7 @@ func (s *Server) Background(ctx context.Context) {
 			go s.refreshDetails(ctx)
 			s.maybeDiscover(ctx)
 			s.maybeSlates(ctx)
+			s.syncFolder(ctx)
 			s.maybeInfo(ctx)
 			_ = s.store.PurgeSessions(ctx)
 			s.purgeCache()

@@ -18,6 +18,7 @@ services:
       # FLIMMERKISTE_BASE_URL: "http://192.168.1.10:8089" # optional, fixed address Plex uses for the tuner
       # FLIMMERKISTE_EPG_HOURS: "48"                      # how far ahead the guide is planned
       # FLIMMERKISTE_TUNER_ALLOW: "100.64.0.0/10"        # extra networks for the tuner besides the LAN ("all" = no limit)
+      # FLIMMERKISTE_TRAILER: "/trailers"                 # trailer folder of scripts/trailers.py (mount it below)
     # Optional: Intel or AMD GPU for "Fully normalize" (much less CPU).
     # group_add takes the numeric id of the host's "render" group: getent group render
     # devices:
@@ -40,6 +41,8 @@ services:
       # through Plex. Assign them on the Library page (readable for UID 1000).
       # - /mnt/media/Filme:/movies:ro
       # - /mnt/media/Serien:/tv:ro
+      # Optional: the folder scripts/trailers.py fills, with FLIMMERKISTE_TRAILER above
+      # - /mnt/media/Trailer:/trailers:ro
 
 volumes:
   flimmerkiste-data:

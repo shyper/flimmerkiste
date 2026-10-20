@@ -161,6 +161,7 @@ var en = map[string]string{
 	"livetv.failedEmby":           "Live TV could not be set up in %s – Emby needs an Emby Premiere subscription for live TV.",
 	"guide.reloadedServer":        "Guide reloaded in %s",
 	"tmdb.load":                   "Loading the TMDb list: %v",
+	"trailers.folder":             "Reading the trailer folder %s: %v",
 	"tmdb.noKey":                  "no TMDb key set",
 	"slate.rating":                "Rated %s",
 	"slate.runtime":               "%dh %dm",

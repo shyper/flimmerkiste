@@ -230,6 +230,7 @@ The compose file uses `network_mode: host` because the media server usually runs
 | `FLIMMERKISTE_EPG_HOURS` | `48` | How far ahead the programme is planned |
 | `FLIMMERKISTE_LOG_LEVEL` | `info` | `debug` also shows the ffmpeg calls |
 | `FLIMMERKISTE_TUNER_ALLOW` | – | More addresses for the tuner endpoints (see notes), e.g. `100.64.0.0/10` or `all` |
+| `FLIMMERKISTE_TRAILER` | – | Trailer folder filled by `scripts/trailers.py` (see helper scripts), e.g. `/trailers` |
 
 ### Adding the tuner to the media server
 
@@ -276,7 +277,7 @@ Live TV & DVR in Plex requires a Plex Pass.
 ## Helper scripts
 
 The scripts in `scripts/` run apart from Flimmerkiste, on any computer that reaches the media server, and are meant
-for cron. Each one exists per media server; all of them skip what they handled before (state file next to the
+for cron. Most exist per media server; all of them skip what they handled before (state file next to the
 script), start only once at a time, and with `--silent` print nothing except one line on stderr (exit code 1) when the
 server cannot be reached. `--dry-run` only shows what they would do; `--help` lists all options.
 
@@ -285,6 +286,7 @@ server cannot be reached. `--dry-run` only shows what they would do; `--help` li
 | `plex_themes.py` | Theme songs from ThemerrDB, uploaded to Plex (no access to the media files needed); `--replace-plex` also replaces the ones Plex hosts itself, which stop after 30 seconds |
 | `jellyfin_themes.py`, `emby_themes.py` | Theme songs from ThemerrDB, saved as `theme.mp3` in the folder of the movie or show |
 | `plex_subtitles.py`, `jellyfin_subtitles.py`, `emby_subtitles.py` | Text subtitles embedded in video files, saved as files of their own (`Movie.de.forced.srt`) |
+| `trailers.py` | Trailers of new movies from KinoCheck and TMDb, saved in the trailer folder (any media server) |
 
 **Why the subtitle scripts:** Flimmerkiste burns forced subtitles into the picture (“Fully normalize” only). Picture
 subtitles (PGS, VobSub) it reads from the video itself, text subtitles (SRT, ASS) it needs as a file: Plex hands out
@@ -309,6 +311,23 @@ scan, which `emby_themes.py` starts after a run that saved some.
 # Jellyfin (Emby the same with EMBY_URL / EMBY_API_KEY and emby_*.py)
 0 3 * * * JELLYFIN_URL=http://127.0.0.1:8096 JELLYFIN_API_KEY=xxxx /opt/flimmerkiste/scripts/jellyfin_themes.py --map /media=/mnt/media --silent
 0 4 * * * JELLYFIN_URL=http://127.0.0.1:8096 JELLYFIN_API_KEY=xxxx /opt/flimmerkiste/scripts/jellyfin_subtitles.py --map /media=/mnt/media --silent
+```
+
+**Trailers of new movies:** `trailers.py` fills a folder with trailers of the movies now playing and coming soon in
+cinemas (TMDb lists of `--region`), so breaks also advertise new movies with Jellyfin and Emby or besides Plex
+Discover. It looks for a trailer in the languages of `--language` in order (`de,en`): German ones at KinoCheck first,
+then at TMDb. Next to each video it writes a `.json` with what Flimmerkiste shows (title, year, genres, age rating,
+summary, poster, release date); the name carries the TMDb and IMDb ids, e.g.
+`Movie (2026) [tmdbid-123] [imdbid-tt1234567] de.mp4`. `--max-height` limits the quality (default 1080), and trailers
+are deleted `--keep-days` after the release (default 60). It needs a TMDb API key (themoviedb.org → Settings → API),
+yt-dlp, ffmpeg and deno or node; its state lies in the trailer folder. Mount the folder into the container and
+set `FLIMMERKISTE_TRAILER` (see `docker-compose.yml`): Flimmerkiste reads it every 10 minutes and plays its trailers
+like those of “cinema & streaming”, followed by the release date slate. Movies you already have are left out. A
+video replaces the TMDb slate of the same movie.
+
+```bash
+# trailers of new movies every night at 5
+0 5 * * * TMDB_API_KEY=xxxx /opt/flimmerkiste/scripts/trailers.py --dir /mnt/media/Trailer --language de,en --silent
 ```
 
 Tests: `python3 -m unittest discover -s scripts -p 'test_*.py'` (needs ffmpeg).

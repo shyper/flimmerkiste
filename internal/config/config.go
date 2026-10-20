@@ -22,6 +22,8 @@ type Config struct {
 	// TunerAllow extends who may use the tuner endpoints: "all", or IPs/CIDRs
 	// in addition to the local network.
 	TunerAllow string
+	// Trailers is the trailer folder scripts/trailers.py fills ("" = none).
+	Trailers string
 }
 
 func Load() Config {
@@ -39,6 +41,7 @@ func Load() Config {
 		DevCORS:  env("FLIMMERKISTE_DEV", "") == "1",
 
 		TunerAllow: env("FLIMMERKISTE_TUNER_ALLOW", ""),
+		Trailers:   env("FLIMMERKISTE_TRAILER", ""),
 	}
 }
 

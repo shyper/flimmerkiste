@@ -37,7 +37,7 @@ func (s *Server) prefetchURL(ctx context.Context, prog *store.Program) string {
 		return ""
 	}
 	m, err := s.playable(ctx, prog.RatingKey)
-	if err != nil || m.PartKey == "" {
+	if err != nil || m.PartKey == "" || store.LocalFile(m.PartKey) != "" {
 		return ""
 	}
 	if isAbsolute(m.PartKey) {
@@ -48,6 +48,34 @@ func (s *Server) prefetchURL(ctx context.Context, prog *store.Program) string {
 		return ""
 	}
 	return srv.StreamURL(m.PartKey)
+}
+
+// syncFolder reads the trailer folder again (every 10 minutes: it only changes
+// when scripts/trailers.py runs).
+func (s *Server) syncFolder(ctx context.Context) {
+	if s.cfg.Trailers == "" {
+		return
+	}
+	res, err := s.lib.SyncFolder(ctx, s.cfg.Trailers)
+	st := discoverStatus{Last: time.Now().Unix(), Result: res}
+	if err != nil {
+		err = i18n.E("trailers.folder", s.cfg.Trailers, err)
+		st.Error = i18n.Message(s.lang(ctx), err)
+		s.log.Warn("trailer folder", "err", i18n.Message(i18n.EN, err))
+	}
+	s.folder.mu.Lock()
+	s.folder.status = st
+	s.folder.mu.Unlock()
+}
+
+// folderStatus describes the trailer folder for the settings page (nil = none).
+func (s *Server) folderStatus() any {
+	if s.cfg.Trailers == "" {
+		return nil
+	}
+	s.folder.mu.Lock()
+	defer s.folder.mu.Unlock()
+	return map[string]any{"dir": s.cfg.Trailers, "last": s.folder.status.Last, "error": s.folder.status.Error, "result": s.folder.status.Result}
 }
 
 // imageURL turns an artwork path into a fetchable URL: Plex paths go through
@@ -158,6 +186,7 @@ func (s *Server) handleTrailers(w http.ResponseWriter, r *http.Request) {
 		"library":   s.lib.Status().Trailers,
 		"discover":  ds,
 		"slates":    s.slatesStatus(ctx),
+		"folder":    s.folderStatus(),
 		"info":      s.infoStatus(ctx),
 		"hubs":      s.trailerHubs(ctx),
 		"languages": s.sched.TrailerLanguages(ctx),

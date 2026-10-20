@@ -498,6 +498,8 @@
   "settings.title": "Settings",
   "settings.trailers.chooseLists": "Choose lists",
   "settings.trailers.discoverCount": "Titles from cinema & streaming",
+  "settings.trailers.folderCount": "Trailers from the trailer folder",
+  "settings.trailers.folderStatus": "Trailer folder: {0} (FLIMMERKISTE_TRAILER, filled by scripts/trailers.py)",
   "settings.trailers.feeds": "News feeds (RSS or Atom)",
   "settings.trailers.feedsHint": "One address per line, at most 8. Leave empty for no news slates.",
   "settings.trailers.fetchNow": "Fetch now",

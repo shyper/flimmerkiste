@@ -162,6 +162,7 @@ var de = map[string]string{
 	"livetv.failedEmby":           "Live-TV konnte in %s nicht eingerichtet werden – Live-TV braucht bei Emby ein Emby-Premiere-Abo.",
 	"guide.reloadedServer":        "Programmführer in %s neu geladen",
 	"tmdb.load":                   "TMDb-Liste laden: %v",
+	"trailers.folder":             "Trailer-Ordner %s lesen: %v",
 	"tmdb.noKey":                  "kein TMDb-Schlüssel hinterlegt",
 	"slate.rating":                "FSK %s",
 	"slate.runtime":               "%d Std. %d Min.",

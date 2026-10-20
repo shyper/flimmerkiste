@@ -56,3 +56,40 @@ func TestInfoSlatesJoinBreaks(t *testing.T) {
 		t.Fatalf("break: %+v", progs)
 	}
 }
+
+// A video from the trailer folder counts as "cinema & streaming", replaces the
+// TMDb slate of the same title and is followed by the release date slate.
+func TestFolderTrailerReplacesSlate(t *testing.T) {
+	ctx := context.Background()
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	st.SetSetting(ctx, store.SetMediaServer, "jellyfin")
+	slate := &store.Trailer{Key: store.TrailerPrefix + "tmdb-1", Origin: store.OriginTMDb, GUID: "tmdb://1", Kind: "movie", Title: "Kino", DurationMs: 20000}
+	other := &store.Trailer{Key: store.TrailerPrefix + "tmdb-2", Origin: store.OriginTMDb, GUID: "tmdb://2", Kind: "movie", Title: "Anderer", DurationMs: 20000}
+	video := &store.Trailer{Key: store.TrailerPrefix + "folder-1-de", Origin: store.OriginFolder, GUID: "tmdb://1", Kind: "movie", Title: "Kino",
+		Language: "de", DurationMs: 90000, Parts: []store.TrailerPart{{Height: 1080, URL: store.FileURL("/trailers/Kino.mp4")}}}
+	for _, origin := range []string{"discover", "all", "library"} {
+		g := &generator{s: &Scheduler{store: st}, ctx: ctx, ch: &store.Channel{Kind: KindSmart}, resolved: map[string][]*store.Media{},
+			cfg: &Config{Filler: &Source{Type: "trailers", TrailerOrigin: origin}}, trailers: []*store.Trailer{slate, video, other}}
+		g.index()
+		var keys []string
+		for _, m := range g.fillerPool(time.Now()) {
+			keys = append(keys, m.RatingKey)
+		}
+		want := []string{video.Key, other.Key}
+		if origin == "library" {
+			want = nil
+		}
+		if len(keys) != len(want) || (len(want) > 0 && (keys[0] != want[0] || keys[1] != want[1])) {
+			t.Errorf("%s: %v, want %v", origin, keys, want)
+		}
+	}
+	from := time.Now()
+	progs := fillerPrograms(video.Media(720), from, from.Add(10*time.Minute))
+	if len(progs) != 2 || progs[0].RatingKey != video.Key || progs[1].RatingKey != store.PromoKey || progs[1].Note != video.Key {
+		t.Fatalf("programs: %+v", progs)
+	}
+}

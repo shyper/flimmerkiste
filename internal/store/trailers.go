@@ -14,6 +14,7 @@ const (
 	OriginLibrary  = "library"  // extra of a movie or show in the library
 	OriginDiscover = "discover" // extra of a title from a Plex Discover list
 	OriginTMDb     = "tmdb"     // "coming to theaters" slate of a title from TMDb (no video)
+	OriginFolder   = "folder"   // video in the trailer folder (FLIMMERKISTE_TRAILER, scripts/trailers.py)
 	OriginInfo     = "info"     // weather or news slate (not stored; see InfoPrefix)
 )
 
@@ -47,10 +48,23 @@ type Trailer struct {
 }
 
 // TrailerPart is one quality of a trailer. URL is a Plex path for library
-// trailers (needs the server address and token) or an absolute URL.
+// trailers (needs the server address and token), an absolute URL, or a file
+// of the trailer folder (FileURL).
 type TrailerPart struct {
 	Height int    `json:"h"`
 	URL    string `json:"u"`
+}
+
+// FileURL marks a local file as a trailer part, apart from Plex paths
+// ("/library/parts/…").
+func FileURL(path string) string { return "file://" + path }
+
+// LocalFile returns the path of a part made by FileURL ("" for other parts).
+func LocalFile(part string) string {
+	if p, ok := strings.CutPrefix(part, "file://"); ok {
+		return p
+	}
+	return ""
 }
 
 // Part picks the best quality not above height (or the smallest one).
@@ -244,6 +258,19 @@ func (s *Store) DeleteStaleTrailers(ctx context.Context, origin string, before t
 	res, err := s.DB.ExecContext(ctx, `DELETE FROM trailers WHERE origin = ? AND last_seen < ?
 		AND key NOT IN (SELECT rating_key FROM programs WHERE stop > ?) AND key NOT IN (SELECT note FROM programs WHERE stop > ?)`,
 		origin, before.Unix(), time.Now().UnixMilli(), time.Now().UnixMilli())
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+// DeleteMissingTrailers removes the trailers of an origin whose key is not in
+// keep, unless they are still scheduled on a channel.
+func (s *Store) DeleteMissingTrailers(ctx context.Context, origin string, keep []string) (int64, error) {
+	ids, _ := json.Marshal(nonNil(keep))
+	res, err := s.DB.ExecContext(ctx, `DELETE FROM trailers WHERE origin = ? AND key NOT IN (SELECT value FROM json_each(?))
+		AND key NOT IN (SELECT rating_key FROM programs WHERE stop > ?) AND key NOT IN (SELECT note FROM programs WHERE stop > ?)`,
+		origin, string(ids), time.Now().UnixMilli(), time.Now().UnixMilli())
 	if err != nil {
 		return 0, err
 	}

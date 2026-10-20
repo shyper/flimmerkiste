@@ -3,7 +3,8 @@
 
     python3 -m unittest discover -s scripts -p 'test_*.py'
 
-plex_subtitles.py and plex_themes.py run against a small fake Plex; the
+plex_subtitles.py and plex_themes.py run against a small fake Plex, trailers.py
+against a fake TMDb and KinoCheck; the
 Jellyfin and Emby scripts were tried against the test servers in test/mediaserver.
 """
 
@@ -224,6 +225,107 @@ class PlexThemesTest(unittest.TestCase):
             # done: a further run uploads nothing
             run("replace_plex")
             self.assertEqual([c for c in FakeThemesPlex.calls if c[0] != "GET"], [])
+
+
+class FakeMovieAPIs(http.server.BaseHTTPRequestHandler):
+    """TMDb and KinoCheck: movie 1 has a German trailer at KinoCheck, movie 2 only
+    an English one at TMDb, movie 3 none."""
+    calls = []
+
+    def log_message(self, *a):
+        pass
+
+    def answer(self, body, code=200):
+        data = json.dumps(body).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        url = urllib.parse.urlparse(self.path)
+        q = dict(urllib.parse.parse_qsl(url.query))
+        FakeMovieAPIs.calls.append(url.path)
+        if self.headers.get("User-Agent", "").startswith("Python-urllib"):
+            return self.answer({"title": "Error 1010: Access denied"}, 403)  # like KinoCheck's Cloudflare
+        if url.path.startswith("/tmdb/") and q.get("api_key") != "k":
+            return self.answer({}, 401)
+        if url.path == "/tmdb/movie/now_playing":
+            return self.answer({"total_pages": 1, "results": [{"id": 1, "title": "Neu"}, {"id": 2, "title": "Englisch"}]})
+        if url.path == "/tmdb/movie/upcoming":
+            return self.answer({"total_pages": 1, "results": [{"id": 2, "title": "Englisch"}, {"id": 3, "title": "Ohne"}]})
+        if url.path.startswith("/tmdb/movie/"):
+            mid = int(url.path.rsplit("/", 1)[1])
+            videos = [{"site": "YouTube", "type": "Trailer", "iso_639_1": "en", "key": "en-old", "official": True, "published_at": "2026-01-01"},
+                      {"site": "YouTube", "type": "Trailer", "iso_639_1": "en", "key": "en-new", "official": True, "published_at": "2026-05-01"},
+                      {"site": "YouTube", "type": "Teaser", "iso_639_1": "en", "key": "teaser"}] if mid == 2 else []
+            return self.answer({"id": mid, "title": {1: "Neu", 2: "Englisch", 3: "Ohne"}[mid], "release_date": "2026-11-01",
+                                "overview": "Inhalt", "runtime": 110, "genres": [{"name": "Drama"}], "poster_path": "/p.jpg",
+                                "backdrop_path": "/b.jpg", "external_ids": {"imdb_id": f"tt000000{mid}"}, "videos": {"results": videos},
+                                "release_dates": {"results": [{"iso_3166_1": "DE", "release_dates": [
+                                    {"type": 3, "release_date": "2026-11-12T00:00:00.000Z", "certification": "12"}]}]}})
+        if url.path == "/kinocheck/movies":
+            if q.get("tmdb_id") != "1" or q.get("language") != "de":
+                return self.answer({}, 404)
+            return self.answer({"tmdb_id": 1, "trailer": {"youtube_video_id": "de-1", "language": "de", "categories": ["Trailer"],
+                                                          "title": "NEU Trailer German Deutsch (2026)"}, "videos": []})
+        self.answer({}, 404)
+
+
+class TrailersTest(unittest.TestCase):
+    def test_run(self):
+        srv = http.server.HTTPServer(("127.0.0.1", 0), FakeMovieAPIs)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        m = load("trailers")
+        m.TMDB = f"http://127.0.0.1:{srv.server_port}/tmdb"
+        m.KINOCHECK = f"http://127.0.0.1:{srv.server_port}/kinocheck"
+        loaded = []
+
+        def download(ytdlp, youtube_id, max_height, tmp):
+            loaded.append((youtube_id, max_height))
+            path = os.path.join(tmp, "trailer.mp4")
+            ffmpeg("-f", "lavfi", "-i", "color=black:s=320x180:d=2", "-c:v", "libx264", path)
+            return path
+        m.download = download
+        with tempfile.TemporaryDirectory() as folder:
+            # a trailer of a movie released long ago, and its description
+            with open(os.path.join(folder, "Alt (2025) [tmdbid-9] de.mp4"), "w"):
+                pass
+            with open(os.path.join(folder, "Alt (2025) [tmdbid-9] de.json"), "w") as f:
+                json.dump({"video": "Alt (2025) [tmdbid-9] de.mp4", "tmdb": 9, "title": "Alt", "released": "2026-01-01"}, f)
+
+            def run(today="2026-10-20"):
+                args = m.argparse.Namespace(dir=folder, tmdb_key="k", languages=["de", "en"], region="DE", max_height=720,
+                                            keep_days=60, pages=1, limit=0, retry_days=3, dry_run=False, silent=True,
+                                            ytdlp="yt-dlp", ffprobe="ffprobe", state=os.path.join(folder, ".trailers_state.json"))
+                m.run(args, today=m.datetime.date.fromisoformat(today))
+
+            run()
+            names = sorted(n for n in os.listdir(folder) if not n.startswith("."))
+            self.assertEqual(names, ["Englisch (2026) [tmdbid-2] [imdbid-tt0000002] en.json", "Englisch (2026) [tmdbid-2] [imdbid-tt0000002] en.mp4",
+                                     "Neu (2026) [tmdbid-1] [imdbid-tt0000001] de.json", "Neu (2026) [tmdbid-1] [imdbid-tt0000001] de.mp4"])
+            # German from KinoCheck, the newest official English one from TMDb, in the height asked for
+            self.assertEqual(sorted(loaded), [("de-1", 720), ("en-new", 720)])
+            with open(os.path.join(folder, "Neu (2026) [tmdbid-1] [imdbid-tt0000001] de.json")) as f:
+                d = json.load(f)
+            self.assertEqual((d["video"], d["tmdb"], d["imdb"], d["released"], d["content_rating"], d["language"], d["genres"], d["height"]),
+                             ("Neu (2026) [tmdbid-1] [imdbid-tt0000001] de.mp4", 1, "tt0000001", "2026-11-12", "de/12", "de", ["Drama"], 180))
+            self.assertTrue(d["poster"].endswith("/w500/p.jpg") and 1900 < d["duration_ms"] < 2200, d)
+            with open(os.path.join(folder, ".trailers_state.json")) as f:
+                self.assertEqual(list(json.load(f)), ["3"])  # no trailer: looked for again after --retry-days
+
+            # second run: nothing new, movie 3 waits
+            loaded.clear()
+            FakeMovieAPIs.calls = []
+            run()
+            self.assertEqual(loaded, [])
+            self.assertNotIn("/tmdb/movie/3", FakeMovieAPIs.calls)
+
+            # 60 days after the release the trailers go
+            run(today="2027-01-20")
+            self.assertEqual(sorted(n for n in os.listdir(folder) if not n.startswith(".")), [])
 
 
 class HelpersTest(unittest.TestCase):

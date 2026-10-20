@@ -416,6 +416,9 @@ func (s *Streamer) play(ctx context.Context, out *flushWriter, ch *store.Channel
 	if input == "" && isRemote(m.PartKey) {
 		input = m.PartKey
 	}
+	if f := store.LocalFile(m.PartKey); input == "" && f != "" {
+		input = f // trailer folder
+	}
 	credits, hasCredits := time.Duration(0), false
 	// cardFrom, cardTo: where only the small card shows (credits or the last minute)
 	cardFrom, cardTo, hasCard := time.Duration(0), time.Duration(0), false
@@ -987,7 +990,7 @@ const wakeLead = 45 * time.Second
 // playback starts. Failures only cost the head start.
 func (s *Streamer) wake(ctx context.Context, prog *store.Program, log *slog.Logger) {
 	m, err := s.Media(ctx, prog.RatingKey)
-	if err != nil || m.PartKey == "" || isRemote(m.PartKey) {
+	if err != nil || m.PartKey == "" || isRemote(m.PartKey) || store.LocalFile(m.PartKey) != "" {
 		return
 	}
 	srv, err := s.Server(ctx)
