@@ -282,7 +282,7 @@ server cannot be reached. `--dry-run` only shows what they would do; `--help` li
 
 | Script | What it does |
 |---|---|
-| `plex_themes.py` | Theme songs from ThemerrDB, uploaded to Plex (no access to the media files needed) |
+| `plex_themes.py` | Theme songs from ThemerrDB, uploaded to Plex (no access to the media files needed); `--replace-plex` also replaces the ones Plex hosts itself, which stop after 30 seconds |
 | `jellyfin_themes.py`, `emby_themes.py` | Theme songs from ThemerrDB, saved as `theme.mp3` in the folder of the movie or show |
 | `plex_subtitles.py`, `jellyfin_subtitles.py`, `emby_subtitles.py` | Text subtitles embedded in video files, saved as files of their own (`Movie.de.forced.srt`) |
 

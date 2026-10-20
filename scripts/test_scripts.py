@@ -3,8 +3,8 @@
 
     python3 -m unittest discover -s scripts -p 'test_*.py'
 
-plex_subtitles.py runs against a small fake Plex; the Jellyfin and Emby
-scripts were tried against the test servers in test/mediaserver.
+plex_subtitles.py and plex_themes.py run against a small fake Plex; the
+Jellyfin and Emby scripts were tried against the test servers in test/mediaserver.
 """
 
 import fcntl
@@ -17,6 +17,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import urllib.parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -127,6 +128,102 @@ class PlexSubtitlesTest(unittest.TestCase):
             self.assertEqual(r.returncode, 1)
             self.assertTrue(r.stderr.startswith("plex_subtitles: "))
             self.assertEqual(r.stdout, "")
+
+
+class FakeThemesPlex(http.server.BaseHTTPRequestHandler):
+    """Show 1 has a theme hosted by Plex, show 2 a theme.mp3 next to it, show 3 none."""
+    themes = {}
+    calls = []
+
+    def log_message(self, *a):
+        pass
+
+    def answer(self, body):
+        data = json.dumps(body).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        FakeThemesPlex.calls.append(("GET", self.path))
+        if self.path == "/library/sections":
+            self.answer({"MediaContainer": {"Directory": [{"key": "2", "type": "show", "title": "Serien"}]}})
+        elif self.path.startswith("/library/sections/2/all"):
+            items = [{"ratingKey": k, "title": f"Serie {k}", "year": 2000, "Guid": [{"id": f"tmdb://{k}00"}],
+                      **({"theme": f"/library/metadata/{k}/theme/1"} if FakeThemesPlex.themes[k] else {})} for k in ("1", "2", "3")]
+            self.answer({"MediaContainer": {"Metadata": items}})
+        elif self.path.endswith("/themes"):
+            self.answer({"MediaContainer": {"Metadata": FakeThemesPlex.themes[self.path.split("/")[3]]}})
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_POST(self):
+        FakeThemesPlex.calls.append(("POST", self.path))
+        self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        k = self.path.split("/")[3]
+        # like Plex: the upload is added, the theme in use stays selected
+        FakeThemesPlex.themes[k].append({"ratingKey": f"upload://themes/{k}", "provider": "upload",
+                                         "selected": not FakeThemesPlex.themes[k]})
+        self.answer({})
+
+    def do_PUT(self):
+        FakeThemesPlex.calls.append(("PUT", self.path))
+        k = self.path.split("/")[3]
+        url = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)["url"][0]
+        for t in FakeThemesPlex.themes[k]:
+            t["selected"] = t["ratingKey"] == url
+        self.answer({})
+
+
+class PlexThemesTest(unittest.TestCase):
+    def test_replace_plex(self):
+        FakeThemesPlex.themes = {
+            # as a Plex server lists them (no provider field)
+            "1": [{"ratingKey": "metadata://themes/tv.plex.agents.series_863985220f37bbff6b3d0e6c0704dc7ef74281d9", "selected": True}],
+            "2": [{"ratingKey": "local://theme.mp3", "provider": "local", "selected": True}],
+            "3": [],
+        }
+        srv = http.server.HTTPServer(("127.0.0.1", 0), FakeThemesPlex)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        m = load("plex_themes")
+        m.themerr_url = lambda kind, tmdb: f"https://youtube.example/{tmdb}"
+
+        def download(ytdlp, url, tmp):
+            path = os.path.join(tmp, "theme.mp3")
+            with open(path, "wb") as f:
+                f.write(b"ID3")
+            return path
+        m.download = download
+        with tempfile.TemporaryDirectory() as tmp:
+            def run(*flags):
+                args = m.argparse.Namespace(url=f"http://127.0.0.1:{srv.server_port}", token="t", shows=True, dry_run=False,
+                                            limit=0, ytdlp="yt-dlp", silent=True, retry_days=7,
+                                            state=os.path.join(tmp, "state.json"), replace_plex=False)
+                for f in flags:
+                    setattr(args, f, True)
+                FakeThemesPlex.calls = []
+                m.run(args)
+
+            # without the option only the show without a theme gets one
+            run()
+            self.assertEqual([c for c in FakeThemesPlex.calls if c[0] == "POST"], [("POST", "/library/metadata/3/themes")])
+            self.assertTrue(FakeThemesPlex.themes["1"][0]["selected"])
+
+            # with it the Plex theme is replaced and the new one selected; the theme.mp3 stays
+            run("replace_plex")
+            self.assertEqual([c for c in FakeThemesPlex.calls if c[0] != "GET"],
+                             [("POST", "/library/metadata/1/themes"),
+                              ("PUT", "/library/metadata/1/theme?url=" + urllib.parse.quote("upload://themes/1", safe=""))])
+            self.assertEqual([t["ratingKey"] for t in FakeThemesPlex.themes["1"] if t["selected"]], ["upload://themes/1"])
+            self.assertEqual([t["provider"] for t in FakeThemesPlex.themes["2"] if t["selected"]], ["local"])
+
+            # done: a further run uploads nothing
+            run("replace_plex")
+            self.assertEqual([c for c in FakeThemesPlex.calls if c[0] != "GET"], [])
 
 
 class HelpersTest(unittest.TestCase):
