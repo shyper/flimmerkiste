@@ -141,20 +141,29 @@ func (s *Streamer) prepareSubtitles(ctx context.Context, srv mediaserver.Server,
 	return &Subtitles{Index: -1, File: f.Name(), Temp: true}
 }
 
-// subtitleFilter burns the subtitles into video stream in and names the result out.
-// offset is where playback starts: text subtitles are timed against the file,
-// while the frames start at 0 after seeking.
-func subtitleFilter(sub *Subtitles, in, out string, offset time.Duration) string {
-	if sub.File != "" {
-		shift := "0"
-		if offset > time.Second {
-			shift = secs(offset)
-		}
-		return fmt.Sprintf("[%s]setpts=PTS+%s/TB,subtitles=filename=%s,setpts=PTS-%s/TB[%s]", in, shift, escapeFilterArg(sub.File), shift, out)
-	}
+// subtitleFilter burns picture subtitles into video stream in and names the
+// result out. Text subtitles are drawn after scaling instead (textSubtitles).
+func subtitleFilter(sub *Subtitles, in, out string) string {
 	// Picture subtitles cover the frame of the original disc. On cropped films that
 	// canvas is taller than the video; aligned at the bottom the subtitles stay visible.
 	return fmt.Sprintf("[%s][0:%d]overlay=x=(W-w)/2:y=H-h:eof_action=pass[%s]", in, sub.Index, out)
+}
+
+// textSubtitles is the filter chain (leading comma) that draws a text subtitle
+// file onto the picture, "" for none or picture subtitles. It goes after the
+// scaler and before the bars: libass draws at the output size instead of the
+// source's (4K costs several times the CPU) and places the text as before.
+// offset is where playback starts: text subtitles are timed against the file,
+// while the frames start at 0 after seeking.
+func textSubtitles(sub *Subtitles, offset time.Duration) string {
+	if sub == nil || sub.File == "" {
+		return ""
+	}
+	shift := "0"
+	if offset > time.Second {
+		shift = secs(offset)
+	}
+	return fmt.Sprintf(",setpts=PTS+%s/TB,subtitles=filename=%s,setpts=PTS-%s/TB", shift, escapeFilterArg(sub.File), shift)
 }
 
 // escapeFilterArg escapes a value for a filter option inside -filter_complex

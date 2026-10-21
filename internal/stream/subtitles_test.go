@@ -101,12 +101,12 @@ func TestLocalForcedSubtitle(t *testing.T) {
 }
 
 func TestSubtitleFilter(t *testing.T) {
-	got := subtitleFilter(&Subtitles{Index: -1, File: "/data/a:b,c'd.srt"}, "0:0", "sub", 90*time.Second)
-	want := `[0:0]setpts=PTS+90.000/TB,subtitles=filename=/data/a\\:b\,c\\\'d.srt,setpts=PTS-90.000/TB[sub]`
+	got := textSubtitles(&Subtitles{Index: -1, File: "/data/a:b,c'd.srt"}, 90*time.Second)
+	want := `,setpts=PTS+90.000/TB,subtitles=filename=/data/a\\:b\,c\\\'d.srt,setpts=PTS-90.000/TB`
 	if got != want {
 		t.Errorf("text:\n got %s\nwant %s", got, want)
 	}
-	if got := subtitleFilter(&Subtitles{Index: 3}, "0:0", "sub", 0); got != "[0:0][0:3]overlay=x=(W-w)/2:y=H-h:eof_action=pass[sub]" {
+	if got := subtitleFilter(&Subtitles{Index: 3}, "0:0", "sub"); got != "[0:0][0:3]overlay=x=(W-w)/2:y=H-h:eof_action=pass[sub]" {
 		t.Errorf("picture: %s", got)
 	}
 }

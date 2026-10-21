@@ -310,8 +310,8 @@ func buildCreditsArgs(input string, offset, length, tsOffset, burst time.Duratio
 		videoIn = fmt.Sprintf("0:%d", videoIdx)
 	}
 	var parts []string
-	if opts.Subtitles != nil {
-		parts = append(parts, subtitleFilter(opts.Subtitles, videoIn, "sub", offset))
+	if opts.Subtitles != nil && opts.Subtitles.File == "" {
+		parts = append(parts, subtitleFilter(opts.Subtitles, videoIn, "sub"))
 		videoIn = "sub"
 	}
 	// Only the picture shrinks, without letterbox or pillarbox bars: pic is
@@ -323,8 +323,8 @@ func buildCreditsArgs(input string, offset, length, tsOffset, burst time.Duratio
 	// fastest encoder preset are enough (about a third less CPU). The video of
 	// many files starts a little after their audio; its first frame fills the
 	// gap, or the panel would show on its own there.
-	parts = append(parts, fmt.Sprintf("[%s]fps=%d:start_time=0,scale=%d:%d:force_original_aspect_ratio=decrease:flags=fast_bilinear,pad=%d:%d:(ow-iw)/2:(oh-ih)/2,setsar=1%s[full]",
-		videoIn, CreditsFPS, pic.Dx(), pic.Dy(), pic.Dx(), pic.Dy(), opts.ToneMap))
+	parts = append(parts, fmt.Sprintf("[%s]fps=%d:start_time=0,scale=%d:%d:force_original_aspect_ratio=decrease:flags=fast_bilinear%s,pad=%d:%d:(ow-iw)/2:(oh-ih)/2,setsar=1%s[full]",
+		videoIn, CreditsFPS, pic.Dx(), pic.Dy(), textSubtitles(opts.Subtitles, offset), pic.Dx(), pic.Dy(), opts.ToneMap))
 	cur := "full"
 	if wm {
 		fade := min(at, creditsLead.Seconds())

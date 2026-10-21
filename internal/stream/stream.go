@@ -1159,9 +1159,9 @@ func frameSize(opts Options) (int, int) {
 }
 
 // scaleFilter fits the picture of stream in into the output frame (letterboxed)
-// with the given swscale flags.
-func scaleFilter(in string, w, h int, flags string) string {
-	return fmt.Sprintf("[%s]scale=%d:%d:force_original_aspect_ratio=decrease:flags=%s,pad=%d:%d:(ow-iw)/2:(oh-ih)/2,setsar=1", in, w, h, flags, w, h)
+// with the given swscale flags; text (textSubtitles) is drawn before the bars.
+func scaleFilter(in string, w, h int, flags, text string) string {
+	return fmt.Sprintf("[%s]scale=%d:%d:force_original_aspect_ratio=decrease:flags=%s%s,pad=%d:%d:(ow-iw)/2:(oh-ih)/2,setsar=1", in, w, h, flags, text, w, h)
 }
 
 // encodeTail finishes a full mode filter graph: it hands the frames to the encoder.
@@ -1257,12 +1257,12 @@ func buildArgs(input string, offset, length, tsOffset, burst time.Duration, vide
 	case "full":
 		w, h := frameSize(opts)
 		pre := ""
-		if opts.Subtitles != nil {
-			pre = subtitleFilter(opts.Subtitles, videoIn, "sub", offset) + ";"
+		if opts.Subtitles != nil && opts.Subtitles.File == "" {
+			pre = subtitleFilter(opts.Subtitles, videoIn, "sub") + ";"
 			videoIn = "sub"
 		}
 		// HDR becomes SDR after scaling: much cheaper at the output size than at 4K
-		base := pre + scaleFilter(videoIn, w, h, "bicubic") + opts.ToneMap + videoPad
+		base := pre + scaleFilter(videoIn, w, h, "bicubic", textSubtitles(opts.Subtitles, offset)) + opts.ToneMap + videoPad
 		out := encodeTail(gpu, opts.GPUEncoder)
 		graph := base + out
 		if wm || len(windows) > 0 {
