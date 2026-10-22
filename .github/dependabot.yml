@@ -1,0 +1,58 @@
+# Dependabot: weekly update pull requests for the dependencies of Flimmerkiste.
+# Security updates come at once and on their own; they are switched on in the
+# repository settings (Code security).
+version: 2
+
+updates:
+  # Go modules (go.mod / go.sum)
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    groups:
+      go:
+        update-types: [minor, patch]
+
+  # Frontend (web/package.json / package-lock.json)
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    groups:
+      web:
+        update-types: [minor, patch]
+
+  # GitHub Actions in .github/workflows
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        update-types: [minor, patch, major]
+
+  # Base images in the Dockerfile (node, golang, debian)
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    ignore:
+      # new major versions (Node 24, Debian 14 …) are a decision of their own
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
