@@ -387,6 +387,14 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/channels/{id}/error", s.auth(s.handleDismissError, true))
 	mux.Handle("GET /api/channels/{id}/card", s.auth(s.handleCardPreview, true))
 	mux.Handle("GET /api/channels/{id}/credits", s.auth(s.handleCreditsPreview, true))
+	mux.Handle("GET /api/tokens", s.auth(s.handleListTokens, true))
+	mux.Handle("POST /api/tokens", s.auth(s.handleCreateToken, true))
+	mux.Handle("DELETE /api/tokens/{id}", s.auth(s.handleDeleteToken, true))
+
+	// --- MCP for assistants (API token instead of a session) ---
+	mcpH := s.mcpHandler()
+	mux.Handle("/mcp", mcpH)
+	mux.Handle("/mcp/{token}", tokenFromPath(mcpH))
 
 	// --- single page app ---
 	mux.Handle("/", s.spa())
@@ -430,7 +438,7 @@ func (s *Server) spa() http.Handler {
 		}
 		p := strings.TrimPrefix(r.URL.Path, "/")
 		if p != "" {
-			if _, err := fs.Stat(s.web, p); err == nil {
+			if info, err := fs.Stat(s.web, p); err == nil && !info.IsDir() {
 				if strings.HasPrefix(p, "assets/") {
 					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 				}
@@ -445,8 +453,39 @@ func (s *Server) spa() http.Handler {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-cache")
+		// Other paths get the page too, which then shows "page not found", but
+		// with status 404: MCP clients looking for /.well-known/oauth-… learn that
+		// no sign-in is needed.
+		if !isAppPage(r.URL.Path) {
+			w.WriteHeader(http.StatusNotFound)
+		}
 		w.Write(data)
 	})
+}
+
+// appPages are the pages of the web UI (web/src/App.svelte); * is one path segment.
+var appPages = []string{"/", "/setup", "/guide", "/library", "/history", "/settings", "/settings/*",
+	"/channels/new", "/channels/new/*", "/channels/*"}
+
+func isAppPage(path string) bool {
+	segs := strings.Split(strings.Trim(path, "/"), "/")
+	for _, pattern := range appPages {
+		want := strings.Split(strings.Trim(pattern, "/"), "/")
+		if len(want) != len(segs) {
+			continue
+		}
+		ok := true
+		for i, w := range want {
+			if segs[i] == "" && w != "" || w != "*" && w != segs[i] {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return true
+		}
+	}
+	return false
 }
 
 // baseURL is how Plex (and browsers) reach us.

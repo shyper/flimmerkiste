@@ -40,6 +40,8 @@ It presents itself to the media server as an HDHomeRun tuner with an XMLTV guide
 - 🪶 **Light on resources** – nothing runs while nobody watches; by default streams are only remuxed, encoding on
   the GPU (Intel, AMD, NVIDIA, Raspberry Pi 4) is optional.
 - 🌍 **English and German** – interface, slates and guide.
+- 🤖 **MCP for assistants** – ask Claude what's on, let it browse the library and set up channels, with tokens
+  that carry only the rights you give them.
 
 ## Screenshots
 
@@ -190,6 +192,48 @@ Details are under [Installation](#installation-docker).
   Conflicts with existing channel numbers can be skipped, replaced or added as new channels.
 - **Languages**: English and German for the interface, the slates and the guide. A new installation takes the
   owner's browser language; it can be changed in the settings.
+
+### Assistants (MCP)
+
+Flimmerkiste is an [MCP](https://modelcontextprotocol.io) server at `http://<server-ip>:8089/mcp` (Streamable HTTP).
+Assistants such as Claude Desktop, Claude Code or other MCP clients can then answer “what's on tonight?”, find titles
+in the library (“which Christmas movies do I have?”) and build channels (“a channel with 80s action movies, starting
+on the quarter hour”).
+
+Create a token under **Settings → MCP** and tick what it may do:
+
+| Permission | Tools |
+|---|---|
+| Read the guide (`read`) | `get_server_info`, `list_channels`, `get_channel`, `get_guide`, `get_sessions`, `get_history`, `get_seasonal_preset` |
+| Read the library (`library`) | `list_libraries`, `search_library`, `get_title`, `get_show`, `library_facets`, `preview_source` |
+| Change channels (`write`) | `create_channel`, `update_channel`, `regenerate_channel`, `regenerate_all`, `sync_library` |
+| Delete channels (`delete`) | `delete_channel` |
+
+A client only sees the tools its token allows. The token acts as the administrator who created it, with that
+person's current role: if they become a viewer, only the guide tools remain (history and everything else are
+for administrators). The token is shown once; only a hash is stored, and it can be revoked at any time. The library
+tools read what Flimmerkiste has synced from the media server; `sync_library` fetches it again.
+
+**Connecting a client:** Settings → MCP explains it step by step for Claude (app and web), Claude Code, Cursor and
+VS Code, and ChatGPT, with the address and the new token already filled in. Best is a client that sends the token
+in the `Authorization` header (`Bearer <token>`), as Claude, Claude Code and the editors can. For clients that can't,
+the token can be part of the address: `/mcp/<token>`. The Claude and ChatGPT apps connect from the provider's cloud,
+so Flimmerkiste has to be reachable over HTTPS from the internet; for Claude Code and editors the home network is
+enough.
+
+**From the internet:** publish Flimmerkiste only over HTTPS through a reverse proxy; the tuner endpoints stay
+limited to the home network anyway. A token in the address is a password: keep one token per app with only the
+rights it needs, and keep it out of the proxy's access log, for nginx:
+
+```nginx
+location /mcp/ {
+    access_log off;
+    proxy_pass http://127.0.0.1:8089; # and the same proxy settings as for location /
+}
+```
+
+Flimmerkiste itself never writes a token to its log (it shows `fk_***`). Paths that are not a page of the web
+interface answer 404.
 
 ## Resource usage
 

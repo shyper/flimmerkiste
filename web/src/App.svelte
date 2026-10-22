@@ -6,6 +6,7 @@
   import { get, post } from './lib/api.js'
   import Icon from './components/Icon.svelte'
   import Toasts from './components/Toasts.svelte'
+  import NotFound from './components/NotFound.svelte'
   import Login from './pages/Login.svelte'
   import Setup from './pages/Setup.svelte'
   import Channels from './pages/Channels.svelte'
@@ -52,7 +53,7 @@
   $effect(() => {
     if (route.path.startsWith('/settings')) return
     const n = nav.find((n) => n.href !== '/' && route.path.startsWith(n.href))
-    const page = n ? n.label : route.path.startsWith('/channels') ? t('app.title.editor') : t('app.nav.channels')
+    const page = n ? n.label : route.path.startsWith('/channels') ? t('app.title.editor') : route.path === '/' ? t('app.nav.channels') : t('app.seite_nicht_gefunden')
     document.title = `${page} · Flimmerkiste`
   })
 </script>
@@ -113,7 +114,7 @@
       {:else if route.path.startsWith('/settings') && isAdmin()}
         <Settings onchange={refresh} />
       {:else}
-        <div class="page empty"><h2>{t('app.seite_nicht_gefunden')}</h2><p><a href="/" use:link>{t('app.zur_uebersicht')}</a></p></div>
+        <NotFound />
       {/if}
     </main>
   </div>

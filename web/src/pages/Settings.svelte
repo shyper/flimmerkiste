@@ -13,17 +13,20 @@
   import Hardware from './settings/Hardware.svelte'
   import AI from './settings/AI.svelte'
   import Users from './settings/Users.svelte'
+  import Mcp from './settings/Mcp.svelte'
   import General from './settings/General.svelte'
+  import NotFound from '../components/NotFound.svelte'
 
   let { onchange } = $props()
 
   const groups = [
     { id: 'connection', sections: [['server', 'layers', Server], ['livetv', 'radio', LiveTV]] },
     { id: 'programme', sections: [['playback', 'play', Playback], ['presentation', 'sparkles', Presentation], ['trailers', 'film', Trailers]] },
-    { id: 'advanced', sections: [['hardware', 'cpu', Hardware], ['ai', 'wand', AI], ['users', 'user', Users], ['general', 'settings', General]] },
+    { id: 'advanced', sections: [['hardware', 'cpu', Hardware], ['ai', 'wand', AI], ['users', 'user', Users], ['mcp', 'key', Mcp], ['general', 'settings', General]] },
   ]
   const sections = groups.flatMap((g) => g.sections)
-  const current = $derived(sections.find(([id]) => route.path === `/settings/${id}`) || sections[0])
+  // /settings opens the first section; an unknown one is a page that does not exist
+  const current = $derived(sections.find(([id]) => route.path === `/settings/${id}`) || (route.path === '/settings' ? sections[0] : null))
 
   // What the server stores; anything else in the answer is information.
   const editable = ['language', 'friendlyName', 'epgPrefix', 'tunerCount', 'normalizeRes', 'audioLanguages', 'syncInterval',
@@ -55,6 +58,7 @@
   })
 
   $effect(() => {
+    if (!current) return (document.title = `${t('app.seite_nicht_gefunden')} · Flimmerkiste`)
     document.title = `${t(`settings.${current[0]}.title`)} · ${t('settings.title')} · Flimmerkiste`
   })
 
@@ -85,6 +89,9 @@
   }
 </script>
 
+{#if !current}
+  <NotFound />
+{:else}
 <div class="page settings">
   <div class="page-head">
     <div class="grow"><h1>{t('settings.title')}</h1></div>
@@ -131,6 +138,7 @@
     </div>
   {/if}
 </div>
+{/if}
 
 <style>
   .layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 1.25rem; align-items: start; }

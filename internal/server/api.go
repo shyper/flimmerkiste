@@ -1076,6 +1076,9 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		if err := s.store.DeleteOtherSessions(r.Context(), s.ownerUserID(r.Context())); err != nil {
 			s.log.Warn("end sessions", "err", err)
 		}
+		if err := s.store.DeleteOtherTokens(r.Context(), s.ownerUserID(r.Context())); err != nil {
+			s.log.Warn("remove tokens", "err", err)
+		}
 	}
 	if tmdbChanged && s.platform(r.Context()) != "plex" {
 		s.startSlates()

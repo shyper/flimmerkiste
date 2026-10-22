@@ -29,6 +29,9 @@ const servers = [
 const stubs = {
   '/api/preview': { count: 3, movies: 3, episodes: 0, shows: 0, trailers: 0, durationMs: 1, items: [] },
   '/api/library/search': { movies: [], shows: [] },
+  '/api/tokens': { endpoint: 'http://192.168.1.10:8080/mcp', scopes: ['read', 'library', 'write', 'delete'], tokens: [
+    { id: 1, userId: 1, username: 'owner', name: 'Claude Desktop', scopes: ['read', 'library'], createdAt: 1760000000, lastUsed: 0 },
+  ] },
 }
 
 function mockApi(extra = {}) {
@@ -115,7 +118,7 @@ function pages(lang) {
     ] })
     await snap('history', History)
   })
-  for (const section of ['server', 'livetv', 'playback', 'presentation', 'trailers', 'hardware', 'ai', 'users', 'general']) {
+  for (const section of ['server', 'livetv', 'playback', 'presentation', 'trailers', 'hardware', 'ai', 'users', 'mcp', 'general']) {
     it(`Einstellungen ${section}`, async () => {
       route.path = `/settings/${section}`
       await snap(`settings-${section}`, Settings)

@@ -64,9 +64,13 @@ func TestSharedUsersOffEndsSessions(t *testing.T) {
 	viewer := &store.User{Provider: "plex", ExternalID: "2", Username: "guest", Role: "viewer"}
 	srv.store.UpsertUser(ctx, viewer)
 	srv.store.CreateSession(ctx, "v", viewer.ID, time.Hour)
+	srv.store.CreateAPIToken(ctx, viewer.ID, "guest's assistant", "tv", []string{ScopeRead})
 	call(t, h, "PUT", "/api/settings", map[string]any{"allowSharedUsers": false}, nil)
 	if _, err := srv.store.SessionUser(ctx, "v"); err == nil {
 		t.Error("the viewer is still signed in")
+	}
+	if _, _, err := srv.store.TokenUser(ctx, "tv"); err == nil {
+		t.Error("the viewer's token still works")
 	}
 	if _, err := srv.store.SessionUser(ctx, "s"); err != nil {
 		t.Errorf("the owner was signed out: %v", err)

@@ -57,7 +57,7 @@ describe('markup', () => {
 
 describe('catalog keys', () => {
   // Keys put together at run time: their families count as used.
-  const dynamic = [/^settings\.group\./, /^settings\.\w+\.(title|intro)$/, /^ruleGroup\.(op|match)\./, /^sourceEditor\.idea\d$/, /^logo\.holiday\./]
+  const dynamic = [/^settings\.group\./, /^settings\.mcp\.scope\./, /^settings\.\w+\.(title|intro)$/, /^ruleGroup\.(op|match)\./, /^sourceEditor\.idea\d$/, /^logo\.holiday\./]
   it('are all used', () => {
     const files = []
     const collect = (dir) => {

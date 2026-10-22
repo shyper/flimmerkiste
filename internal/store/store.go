@@ -210,6 +210,17 @@ var migrations = []string{
 	CREATE UNIQUE INDEX history_slot ON history(channel_id, start);
 	CREATE INDEX history_start ON history(start);
 	CREATE INDEX history_title ON history(rating_key, start);`,
+	// Access tokens for the MCP endpoint. Only a hash of the token is kept; it
+	// acts as its user, limited to its scopes.
+	`CREATE TABLE api_tokens (
+		id         INTEGER PRIMARY KEY,
+		user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		name       TEXT NOT NULL,
+		hash       TEXT NOT NULL UNIQUE, -- hex sha256 of the token
+		scopes     TEXT NOT NULL,        -- space separated, see server/mcp.go
+		created_at INTEGER NOT NULL,
+		last_used  INTEGER NOT NULL DEFAULT 0
+	);`,
 }
 
 func (s *Store) migrate(ctx context.Context) error {
