@@ -369,7 +369,7 @@ func (s *Server) fetchImage(ctx context.Context, u string) image.Image {
 }
 
 // watermark returns the burned-in logo settings for a channel, if enabled.
-func (s *Server) watermark(c *store.Channel, enabled bool, position string, opacity, size int) *stream.Watermark {
+func (s *Server) watermark(c *store.Channel, enabled bool, position string, opacity, size int, tone string) *stream.Watermark {
 	if !enabled {
 		return nil
 	}
@@ -378,7 +378,7 @@ func (s *Server) watermark(c *store.Channel, enabled bool, position string, opac
 		s.log.Warn("watermark logo", "err", err)
 		return nil
 	}
-	return &stream.Watermark{Path: path, Position: position, Opacity: opacity, Size: size}
+	return &stream.Watermark{Path: path, Position: position, Opacity: opacity, Size: size, Tone: tone}
 }
 
 // handleCardPreview renders the slate for the editor preview.

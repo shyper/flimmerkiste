@@ -265,7 +265,8 @@
     if (!w) return ''
     const v = w.position?.startsWith('b') ? 'bottom' : 'top'
     const h = w.position?.endsWith('l') ? 'left' : 'right'
-    return `${v}: 4%; ${h}: 3%; width: ${w.size}%; opacity: ${w.opacity / 100}`
+    const tone = { gray: '; filter: grayscale(1)', white: '; filter: brightness(0) invert(1)' }[w.tone] || ''
+    return `${v}: 4%; ${h}: 3%; width: ${w.size}%; opacity: ${w.opacity / 100}${tone}`
   })
 
   const sideLogo = $derived(ch ? logoPreviewUrl({
@@ -519,6 +520,13 @@
                     <span class="label">{t('channelEditor.position')}</span>
                     <Segmented bind:value={ch.config.watermark.position} size="sm" options={[
                       { value: 'tl', label: '↖' }, { value: 'tr', label: '↗' }, { value: 'bl', label: '↙' }, { value: 'br', label: '↘' },
+                    ]} />
+                  </div>
+                  <div>
+                    <span class="label">{t('channelEditor.logoFarbe')}</span>
+                    <Segmented bind:value={ch.config.watermark.tone} size="sm" options={[
+                      { value: 'color', label: t('channelEditor.logoFarbe.color') }, { value: 'gray', label: t('channelEditor.logoFarbe.gray') },
+                      { value: 'white', label: t('channelEditor.logoFarbe.white') },
                     ]} />
                   </div>
                   <label class="field">

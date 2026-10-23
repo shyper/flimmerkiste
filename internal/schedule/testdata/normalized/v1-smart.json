@@ -65,7 +65,8 @@
       "enabled": true,
       "position": "bl",
       "opacity": 60,
-      "size": 12
+      "size": 12,
+      "tone": "color"
     },
     "credits": "default"
   },

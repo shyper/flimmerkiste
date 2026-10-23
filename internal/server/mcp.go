@@ -55,7 +55,7 @@ Channel kinds and their config.source:
 
 A rule group: {"match":"all|any|none","rules":[{"field":"genre","op":"is","values":["Horror"]}],"groups":[<group>…]}. "none" excludes. Several values of one rule are alternatives. Examples: decade "1980", watched "false", addedDays lt "30", type "movie|episode".
 
-Other config fields: order "shuffle|fixed", sortBy "title|year|added|release" (fixed order), keepEpisodeOrder, noRepeatHours, align 0|5|10|15|30|60 (start titles on the clock), filler <source of type manual|rules|trailers> with fillerBetween 0-5, previews (trailers of later titles in the breaks), transcode "default|copy|audio|full", credits "default|off|squeeze", watermark {"enabled":true} (transcode full only), logoStyle "auto" or a style.
+Other config fields: order "shuffle|fixed", sortBy "title|year|added|release" (fixed order), keepEpisodeOrder, noRepeatHours, align 0|5|10|15|30|60 (start titles on the clock), filler <source of type manual|rules|trailers> with fillerBetween 0-5, previews (trailers of later titles in the breaks), transcode "default|copy|audio|full", credits "default|off|squeeze", watermark {"enabled":true,"tone":"color|gray|white"} (transcode full only), logoStyle "auto" or a style.
 
 Times are in the server's time zone. Speak to the user in their language; titles stay as the library has them.`
 

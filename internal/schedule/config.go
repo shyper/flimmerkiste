@@ -91,6 +91,7 @@ type Watermark struct {
 	Position string `json:"position,omitempty"` // tl | tr | bl | br
 	Opacity  int    `json:"opacity,omitempty"`  // percent
 	Size     int    `json:"size,omitempty"`     // logo width in percent of the picture width
+	Tone     string `json:"tone,omitempty"`     // color | gray | white
 }
 
 type Source struct {
@@ -203,6 +204,11 @@ func (c *Config) normalize() {
 	}
 	if c.Watermark.Size <= 0 || c.Watermark.Size > 40 {
 		c.Watermark.Size = 14
+	}
+	switch c.Watermark.Tone {
+	case "color", "gray", "white":
+	default:
+		c.Watermark.Tone = "color"
 	}
 }
 

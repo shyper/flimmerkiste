@@ -121,3 +121,15 @@ func TestFillerOnly(t *testing.T) {
 		t.Fatal("a channel with titles is not filler-only")
 	}
 }
+
+// TestWatermarkToneDefault: channels saved before the tone existed keep the
+// original colors; unknown tones fall back to them too.
+func TestWatermarkToneDefault(t *testing.T) {
+	for in, want := range map[string]string{"": "color", "gray": "gray", "white": "white", "sepia": "color"} {
+		c := Config{Watermark: Watermark{Tone: in}}
+		c.normalize()
+		if c.Watermark.Tone != want {
+			t.Errorf("tone %q: got %q, want %q", in, c.Watermark.Tone, want)
+		}
+	}
+}

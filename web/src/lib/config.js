@@ -55,6 +55,7 @@ export function normalizeConfig(cfg, kind) {
   cfg.watermark.position ||= 'tr'
   cfg.watermark.opacity ||= 70
   cfg.watermark.size ||= 14
+  cfg.watermark.tone ||= 'color'
   cfg.source ??= { type: '' }
   normalizeSource(cfg.source)
   if (kind === 'seasonal') {

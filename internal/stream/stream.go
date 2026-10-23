@@ -69,6 +69,7 @@ type Watermark struct {
 	Position string // tl | tr | bl | br
 	Opacity  int    // percent
 	Size     int    // logo width in percent of the picture width
+	Tone     string // color | gray | white
 }
 
 // CaptionFunc returns the lower third PNG for a trailer program ("" = none).
@@ -1299,11 +1300,24 @@ func buildArgs(input string, offset, length, tsOffset, burst time.Duration, vide
 	return append(args, outputArgs(audioIdx, tsOffset)...)
 }
 
-// watermarkFilter scales the logo to its target width and applies the opacity;
-// extra filters (fades) follow, before the label [wm].
+// watermarkFilter scales the logo to its target width and applies the tone and
+// opacity; extra filters (fades) follow, before the label [wm].
 func watermarkFilter(wm *Watermark, frameW int, input, extra string) string {
 	width := frameW * wm.Size / 100
-	return fmt.Sprintf("[%s]scale=%d:-1,format=rgba,colorchannelmixer=aa=%.2f%s[wm]", input, width, float64(wm.Opacity)/100, extra)
+	return fmt.Sprintf("[%s]scale=%d:-1,format=rgba,%scolorchannelmixer=aa=%.2f%s[wm]", input, width, watermarkTone(wm.Tone), float64(wm.Opacity)/100, extra)
+}
+
+// watermarkTone returns the filters that recolor the logo, alpha untouched:
+// gray mixes every channel from the luma (BT.709), white sets them to full so
+// only the shape remains.
+func watermarkTone(tone string) string {
+	switch tone {
+	case "gray":
+		return "colorchannelmixer=rr=0.2126:rg=0.7152:rb=0.0722:gr=0.2126:gg=0.7152:gb=0.0722:br=0.2126:bg=0.7152:bb=0.0722,"
+	case "white":
+		return "lutrgb=r=255:g=255:b=255,"
+	}
+	return ""
 }
 
 // logoFadeIn: how long the logo takes to fade in (Options.LogoFadeIn), after a short pause.

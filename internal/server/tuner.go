@@ -167,7 +167,7 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 		Mode:           mode,
 		NormalizeRes:   s.store.SettingInt(ctx, store.SetNormalizeRes, 720),
 		AudioLanguages: langs,
-		Watermark:      s.watermark(ch, wm.Enabled && mode == "full", wm.Position, wm.Opacity, wm.Size),
+		Watermark:      s.watermark(ch, wm.Enabled && mode == "full", wm.Position, wm.Opacity, wm.Size, wm.Tone),
 		Buffer:         time.Duration(s.store.SettingInt(ctx, store.SetStreamBuffer, int(stream.DefaultBuffer/time.Second))) * time.Second,
 		VAAPI:          gpu,
 		GPUEncoder:     enc,

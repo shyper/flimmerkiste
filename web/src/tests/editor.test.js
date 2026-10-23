@@ -120,7 +120,7 @@ describe('normalizeConfig', () => {
     for (const k of ['order', 'transcode', 'noRepeatHours', 'keepEpisodeOrder', 'logoNumber', 'logoHoliday', 'align', 'fillerBetween', 'previews']) {
       expect(cfg[k], k).not.toBeUndefined()
     }
-    expect(cfg.watermark).toEqual({ enabled: false, position: 'tr', opacity: 70, size: 14 })
+    expect(cfg.watermark).toEqual({ enabled: false, position: 'tr', opacity: 70, size: 14, tone: 'color' })
     expect(cfg.source.rules).toEqual({ match: 'all', rules: [{ field: 'genre', op: 'is', values: [] }], groups: [] })
     expect(cfg.filler.channelFilter).toBe(false)
     expect(cfg.filler.trailerOrigin).toBe('library')

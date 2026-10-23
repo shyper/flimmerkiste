@@ -29,7 +29,8 @@
       "enabled": true,
       "position": "tr",
       "opacity": 70,
-      "size": 14
+      "size": 14,
+      "tone": "color"
     },
     "credits": "default"
   },
