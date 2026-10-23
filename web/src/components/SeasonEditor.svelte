@@ -122,10 +122,10 @@
             <div class="field">
               <span class="label">{t('seasonEditor.bis')}</span>
               <div class="row">
-                <select class="input" value={t.d} onchange={(e) => (s.to = fmt(t.m, +e.currentTarget.value))}>
+                <select class="input" value={to.d} onchange={(e) => (s.to = fmt(to.m, +e.currentTarget.value))}>
                   {#each Array(31) as _, d}<option value={d + 1}>{d + 1}.</option>{/each}
                 </select>
-                <select class="input" value={t.m} onchange={(e) => (s.to = fmt(+e.currentTarget.value, t.d))}>
+                <select class="input" value={to.m} onchange={(e) => (s.to = fmt(+e.currentTarget.value, to.d))}>
                   {#each months as m, mi}<option value={mi + 1}>{m}</option>{/each}
                 </select>
               </div>

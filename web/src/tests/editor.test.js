@@ -3,7 +3,7 @@
 // same after the server migrated them (testdata/normalized). Rendering runs in
 // jsdom; a missing value that a component binds to fails here instead of in the browser.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/svelte'
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/svelte'
 import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import ChannelEditor from '../pages/ChannelEditor.svelte'
@@ -77,6 +77,30 @@ describe('Neue Sender', () => {
       expect(errors).toEqual([])
     })
   }
+})
+
+describe('Saison über den Jahreswechsel', () => {
+  it.each(['day-first', 'month-first'])('speichert 30. Dezember bis 2. Januar (%s)', async (order) => {
+    mockApi({ id: 1, name: 'Testsender', number: 1, color: '', enabled: true, kind: 'seasonal', config: {
+      seasons: [{ id: 'silvester', name: 'Silvester', from: '12-01', to: '12-31', source: { type: 'rules', rules: { match: 'all', rules: [], groups: [] } } }],
+    } })
+    const { container } = render(ChannelEditor, { id: '1' })
+    await fireEvent.click(await screen.findByRole('button', { name: /Silvester.*1\. Dez/ }))
+    const [fromDay, fromMonth, toDay, toMonth] = container.querySelectorAll('.season-body .meta select')
+    expect(fromMonth.value).toBe('12')
+    expect(toDay.value).toBe('31')
+    expect(toMonth.value).toBe('12')
+    await fireEvent.change(fromDay, { target: { value: '30' } })
+    const changes = order === 'day-first' ? [[toDay, '2'], [toMonth, '1']] : [[toMonth, '1'], [toDay, '2']]
+    for (const [select, value] of changes) await fireEvent.change(select, { target: { value } })
+    await fireEvent.click(screen.getAllByRole('button', { name: 'Speichern', exact: true })[0])
+    await waitFor(() => {
+      const request = fetch.mock.calls.find(([url, options]) => url === '/api/channels/1' && options?.method === 'PUT')
+      expect(request).toBeTruthy()
+      expect(JSON.parse(request[1].body).config.seasons[0]).toMatchObject({ from: '12-30', to: '01-02' })
+    })
+    expect(errors).toEqual([])
+  })
 })
 
 describe('Quellen, die im Editor fast leer entstehen', () => {
