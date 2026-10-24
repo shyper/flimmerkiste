@@ -146,8 +146,8 @@ type channelID struct {
 
 type guideIn struct {
 	From      string `json:"from,omitempty" jsonschema:"start, RFC 3339 (e.g. 2026-10-22T20:00:00+02:00); default: half an hour ago"`
-	Hours     int    `json:"hours,omitempty" jsonschema:"hours from the start, 1-48 (default 6)"`
-	ChannelID int64  `json:"channelId,omitempty" jsonschema:"only this channel"`
+	Hours     int    `json:"hours,omitempty" jsonschema:"hours from the start, at most the planned horizon (get_server_info horizonHours); default 6, for a single channel everything planned"`
+	ChannelID int64  `json:"channelId,omitempty" jsonschema:"only this channel; without hours its whole planned guide"`
 }
 
 type historyIn struct {
@@ -228,7 +228,7 @@ func (s *Server) mcpServer(tok *store.APIToken, u *store.User) *mcp.Server {
 			return call(ctx, s.handleGetChannel, "GET", "/api/channels/x", nil, "id", strconv.FormatInt(in.ID, 10))
 		})
 	addTool(srv, can(ScopeRead, false), &mcp.Tool{Name: "get_guide", Annotations: readOnly,
-		Description: "The program guide: what airs when on the enabled channels."},
+		Description: "The program guide: what airs when on the enabled channels. All channels: 6 hours by default. One channel (channelId) without hours: its whole planned guide."},
 		func(ctx context.Context, in guideIn) (any, error) { return s.mcpGuide(ctx, in) })
 	addTool(srv, can(ScopeRead, false), &mcp.Tool{Name: "get_sessions", Annotations: readOnly,
 		Description: "Who is watching which channel right now."},
@@ -488,11 +488,21 @@ func (s *Server) mcpGuide(ctx context.Context, in guideIn) (any, error) {
 		}
 		from = t
 	}
-	hours := in.Hours
-	if hours <= 0 || hours > 48 {
-		hours = 6
+	// never less than 48 hours, as before the horizon became the limit
+	horizon := time.Duration(max(s.cfg.Horizon, 48)) * time.Hour
+	var to time.Time
+	switch {
+	case in.Hours > 0:
+		to = from.Add(min(time.Duration(in.Hours)*time.Hour, horizon))
+	case in.ChannelID != 0:
+		// one channel without hours: everything planned
+		to = time.Now().Add(horizon)
+		if from.After(time.Now()) {
+			to = from.Add(horizon)
+		}
+	default:
+		to = from.Add(6 * time.Hour)
 	}
-	to := from.Add(time.Duration(hours) * time.Hour)
 	chans, err := s.store.ListChannels(ctx)
 	if err != nil {
 		return nil, err

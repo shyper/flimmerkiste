@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -150,6 +151,61 @@ func TestMCPChannelLifecycle(t *testing.T) {
 	}
 	if _, err := srv.store.GetChannel(context.Background(), created.ID); err == nil {
 		t.Error("channel still there")
+	}
+}
+
+// get_guide shows 6 hours of all channels by default, the whole planned guide
+// of a single channel, and an explicit hours value up to the horizon.
+func TestMCPGuideWindow(t *testing.T) {
+	srv, h := transferWorld(t, "a")
+	ts := httptest.NewServer(h)
+	defer ts.Close()
+	cs := mcpSession(t, h, ts, ScopeRead)
+	ctx := context.Background()
+
+	ch := &store.Channel{Name: "Kino", Kind: "manual", Enabled: true, Config: json.RawMessage(`{}`)}
+	if err := srv.store.CreateChannel(ctx, ch); err != nil {
+		t.Fatal(err)
+	}
+	// two-hour programs from an hour ago to 47 hours ahead
+	start := time.Now().Add(-time.Hour)
+	var progs []store.Program
+	for i := range 24 {
+		s := start.Add(time.Duration(2*i) * time.Hour)
+		progs = append(progs, store.Program{ChannelID: ch.ID, Start: s.UnixMilli(), Stop: s.Add(2 * time.Hour).UnixMilli(), RatingKey: "a" + strconv.Itoa(1+i%2)})
+	}
+	if err := srv.store.InsertPrograms(ctx, progs); err != nil {
+		t.Fatal(err)
+	}
+
+	count := func(args map[string]any) int {
+		t.Helper()
+		var out []struct {
+			ID       int64        `json:"id"`
+			Programs []mcpProgram `json:"programs"`
+		}
+		if msg := useTool(t, cs, "get_guide", args, &out); msg != "" {
+			t.Fatalf("get_guide %v: %s", args, msg)
+		}
+		for _, rw := range out {
+			if rw.ID == ch.ID {
+				return len(rw.Programs)
+			}
+		}
+		t.Fatalf("get_guide %v: channel missing", args)
+		return 0
+	}
+	if n := count(nil); n != 4 {
+		t.Errorf("all channels, default: %d programs, want 4", n)
+	}
+	if n := count(map[string]any{"channelId": ch.ID}); n != 24 {
+		t.Errorf("one channel without hours: %d programs, want 24", n)
+	}
+	if n := count(map[string]any{"channelId": ch.ID, "hours": 3}); n != 2 {
+		t.Errorf("one channel, 3 hours: %d programs, want 2", n)
+	}
+	if n := count(map[string]any{"hours": 1000}); n != 24 {
+		t.Errorf("all channels, hours beyond the horizon: %d programs, want 24", n)
 	}
 }
 
