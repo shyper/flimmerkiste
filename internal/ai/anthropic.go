@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
@@ -20,11 +21,13 @@ type anthropicProvider struct {
 }
 
 func newAnthropic(key, model string) *anthropicProvider {
-	return &anthropicProvider{client: anthropic.NewClient(option.WithAPIKey(key)), model: model}
+	return &anthropicProvider{client: anthropic.NewClient(option.WithAPIKey(key), option.WithHTTPClient(aiHTTP)), model: model}
 }
 
 func (p *anthropicProvider) Pick(ctx context.Context, req Request) ([]Pick, error) {
-	resp, err := p.client.Beta.Messages.New(ctx, anthropic.BetaMessageNewParams{
+	ctx, cancel := context.WithTimeout(ctx, RequestTimeout)
+	defer cancel()
+	stream := p.client.Beta.Messages.NewStreaming(ctx, anthropic.BetaMessageNewParams{
 		Model:     anthropic.Model(p.model),
 		MaxTokens: 16000,
 		System:    []anthropic.BetaTextBlockParam{{Text: systemPrompt(req)}},
@@ -39,6 +42,20 @@ func (p *anthropicProvider) Pick(ctx context.Context, req Request) ([]Pick, erro
 		Fallbacks: anthropic.BetaFallbacksParamUnion{OfDefault: constant.ValueOf[constant.Default]()},
 		Betas:     []anthropic.AnthropicBeta{anthropic.AnthropicBetaServerSideFallback2026_07_01},
 	})
+	defer stream.Close()
+	var resp anthropic.BetaMessage
+	complete := false
+	for stream.Next() {
+		event := stream.Current()
+		if err := resp.Accumulate(event); err != nil {
+			return nil, fmt.Errorf("Anthropic: %w", err)
+		}
+		if event.Type == "message_stop" {
+			complete = true
+			break
+		}
+	}
+	err := stream.Err()
 	if err != nil {
 		var apiErr *anthropic.Error
 		if errors.As(err, &apiErr) {
@@ -51,6 +68,9 @@ func (p *anthropicProvider) Pick(ctx context.Context, req Request) ([]Pick, erro
 			return nil, fmt.Errorf("Anthropic: HTTP %d", apiErr.StatusCode)
 		}
 		return nil, fmt.Errorf("Anthropic: %w", err)
+	}
+	if !complete {
+		return nil, fmt.Errorf("Anthropic: %w", io.ErrUnexpectedEOF)
 	}
 	switch resp.StopReason {
 	case anthropic.BetaStopReasonRefusal:

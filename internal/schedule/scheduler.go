@@ -1219,7 +1219,7 @@ func (g *generator) refillAI(ss *SourceState, cfg *AIConfig, pool []*store.Media
 		recent = recent[len(recent)-60:]
 	}
 
-	ctx, cancel := context.WithTimeout(g.ctx, 4*time.Minute)
+	ctx, cancel := context.WithTimeout(g.ctx, ai.RequestTimeout)
 	defer cancel()
 	lang := g.s.lang(ctx)
 	date := t.Local().Format("Monday, January 2, 2006, 3:04 PM")

@@ -1091,7 +1091,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAITest(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(r.Context(), ai.RequestTimeout)
 	defer cancel()
 	p, err := s.aiProvider(ctx)
 	if err != nil {

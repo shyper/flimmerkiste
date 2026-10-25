@@ -99,6 +99,8 @@ Details are under [Installation](#installation-docker).
   If an AI request fails, existing programme stays in place. Each planning run adds at most one
   random title, and only while less than half that horizon is prepared. The next planning run
   retries the AI to fill the full horizon.
+  Both AI providers stream their responses. Requests allow up to 15 minutes in total,
+  but stop after 4 minutes without incoming data. Only complete responses are used.
 - **Order**: shuffled (every title once per round) or fixed, e.g. for film series.
   Shows can continue episode by episode even when shuffled. Repeats can be avoided.
 - **Tune in at the right time**: tune in at 12:30 to a movie that started at 12:00 and it starts at minute 30.
