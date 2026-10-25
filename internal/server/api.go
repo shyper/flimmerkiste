@@ -558,12 +558,7 @@ func (s *Server) handlePutLibrary(w http.ResponseWriter, r *http.Request) {
 // handleFullScan fetches the full metadata of every title of a library again
 // instead of only the new and due ones.
 func (s *Server) handleFullScan(w http.ResponseWriter, r *http.Request) {
-	if err := s.store.ResetDetails(r.Context(), r.PathValue("id")); err != nil {
-		s.failErr(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	// A sync already running may have passed this library; the next one picks it up.
-	started := s.lib.StartSync()
+	started := s.lib.StartFullScan(r.PathValue("id"))
 	writeJSON(w, http.StatusOK, map[string]any{"started": started, "status": s.lib.Status()})
 }
 

@@ -153,6 +153,19 @@ func (l *Library) Invalidate() {
 
 // StartSync runs a sync in the background unless one is already running.
 func (l *Library) StartSync() bool {
+	return l.startSync("")
+}
+
+// StartFullScan refreshes the listing and all full metadata of one library.
+// An empty ID must never turn a per-library scan into a global sync.
+func (l *Library) StartFullScan(libraryID string) bool {
+	if libraryID == "" {
+		return false
+	}
+	return l.startSync(libraryID)
+}
+
+func (l *Library) startSync(libraryID string) bool {
 	l.mu.Lock()
 	if l.status.Running {
 		l.mu.Unlock()
@@ -164,7 +177,16 @@ func (l *Library) StartSync() bool {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 		defer cancel()
 		changes := Changes{Added: map[string]bool{}, Removed: map[string]bool{}}
-		err := l.sync(ctx, &changes)
+		var err error
+		if libraryID != "" {
+			// Let an in-flight metadata refresh finish before marking titles due.
+			l.detailsMu.Lock()
+			err = l.store.ResetDetails(ctx, libraryID)
+			l.detailsMu.Unlock()
+		}
+		if err == nil {
+			err = l.sync(ctx, &changes, libraryID)
+		}
 		l.mu.Lock()
 		l.status.Running = false
 		l.status.Finished = time.Now().Unix()
@@ -188,19 +210,24 @@ func (l *Library) StartSync() bool {
 			}
 			return
 		}
-		_ = l.store.SetSetting(context.Background(), store.SetLastSync, fmt.Sprint(time.Now().Unix()))
+		if libraryID == "" {
+			_ = l.store.SetSetting(context.Background(), store.SetLastSync, fmt.Sprint(time.Now().Unix()))
+		}
 		l.reload(context.Background())
 		if l.onSynced != nil {
 			l.onSynced(changes)
 		}
-		if err := l.syncTrailers(ctx); err != nil {
-			l.log.Warn("trailer sync", "err", err)
+		// Trailer discovery scans all libraries and belongs to a global sync.
+		if libraryID == "" {
+			if err := l.syncTrailers(ctx); err != nil {
+				l.log.Warn("trailer sync", "err", err)
+			}
 		}
 	}()
 	return true
 }
 
-func (l *Library) sync(ctx context.Context, changes *Changes) error {
+func (l *Library) sync(ctx context.Context, changes *Changes, libraryID string) error {
 	srv, err := l.server(ctx)
 	if err != nil {
 		return err
@@ -215,6 +242,9 @@ func (l *Library) sync(ctx context.Context, changes *Changes) error {
 	}
 	seen := map[string]bool{}
 	for _, sec := range sections {
+		if libraryID != "" && sec.ID != libraryID {
+			continue
+		}
 		if sec.Type != "movie" && sec.Type != "show" {
 			continue
 		}
@@ -224,6 +254,9 @@ func (l *Library) sync(ctx context.Context, changes *Changes) error {
 		}
 	}
 	for _, k := range known {
+		if libraryID != "" && k.ID != libraryID {
+			continue
+		}
 		if !seen[k.ID] {
 			if keys, err := l.store.MediaKeys(ctx, k.ID); err == nil {
 				for key := range keys {
@@ -240,7 +273,7 @@ func (l *Library) sync(ctx context.Context, changes *Changes) error {
 		return err
 	}
 	for _, lib := range libs {
-		if !lib.Enabled {
+		if !lib.Enabled || (libraryID != "" && lib.ID != libraryID) {
 			continue
 		}
 		started := time.Now().Unix()
