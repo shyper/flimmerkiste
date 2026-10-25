@@ -64,7 +64,7 @@ var en = map[string]string{
 	"schedule.noContent":    "no matching content found",
 	"schedule.noFiller":     "no trailers or clips found",
 	"schedule.emptyLibrary": "The library is empty – please sync it first",
-	"schedule.aiFailed":     "AI selection failed (%v) – retrying next planning run; random picks only fill half the guide horizon",
+	"schedule.aiFailed":     "AI selection failed (%v) – retrying next planning run; at most one random title per run while below half the guide horizon",
 	"config.noTitles":       "%s: no titles selected",
 	"config.noTheme":        "%s: no theme given for the AI",
 	"config.unknownSource":  "%s: unknown source %q",

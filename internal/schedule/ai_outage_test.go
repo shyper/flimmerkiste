@@ -63,7 +63,7 @@ func outageChannel(t *testing.T, horizon time.Duration) (*Scheduler, *store.Chan
 	return s, ch, p
 }
 
-func TestAIOutageOnlyFillsHalfHorizon(t *testing.T) {
+func TestAIOutageAddsAtMostOneMovieBelowHalfHorizon(t *testing.T) {
 	for _, tc := range []struct {
 		name               string
 		horizon, remaining time.Duration
@@ -71,9 +71,10 @@ func TestAIOutageOnlyFillsHalfHorizon(t *testing.T) {
 	}{
 		{"enough programme", 48 * time.Hour, 30 * time.Hour, 30 * time.Hour},
 		{"one whole fallback movie", 48 * time.Hour, 23 * time.Hour, 25 * time.Hour},
-		{"new channel", 48 * time.Hour, 0, 24 * time.Hour},
+		{"new channel", 48 * time.Hour, 0, 2 * time.Hour},
+		{"short guide", 48 * time.Hour, 4 * time.Hour, 6 * time.Hour},
 		{"odd horizon", 5 * time.Hour, time.Hour, 3 * time.Hour},
-		{"odd horizon new channel", 5 * time.Hour, 0, 4 * time.Hour},
+		{"odd horizon new channel", 5 * time.Hour, 0, 2 * time.Hour},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, ch, provider := outageChannel(t, tc.horizon)
@@ -124,6 +125,10 @@ func TestAIOutageRetriesNextRunAndRecovers(t *testing.T) {
 		}
 		if provider.calls != attempt {
 			t.Fatalf("run %d: got %d requests", attempt, provider.calls)
+		}
+		progs, err := s.store.ProgramsBetween(ctx, ch.ID, time.Now().Add(-time.Hour), time.Now().Add(48*time.Hour))
+		if err != nil || len(progs) != attempt {
+			t.Fatalf("run %d: expected exactly one additional fallback movie, got %d programmes, %v", attempt, len(progs), err)
 		}
 	}
 	before, err := s.store.ProgramsBetween(ctx, ch.ID, time.Now().Add(-time.Hour), time.Now().Add(48*time.Hour))
@@ -180,7 +185,7 @@ func TestAIOutageKeepsQueuedChoices(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(progs) != 12 || progs[0].RatingKey != "1" || progs[0].Note != "first AI choice" ||
+	if len(progs) != 3 || progs[0].RatingKey != "1" || progs[0].Note != "first AI choice" ||
 		progs[1].RatingKey != "2" || progs[1].Note != "second AI choice" || provider.calls != 1 {
 		t.Fatalf("queued choices or fallback coverage lost: %+v; requests %d", progs, provider.calls)
 	}
@@ -227,10 +232,27 @@ func TestAIEmptyResponseUsesOutagePolicy(t *testing.T) {
 		t.Fatal("an empty response must count as a failed request")
 	}
 	last, err := s.store.LastProgram(context.Background(), ch.ID)
-	if err != nil || last.StopTime().Before(started.Add(3*time.Hour)) || last.StopTime().After(started.Add(4*time.Hour+time.Second)) {
-		t.Fatalf("empty response did not limit random coverage to whole movies up to half the horizon: %+v, %v", last, err)
+	if err != nil || last.StopTime().Before(started.Add(2*time.Hour-time.Second)) || last.StopTime().After(started.Add(2*time.Hour+time.Second)) {
+		t.Fatalf("empty response did not limit random coverage to one whole movie: %+v, %v", last, err)
 	}
 	if provider.calls != 1 {
 		t.Fatalf("empty response caused %d requests in one run", provider.calls)
+	}
+}
+
+func TestAIOutageStopsAddingOnceHalfHorizonCovered(t *testing.T) {
+	s, ch, provider := outageChannel(t, 5*time.Hour)
+	ctx := context.Background()
+	for attempt := 1; attempt <= 3; attempt++ {
+		if err := s.Ensure(ctx, ch.ID); err == nil {
+			t.Fatal("expected AI failure")
+		}
+		progs, err := s.store.ProgramsBetween(ctx, ch.ID, time.Now().Add(-time.Hour), time.Now().Add(5*time.Hour))
+		if err != nil || len(progs) != min(attempt, 2) {
+			t.Fatalf("run %d: expected one added movie until half the horizon is covered, got %d programmes, %v", attempt, len(progs), err)
+		}
+		if provider.calls != attempt {
+			t.Fatalf("run %d: expected AI retry, got %d requests", attempt, provider.calls)
+		}
 	}
 }

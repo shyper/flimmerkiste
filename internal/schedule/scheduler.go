@@ -630,9 +630,11 @@ type generator struct {
 	lastAired map[string]time.Time
 	softErr   error
 	// Failed requests pause this source for this planning run only. The next run
-	// retries; random picks may only cover the first half of the guide horizon.
+	// retries; at most one random pick per run may extend the guide, and only
+	// while it covers less than half the horizon.
 	aiFailures      map[string]error
 	aiFallbackUntil time.Time
+	aiFallbackUsed  bool
 	langs           []string         // preferred trailer languages
 	trailers        []*store.Trailer // loaded on first use
 	info            []*store.Media   // weather and news slates, loaded on first use
@@ -1114,7 +1116,7 @@ func (g *generator) pickAI(id string, ss *SourceState, src *Source, t time.Time)
 	}
 	if g.aiFailures[id] == nil {
 		if err := g.refillAI(ss, cfg, pool, t); err != nil {
-			g.s.log.Warn("ai selection failed, limiting random picks to half the guide horizon", "channel", g.ch.Name, "err", err)
+			g.s.log.Warn("ai selection failed, allowing at most one random pick below half the guide horizon", "channel", g.ch.Name, "err", err)
 			if g.aiFailures == nil {
 				g.aiFailures = map[string]error{}
 			}
@@ -1130,10 +1132,12 @@ func (g *generator) pickAI(id string, ss *SourceState, src *Source, t time.Time)
 	}
 	// Leave the remaining guide unfilled while enough programme is prepared.
 	// Returning the failure stops this run without discarding its progress.
-	if !t.Before(g.aiFallbackUntil) {
+	if g.aiFallbackUsed || !t.Before(g.aiFallbackUntil) {
 		return nil, "", g.aiFailures[id]
 	}
-	// Only bridge an outage up to half the horizon, keeping whole titles intact.
+	// Keep the guide mostly open for the next AI retry. The allowance belongs
+	// to the whole channel's planning run, including channels with several sources.
+	g.aiFallbackUsed = true
 	if g.cfg.KeepEpisodeOrder {
 		return g.pickGrouped(ss, pool, t), "", nil
 	}
