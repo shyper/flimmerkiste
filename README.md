@@ -105,7 +105,7 @@ Details are under [Installation](#installation-docker).
   Shows can continue episode by episode even when shuffled. Repeats can be avoided.
 - **Tune in at the right time**: tune in at 12:30 to a movie that started at 12:00 and it starts at minute 30.
 - **Trailer-only channels**: a manual channel without titles plays its fillers around the clock,
-  e.g. movie trailers. The guide shows “No program information available” in blocks of 6 hours.
+  e.g. movie trailers. The guide shows “No program information available” as one entry per day, from midnight to midnight.
 - **Always up to date**: the sync with the media server (every 6 hours by default) finds new and deleted titles.
   Deleted titles leave the programme at once, also from manual lists, where the editor marks them.
   New matching titles join the programme from about 2 hours ahead, so what has been announced stays.

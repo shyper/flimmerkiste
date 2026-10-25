@@ -179,11 +179,3 @@ func Date(l Lang, t time.Time, withYear bool) string {
 	}
 	return s
 }
-
-// ShortDateTime writes a date and time briefly: "24.10. 18:00" or "10/24 6:00 PM".
-func ShortDateTime(l Lang, t time.Time) string {
-	if l == DE {
-		return t.Format("02.01. 15:04")
-	}
-	return t.Format("1/2 3:04 PM")
-}

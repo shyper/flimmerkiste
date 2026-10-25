@@ -273,35 +273,29 @@ func (s *Server) handleXMLTV(w http.ResponseWriter, r *http.Request) {
 	_ = enc.Encode(doc)
 }
 
-// noInfoBlockHours is the length of the placeholder entries of a channel
-// without titles of its own (Plex does not offer whole-day entries for mapping).
-const noInfoBlockHours = 6
-
-// noInfoBlocks returns the blocks overlapping [from, to): 0:00–6:00, 6:00–12:00 …
-// local time (5 or 7 hours across a daylight saving switch).
+// noInfoBlocks returns the whole days overlapping [from, to), midnight to
+// midnight local time (23 or 25 hours across a daylight saving switch).
 func noInfoBlocks(from, to time.Time) [][2]time.Time {
 	var out [][2]time.Time
 	y, m, d := from.Local().Date()
-	h := from.Local().Hour() / noInfoBlockHours * noInfoBlockHours
-	for start := time.Date(y, m, d, h, 0, 0, 0, time.Local); start.Before(to); {
-		h += noInfoBlockHours
-		stop := time.Date(y, m, d, h, 0, 0, 0, time.Local)
+	for start := time.Date(y, m, d, 0, 0, 0, 0, time.Local); start.Before(to); {
+		d++
+		stop := time.Date(y, m, d, 0, 0, 0, 0, time.Local)
 		out = append(out, [2]time.Time{start, stop})
 		start = stop
 	}
 	return out
 }
 
-// noInfoProgrammes covers a channel without titles of its own with placeholder
-// blocks. Plex did not offer the channel for mapping while all entries were
-// identical and undated, so each block is named after its start and dated.
+// noInfoProgrammes covers a channel without titles of its own with one
+// placeholder entry per day.
 func noInfoProgrammes(l i18n.Lang, channel, icon string, from, to time.Time) []xmltvProgramme {
 	var out []xmltvProgramme
 	for _, b := range noInfoBlocks(from, to) {
-		title := i18n.T(l, "guide.noInfoAt", i18n.ShortDateTime(l, b[0]))
+		title := i18n.T(l, "guide.noInfo")
 		out = append(out, xmltvProgramme{Start: b[0].Format(xmltvTime), Stop: b[1].Format(xmltvTime), Channel: channel,
 			Title: xmltvText{Lang: string(l), Value: title}, Desc: &xmltvText{Lang: string(l), Value: i18n.T(l, "guide.noInfo")},
-			Date: b[0].Format("20060102"), Categories: []xmltvText{{Lang: "en", Value: "Movie"}}, Icon: &xmltvIcon{Src: icon}})
+			Categories: []xmltvText{{Lang: "en", Value: "Movie"}}, Icon: &xmltvIcon{Src: icon}})
 	}
 	return out
 }

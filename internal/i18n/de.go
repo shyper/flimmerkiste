@@ -38,7 +38,6 @@ var de = map[string]string{
 	"credits.kicker":     "Demnächst auf anderen Sendern",
 	"credits.slot":       "%s Uhr · %s",
 	"guide.noInfo":       "Keine Programminformationen verfügbar",
-	"guide.noInfoAt":     "Keine Programminformationen verfügbar (%s)",
 
 	// guide reload
 	"guide.noDVR":    "kein passender DVR in Plex gefunden – ist Flimmerkiste unter Live-TV & DVR eingerichtet?",

@@ -360,3 +360,43 @@ func TestTrackCountsNestedRuns(t *testing.T) {
 	}
 }
 
+// A trailer channel that gets titles of its own: re-planning ends the clips
+// right away instead of keeping them until the end of the day.
+func TestResetEndsClipsWhenTitlesAreAdded(t *testing.T) {
+	s, ch, _ := outageChannel(t, 48*time.Hour)
+	ctx := context.Background()
+	clip := &store.Media{RatingKey: "clip", LibraryID: "movies", Type: "movie", Title: "Clip", DurationMs: (3 * time.Minute).Milliseconds()}
+	if err := s.store.UpsertMedia(ctx, []*store.Media{clip}, 1); err != nil {
+		t.Fatal(err)
+	}
+	filler := `"filler":{"type":"manual","items":[{"key":"clip","type":"movie","title":"Clip"}]}`
+	ch.Kind = KindManual
+	ch.Config = json.RawMessage(`{"source":{"type":"manual","items":[]},` + filler + `}`)
+	if err := s.store.UpdateChannel(ctx, ch); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Ensure(ctx, ch.ID); err != nil {
+		t.Fatal(err)
+	}
+	ch.Config = json.RawMessage(`{"source":{"type":"manual","items":[{"key":"1","type":"movie","title":"Movie 1"}]},` + filler + `}`)
+	if err := s.store.UpdateChannel(ctx, ch); err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now()
+	if err := s.Reset(ctx, ch.ID); err != nil {
+		t.Fatal(err)
+	}
+	progs, err := s.store.ProgramsBetween(ctx, ch.ID, started, started.Add(48*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range progs {
+		if p.IsMain() {
+			if p.StartTime().After(started.Add(3 * time.Minute)) {
+				t.Fatalf("first title starts at %s, clips kept running", p.StartTime())
+			}
+			return
+		}
+	}
+	t.Fatal("no title planned after adding one")
+}

@@ -37,7 +37,6 @@ var en = map[string]string{
 	"credits.kicker":     "Coming up on other channels",
 	"credits.slot":       "%s · %s",
 	"guide.noInfo":       "No program information available",
-	"guide.noInfoAt":     "No program information available (%s)",
 
 	// guide reload
 	"guide.noDVR":    "no matching DVR found in Plex – is Flimmerkiste set up under Live TV & DVR?",
