@@ -31,6 +31,10 @@
   let pendingLogo = null // file chosen before the channel exists; uploaded right after creation
   let error = $state('')
   let errorTimer
+  // The server plans in the background (AI requests take minutes); while it
+  // does, the editor polls more often and reloads "Up next" once it is done.
+  let planning = $state(false)
+  let planTimer
 
   onMount(async () => {
     if (id) {
@@ -38,9 +42,11 @@
       ch = { id: c.id, name: c.name, number: c.number, color: c.color, enabled: c.enabled, kind: c.kind, config: c.config || {} }
       logoUrl = c.customLogoUrl || ''
       error = c.error || ''
+      planning = !!c.planning
       app.missing = c.missing || []
       loadUpcoming()
       errorTimer = setInterval(loadError, 30000)
+      watchPlanning()
     } else {
       const d = pending.draft?.kind === kind ? pending.draft : { kind, name: '', config: emptyConfig(kind) }
       pending.draft = null
@@ -67,6 +73,7 @@
 
   onDestroy(() => {
     clearInterval(errorTimer)
+    clearInterval(planTimer)
     window.removeEventListener('beforeunload', onBeforeUnload)
     leaveGuard.check = null
   })
@@ -79,8 +86,23 @@
 
   // The planning problem disappears by itself once the next run succeeds.
   async function loadError() {
-    if (ch?.id) error = (await get(`/api/channels/${ch.id}/error`).catch(() => null))?.error ?? error
+    if (!ch?.id) return
+    const r = await get(`/api/channels/${ch.id}/error`).catch(() => null)
+    if (!r) return
+    error = r.error ?? error
+    const was = planning
+    planning = !!r.planning
+    if (was && !planning) loadUpcoming()
+    watchPlanning()
   }
+
+  function watchPlanning() {
+    if (planning && !planTimer) planTimer = setInterval(loadError, 3000)
+    else if (!planning && planTimer) planTimer = clearInterval(planTimer)
+  }
+
+  const usesAI = $derived(!!ch && [ch.config.source, ch.config.fallback, ...(ch.config.seasons || []).map((s) => s.source)]
+    .some((s) => s?.type === 'ai'))
 
   async function dismissError() {
     error = ''
@@ -192,7 +214,8 @@
     planPending = false
     await post(`/api/channels/${ch.id}/regenerate`)
     toast(t('channelEditor.replanning'))
-    setTimeout(loadUpcoming, 2000)
+    planning = true
+    watchPlanning()
   }
 
   async function uploadLogo(file) {
@@ -303,7 +326,7 @@
         <h1>{ch.id ? ch.name || t('channelEditor.channel') : t('channelEditor.newChannel')}</h1>
       </div>
       {#if ch.id}
-        <button class="btn" onclick={regenerate} title={t('channelEditor.zukuenftiges_programm_verwerfen_und_neu')}><Icon name="refresh" size={16} /> {t('channelEditor.neu_planen')}</button>
+        <button class="btn" onclick={regenerate} disabled={planning} title={t('channelEditor.zukuenftiges_programm_verwerfen_und_neu')}><Icon name="refresh" size={16} /> {t('channelEditor.neu_planen')}</button>
       {/if}
       <button class="btn primary" onclick={save} disabled={saving || !ch.name.trim()}>
         {#if saving}<span class="spinner"></span>{:else}<Icon name="check" size={16} />{/if}
@@ -322,7 +345,7 @@
       <div class="alert info mb">
         <Icon name="clock" size={16} />
         <span class="grow">{t('channelEditor.die_aenderungen_am_programm_gelten', [app.meta?.horizon || 48])}</span>
-        <button class="btn sm" onclick={regenerate}><Icon name="refresh" size={14} /> {t('channelEditor.jetzt_neu_planen')}</button>
+        <button class="btn sm" onclick={regenerate} disabled={planning}><Icon name="refresh" size={14} /> {t('channelEditor.jetzt_neu_planen')}</button>
       </div>
     {/if}
     {#if app.missing.length}
@@ -606,8 +629,11 @@
             </div>
           {/if}
 
-          {#if ch.id && upcoming.length}
+          {#if ch.id && (upcoming.length || planning)}
             <h3 class="mt">{t('channelEditor.als_naechstes')}</h3>
+            {#if planning}
+              <div class="row tiny muted planning" role="status"><span class="spinner"></span> {usesAI ? t('channelEditor.aiPlanning') : t('channelEditor.planning')}</div>
+            {/if}
             <ul class="upcoming">
               {#each upcoming as p}
                 <li>
@@ -695,6 +721,8 @@
   .time small { color: var(--muted); font-weight: 500; font-size: 0.7rem; }
   .block { display: block; }
   .note { color: #c4b5fd; }
+  .planning { margin-top: 0.5rem; }
+  .planning .spinner { width: 14px; height: 14px; }
   @media (max-width: 1100px) {
     .layout { grid-template-columns: 1fr; }
     .side { order: -1; }

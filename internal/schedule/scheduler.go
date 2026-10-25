@@ -40,14 +40,15 @@ type Scheduler struct {
 	// when programs were only appended to the end of a running guide.
 	OnChange func(extended bool)
 
-	mu    sync.Mutex
-	locks map[int64]*sync.Mutex
-	errs  map[int64]error // last generation problem per channel, shown in the UI
+	mu       sync.Mutex
+	locks    map[int64]*sync.Mutex
+	errs     map[int64]error // last generation problem per channel, shown in the UI
+	planning map[int64]int   // running or announced planning runs per channel, shown in the UI
 }
 
 func New(st *store.Store, lib *library.Library, aiFn AIFunc, horizon time.Duration, log *slog.Logger) *Scheduler {
 	return &Scheduler{store: st, lib: lib, ai: aiFn, log: log, horizon: horizon,
-		locks: map[int64]*sync.Mutex{}, errs: map[int64]error{}}
+		locks: map[int64]*sync.Mutex{}, errs: map[int64]error{}, planning: map[int64]int{}}
 }
 
 func (s *Scheduler) lock(id int64) *sync.Mutex {
@@ -59,6 +60,31 @@ func (s *Scheduler) lock(id int64) *sync.Mutex {
 		s.locks[id] = l
 	}
 	return l
+}
+
+// Track marks a channel as being planned until done is called. Callers that
+// start a run in the background track it first, so the UI sees it at once.
+func (s *Scheduler) Track(id int64) (done func()) {
+	s.mu.Lock()
+	s.planning[id]++
+	s.mu.Unlock()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			if s.planning[id]--; s.planning[id] <= 0 {
+				delete(s.planning, id)
+			}
+		})
+	}
+}
+
+// Planning reports whether a channel is being planned or waits for a re-plan.
+func (s *Scheduler) Planning(id int64) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.planning[id] > 0
 }
 
 func (s *Scheduler) setErr(id int64, err error) {
@@ -158,6 +184,7 @@ func (s *Scheduler) Replan(ctx context.Context, channelID int64, from time.Time)
 }
 
 func (s *Scheduler) replan(ctx context.Context, channelID int64, from time.Time, freshAI bool) error {
+	defer s.Track(channelID)()
 	l := s.lock(channelID)
 	l.Lock()
 	err := s.discard(ctx, channelID, from, freshAI)
@@ -289,6 +316,7 @@ func (s *Scheduler) Ensure(ctx context.Context, channelID int64) error {
 	l := s.lock(channelID)
 	l.Lock()
 	defer l.Unlock()
+	defer s.Track(channelID)()
 	err := s.ensure(ctx, channelID)
 	s.setErr(channelID, err)
 	return err
@@ -322,6 +350,7 @@ func (s *Scheduler) EnsureNow(ctx context.Context, channelID int64) error {
 		return ErrBusy
 	}
 	defer l.Unlock()
+	defer s.Track(channelID)()
 	err := s.ensure(ctx, channelID)
 	s.setErr(channelID, err)
 	return err

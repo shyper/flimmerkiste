@@ -315,3 +315,48 @@ func TestManualResetAsksAIAgain(t *testing.T) {
 		})
 	}
 }
+
+type blockingAI struct {
+	started, release chan struct{}
+}
+
+func (p *blockingAI) Pick(_ context.Context, req ai.Request) ([]ai.Pick, error) {
+	p.started <- struct{}{}
+	<-p.release
+	return []ai.Pick{{ID: req.Candidates[0].ID, Reason: "AI choice"}}, nil
+}
+
+func TestPlanningIsVisibleDuringAIRequest(t *testing.T) {
+	s, ch, _ := outageChannel(t, 2*time.Hour)
+	p := &blockingAI{started: make(chan struct{}), release: make(chan struct{})}
+	s.ai = func(context.Context) (ai.Provider, error) { return p, nil }
+	done := make(chan error)
+	go func() { done <- s.Reset(context.Background(), ch.ID) }()
+	<-p.started
+	if !s.Planning(ch.ID) {
+		t.Fatal("channel should count as planning while the AI answers")
+	}
+	close(p.release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if s.Planning(ch.ID) {
+		t.Fatal("planning flag stuck after the run")
+	}
+}
+
+func TestTrackCountsNestedRuns(t *testing.T) {
+	s, ch, _ := outageChannel(t, time.Hour)
+	outer := s.Track(ch.ID)
+	inner := s.Track(ch.ID)
+	inner()
+	inner() // calling done twice must not end the outer run
+	if !s.Planning(ch.ID) {
+		t.Fatal("outer run ended too early")
+	}
+	outer()
+	if s.Planning(ch.ID) {
+		t.Fatal("planning flag stuck")
+	}
+}
+

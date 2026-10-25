@@ -20,18 +20,24 @@
     channels = c
     sessions = s
   }
-  onMount(() => {
-    load()
-    timer = setInterval(load, 30000)
+  // Poll often while a channel is being planned, otherwise rarely.
+  function schedule() {
+    clearTimeout(timer)
+    timer = setTimeout(async () => { await load().catch(() => {}); schedule() }, channels?.some((c) => c.planning) ? 3000 : 30000)
+  }
+  onMount(async () => {
+    await load().catch(() => {})
+    schedule()
     clock = setInterval(() => (now = Date.now()), 10000)
   })
-  onDestroy(() => { clearInterval(timer); clearInterval(clock) })
+  onDestroy(() => { clearTimeout(timer); clearInterval(clock) })
 
   async function replanAll() {
     confirmReplan = false
     const r = await post('/api/channels/regenerate')
     toast(t('channels.replanning', [r.channels]))
-    setTimeout(load, 3000)
+    await load()
+    schedule()
   }
 
   // The card itself is a button, so the close control is a span with button role.
@@ -85,6 +91,7 @@
           <div class="info">
             <div class="row">
               <h3 class="grow ellipsis">{c.name}</h3>
+              {#if c.planning}<span class="chip violet planning" role="status"><span class="spinner"></span> {t('channels.planning')}</span>{/if}
               <span class="chip"><Icon name={kindIcons[c.kind]} size={12} /> {kindLabels[c.kind]}</span>
             </div>
             {#if c.error}
@@ -145,6 +152,7 @@
   .now { display: flex; flex-direction: column; gap: 0.3rem; }
   .season { color: var(--accent-2); font-weight: 700; }
   .next { padding-top: 0.4rem; border-top: 1px dashed var(--border); }
+  .planning .spinner { width: 10px; height: 10px; border-width: 1.5px; }
   .err { color: #fca5a5; display: flex; gap: 0.3rem; align-items: flex-start; }
   .dismiss { flex-shrink: 0; display: grid; place-items: center; padding: 0.15rem; margin: -0.15rem; border-radius: 4px; opacity: 0.7; cursor: pointer; }
   .dismiss:hover, .dismiss:focus-visible { opacity: 1; background: rgba(239, 68, 68, 0.18); }

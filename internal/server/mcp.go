@@ -220,7 +220,7 @@ func (s *Server) mcpServer(tok *store.APIToken, u *store.User) *mcp.Server {
 		Description: "Server name, media server, version, whether AI channels are available, how far ahead the guide is planned, and the rule fields with their operators."},
 		func(ctx context.Context, _ noInput) (any, error) { return s.mcpInfo(ctx), nil })
 	addTool(srv, can(ScopeRead, false), &mcp.Tool{Name: "list_channels", Annotations: readOnly,
-		Description: "All channels with id, number, name, kind, whether enabled, what is on now and next, and planning problems."},
+		Description: "All channels with id, number, name, kind, whether enabled, what is on now and next, planning problems and whether a channel is being planned right now."},
 		func(ctx context.Context, _ noInput) (any, error) { return s.mcpChannels(ctx) })
 	addTool(srv, can(ScopeRead, false), &mcp.Tool{Name: "get_channel", Annotations: readOnly,
 		Description: "One channel with its full config (source, rules, seasons, filler …); manual entries whose titles are gone are listed under missing."},
@@ -453,19 +453,20 @@ func (s *Server) mcpChannels(ctx context.Context) (any, error) {
 		return nil, err
 	}
 	type row struct {
-		ID      int64       `json:"id"`
-		Number  int         `json:"number"`
-		Name    string      `json:"name"`
-		Kind    string      `json:"kind"`
-		Enabled bool        `json:"enabled"`
-		Now     *mcpProgram `json:"now,omitempty"`
-		Next    *mcpProgram `json:"next,omitempty"`
-		Error   string      `json:"error,omitempty"`
+		ID       int64       `json:"id"`
+		Number   int         `json:"number"`
+		Name     string      `json:"name"`
+		Kind     string      `json:"kind"`
+		Enabled  bool        `json:"enabled"`
+		Now      *mcpProgram `json:"now,omitempty"`
+		Next     *mcpProgram `json:"next,omitempty"`
+		Error    string      `json:"error,omitempty"`
+		Planning bool        `json:"planning,omitempty"`
 	}
 	out := []row{}
 	for _, c := range chans {
 		v := s.channelView(ctx, c, c.Enabled)
-		rw := row{ID: c.ID, Number: c.Number, Name: c.Name, Kind: c.Kind, Enabled: c.Enabled, Error: v.Error}
+		rw := row{ID: c.ID, Number: c.Number, Name: c.Name, Kind: c.Kind, Enabled: c.Enabled, Error: v.Error, Planning: v.Planning}
 		if v.Now != nil {
 			p := mcpProgramOf(v.Now.Start, v.Now.Stop, v.Now.Note, v.Now.Media)
 			rw.Now = &p

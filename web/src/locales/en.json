@@ -735,5 +735,8 @@
   "tunerHelp.waehlen_und_diese_adresse_angeben": "and enter this address:",
   "tunerHelp.weiter": "Continue",
   "tunerHelp.wird_kein_geraet_gefunden_auf": "If no device is found, click",
-  "tunerHelp.xmltv_programmfuehrer_verwenden": "“Use XMLTV guide”"
+  "tunerHelp.xmltv_programmfuehrer_verwenden": "“Use XMLTV guide”",
+  "channelEditor.aiPlanning": "AI is planning…",
+  "channelEditor.planning": "Planning…",
+  "channels.planning": "Planning…"
 }

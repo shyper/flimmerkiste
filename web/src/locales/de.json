@@ -714,5 +714,8 @@
   "tunerHelp.waehlen_und_diese_adresse_angeben": "wählen und diese Adresse angeben:",
   "tunerHelp.weiter": "Weiter",
   "tunerHelp.wird_kein_geraet_gefunden_auf": "Wird kein Gerät gefunden, auf",
-  "tunerHelp.xmltv_programmfuehrer_verwenden": "„XMLTV-Programmführer verwenden“"
+  "tunerHelp.xmltv_programmfuehrer_verwenden": "„XMLTV-Programmführer verwenden“",
+  "channelEditor.aiPlanning": "KI plant gerade…",
+  "channelEditor.planning": "Wird geplant…",
+  "channels.planning": "Plant…"
 }

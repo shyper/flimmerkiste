@@ -7,6 +7,7 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/sv
 import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import ChannelEditor from '../pages/ChannelEditor.svelte'
+import Channels from '../pages/Channels.svelte'
 import SourceEditor from '../components/SourceEditor.svelte'
 import { app } from '../lib/state.svelte.js'
 import { normalizeConfig } from '../lib/config.js'
@@ -128,4 +129,47 @@ describe('normalizeConfig', () => {
     expect(seasonal.seasons[0].source.items).toEqual([])
     expect(seasonal.fallback.rules.rules).toEqual([])
   })
+})
+
+describe('Planungsanzeige', () => {
+  it('zeigt die KI-Planung und lädt danach „Als Nächstes“ neu', async () => {
+    let planning = true
+    let guideCalls = 0
+    globalThis.fetch = vi.fn(async (url) => {
+      const u = String(url)
+      let body = {}
+      if (u === '/api/channels/1/error') body = { error: '', planning }
+      else if (u.startsWith('/api/channels/')) body = { id: 1, name: 'Heist', number: 1, color: '', enabled: true, kind: 'ai', planning: true, autoLogo: true, logoUrl: '', missing: [],
+        config: { source: { type: 'ai', ai: { theme: 'Heist' } } } }
+      else if (u.startsWith('/api/guide')) {
+        guideCalls++
+        body = planning ? [] : [{ channel: { id: 1 }, programs: [{ start: Date.now(), stop: Date.now() + 1, media: { title: "Ocean's Eleven" } }] }]
+      } else if (u.startsWith('/api/preview')) body = { count: 0, movies: 0, episodes: 0, shows: 0, trailers: 0, durationMs: 0, items: [] }
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    })
+    render(ChannelEditor, { id: '1' })
+    expect((await screen.findByRole('status')).textContent).toContain('KI plant gerade')
+    expect(screen.getByRole('button', { name: /Neu planen/ }).disabled).toBe(true)
+    const before = guideCalls
+    planning = false
+    expect(await screen.findByText("Ocean's Eleven", {}, { timeout: 5000 })).toBeTruthy()
+    expect(guideCalls).toBeGreaterThan(before)
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.getByRole('button', { name: /Neu planen/ }).disabled).toBe(false)
+    expect(errors).toEqual([])
+  }, 10000)
+
+  it('markiert planende Sender in der Senderliste, bis sie fertig sind', async () => {
+    let planning = true
+    globalThis.fetch = vi.fn(async (url) => {
+      const u = String(url)
+      const body = u === '/api/channels' ? [{ id: 1, name: 'Heist', number: 23, enabled: true, kind: 'ai', logoUrl: '', planning }] : []
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    })
+    render(Channels)
+    expect((await screen.findByRole('status')).textContent).toContain('Plant')
+    planning = false
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 5000 })
+    expect(errors).toEqual([])
+  }, 10000)
 })

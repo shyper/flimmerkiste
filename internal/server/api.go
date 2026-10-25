@@ -86,10 +86,13 @@ type channelView struct {
 	// PlanChanged: the saved changes affect the programme; saving does not
 	// re-plan, the editor offers it.
 	PlanChanged bool `json:"planChanged,omitempty"`
+	// Planning: the guide is being planned right now (AI requests take minutes).
+	Planning bool `json:"planning,omitempty"`
 }
 
 func (s *Server) channelView(ctx context.Context, c *store.Channel, withNow bool) channelView {
-	v := channelView{Channel: c, LogoURL: s.logoPath(ctx, c), AutoLogo: c.Logo == "", Error: i18n.Message(s.lang(ctx), s.sched.LastError(c.ID))}
+	v := channelView{Channel: c, LogoURL: s.logoPath(ctx, c), AutoLogo: c.Logo == "", Error: i18n.Message(s.lang(ctx), s.sched.LastError(c.ID)),
+		Planning: s.sched.Planning(c.ID)}
 	if c.Logo != "" {
 		v.CustomLogoURL = "/logos/" + c.Logo
 	}
@@ -317,7 +320,9 @@ func (s *Server) handleUpdateChannel(w http.ResponseWriter, r *http.Request) {
 
 // regenerate rebuilds the future guide in the background (AI channels may take a while).
 func (s *Server) regenerate(id int64) {
+	done := s.sched.Track(id)
 	go func() {
+		defer done()
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 		if err := s.sched.Reset(ctx, id); err != nil {
@@ -347,11 +352,18 @@ func (s *Server) handleRegenerateAll(w http.ResponseWriter, r *http.Request) {
 			ids = append(ids, c.ID)
 		}
 	}
+	// Every channel counts as planning until its turn is over.
+	done := make([]func(), len(ids))
+	for i, id := range ids {
+		done[i] = s.sched.Track(id)
+	}
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 		defer cancel()
-		for _, id := range ids {
-			if err := s.sched.Reset(ctx, id); err != nil {
+		for i, id := range ids {
+			err := s.sched.Reset(ctx, id)
+			done[i]()
+			if err != nil {
 				s.log.Warn("regenerate schedule", "channel", id, "err", err)
 			}
 		}
@@ -359,10 +371,12 @@ func (s *Server) handleRegenerateAll(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]int{"channels": len(ids)})
 }
 
-// handleChannelError returns the last planning problem; the editor polls it.
+// handleChannelError returns the last planning problem and whether the channel
+// is being planned right now; the editor polls it.
 func (s *Server) handleChannelError(w http.ResponseWriter, r *http.Request) {
 	if c := s.channelFromPath(w, r); c != nil {
-		writeJSON(w, http.StatusOK, map[string]string{"error": i18n.Message(s.reqLang(r), s.sched.LastError(c.ID))})
+		writeJSON(w, http.StatusOK, map[string]any{"error": i18n.Message(s.reqLang(r), s.sched.LastError(c.ID)),
+			"planning": s.sched.Planning(c.ID)})
 	}
 }
 
