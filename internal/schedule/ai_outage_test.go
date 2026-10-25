@@ -256,3 +256,62 @@ func TestAIOutageStopsAddingOnceHalfHorizonCovered(t *testing.T) {
 		}
 	}
 }
+
+func TestManualResetAsksAIAgain(t *testing.T) {
+	for _, manual := range []bool{false, true} {
+		t.Run(fmt.Sprintf("manual=%v", manual), func(t *testing.T) {
+			s, ch, provider := outageChannel(t, 12*time.Hour)
+			provider.err = nil
+			ctx := context.Background()
+			cfg, err := ParseConfig(ch.Config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, err := json.Marshal(&State{Sources: map[string]*SourceState{"main": {
+				AIConfig: aiFingerprint(cfg.Source.AI), Queue: []QueuedPick{{Key: "40", Reason: "queued"}}}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.store.SaveChannelState(ctx, ch.ID, raw); err != nil {
+				t.Fatal(err)
+			}
+			now := time.Now()
+			progs := []store.Program{{ChannelID: ch.ID, Start: now.Add(-time.Hour).UnixMilli(),
+				Stop: now.Add(time.Hour).UnixMilli(), RatingKey: "0", Note: "running", SourceID: "main"}}
+			for i := range 6 {
+				start := now.Add(time.Hour + time.Duration(i)*2*time.Hour)
+				progs = append(progs, store.Program{ChannelID: ch.ID, Start: start.UnixMilli(),
+					Stop: start.Add(2 * time.Hour).UnixMilli(), RatingKey: fmt.Sprint(10 + i), SourceID: "main"})
+			}
+			if err := s.store.InsertPrograms(ctx, progs); err != nil {
+				t.Fatal(err)
+			}
+			if manual {
+				err = s.Reset(ctx, ch.ID)
+			} else {
+				err = s.Replan(ctx, ch.ID, now)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := s.store.ProgramsBetween(ctx, ch.ID, now.Add(-time.Hour), now.Add(12*time.Hour))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got[0].Note != "running" {
+				t.Fatalf("running programme changed: %+v", got[0])
+			}
+			for i, p := range got[1:] {
+				if manual && (p.Note != "AI choice" || p.RatingKey == "40") {
+					t.Fatalf("reset kept an old pick at %d: %+v", i, p)
+				}
+				if !manual && i < 6 && p.RatingKey != fmt.Sprint(10+i) {
+					t.Fatalf("automatic re-plan did not keep pick %d: %+v", i, p)
+				}
+			}
+			if manual == (provider.calls == 0) {
+				t.Fatalf("manual=%v: %d AI requests", manual, provider.calls)
+			}
+		})
+	}
+}

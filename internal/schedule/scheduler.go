@@ -144,8 +144,9 @@ func (s *Scheduler) EnsureAll(ctx context.Context) {
 }
 
 // Reset discards the future guide of a channel (keeping what airs right now) and regenerates it.
+// AI sources drop their queued picks too, so the model is asked again.
 func (s *Scheduler) Reset(ctx context.Context, channelID int64) error {
-	return s.Replan(ctx, channelID, time.Now())
+	return s.replan(ctx, channelID, time.Now(), true)
 }
 
 // Replan discards all programs starting at or after from and plans them again.
@@ -153,9 +154,13 @@ func (s *Scheduler) Reset(ctx context.Context, channelID int64) error {
 // where the kept guide ends, discarded shuffle picks count as unplayed and
 // AI picks go back into the queue instead of being requested again.
 func (s *Scheduler) Replan(ctx context.Context, channelID int64, from time.Time) error {
+	return s.replan(ctx, channelID, from, false)
+}
+
+func (s *Scheduler) replan(ctx context.Context, channelID int64, from time.Time, freshAI bool) error {
 	l := s.lock(channelID)
 	l.Lock()
-	err := s.discard(ctx, channelID, from)
+	err := s.discard(ctx, channelID, from, freshAI)
 	l.Unlock()
 	if err != nil {
 		return err
@@ -163,7 +168,9 @@ func (s *Scheduler) Replan(ctx context.Context, channelID int64, from time.Time)
 	return s.Ensure(ctx, channelID)
 }
 
-func (s *Scheduler) discard(ctx context.Context, channelID int64, from time.Time) error {
+// discard removes the programs from from on and rolls the state back. With
+// freshAI the discarded AI picks are not requeued and every AI queue is emptied.
+func (s *Scheduler) discard(ctx context.Context, channelID int64, from time.Time, freshAI bool) error {
 	ch, err := s.store.GetChannel(ctx, channelID)
 	if err != nil {
 		return err
@@ -173,13 +180,22 @@ func (s *Scheduler) discard(ctx context.Context, channelID int64, from time.Time
 		return err
 	}
 	taken, err := s.store.TakeProgramsAfter(ctx, channelID, from)
-	if err != nil || len(taken) == 0 {
+	if err != nil || (len(taken) == 0 && !freshAI) {
 		return err
 	}
-	s.changed(false)
+	if len(taken) > 0 {
+		s.changed(false)
+	}
 	state := &State{}
 	_ = json.Unmarshal(ch.State, state)
 	state.init()
+	if freshAI {
+		for id, ss := range state.Sources {
+			if src := cfg.SourceByID(id); src != nil && src.Type == "ai" {
+				ss.Queue = nil
+			}
+		}
+	}
 	requeue := map[string][]QueuedPick{}
 	for _, p := range taken {
 		if !p.IsMain() || p.SourceID == "" {
@@ -202,7 +218,7 @@ func (s *Scheduler) discard(ctx context.Context, channelID int64, from time.Time
 				}
 			}
 		}
-		if src != nil && src.Type == "ai" {
+		if src != nil && src.Type == "ai" && !freshAI {
 			requeue[p.SourceID] = append(requeue[p.SourceID], QueuedPick{Key: p.RatingKey, Reason: p.Note})
 		}
 	}
