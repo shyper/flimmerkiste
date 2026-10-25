@@ -102,8 +102,8 @@
 </div> <p class="small muted intro">Sprache und Informationen zu dieser Installation.</p> <div class="stack">
 <div>
 <span class="label">Sprache</span> <div class="seg sm" role="radiogroup">
-<button aria-checked="true" class="active" role="radio" title="" type="button"> Deutsch</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> English</button>
+<button aria-checked="true" class="active" role="radio" tabindex="0" type="button"> Deutsch</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> English</button>
 </div> <span class="hint">Gilt für die Oberfläche, die Tafeln im Bild und den Programmführer.</span>
 </div> <div class="block">
 <h3 class="">Sender exportieren</h3> <p class="hint">Speichert die gewählten Sender mit ihrer Konfiguration in einer Datei – nicht den Sendeplan, keine Benutzer und keine Zugangsdaten.</p> <div class="chans">
@@ -124,13 +124,12 @@
 </svg> 3 Sender exportieren</a>
 </div>
 </div> <div class="block">
-<h3 class="">Sender importieren</h3> <p class="hint">Titel werden über TMDb-, IMDb- oder TVDB-ID in dieser Bibliothek gesucht, sonst über Titel und Jahr – auch nach einem Wechsel des Medienservers.</p> <label class="btn sm file">
+<h3 class="">Sender importieren</h3> <p class="hint">Titel werden über TMDb-, IMDb- oder TVDB-ID in dieser Bibliothek gesucht, sonst über Titel und Jahr – auch nach einem Wechsel des Medienservers.</p> <button class="btn sm">
 <svg aria-hidden="true" class="icon" fill="none" height="14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="14">
 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12">
 </path>
-</svg> Datei wählen… <input accept="application/json,.json" hidden="" type="file">
+</svg> Datei wählen…</button> <input accept="application/json,.json" hidden="" type="file">
 </input>
-</label>
 </div> <div>
 <span class="label">Version</span> <span class="mono small">–</span>
 </div>

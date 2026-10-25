@@ -25,7 +25,8 @@
   }
   function dayOfYear(s) {
     const { m, d } = parse(s)
-    return (Date.UTC(2025, m - 1, d) - Date.UTC(2025, 0, 1)) / 864e5
+    // a leap year, so 29 February has its own day and the bars never shift
+    return (Date.UTC(2024, m - 1, d) - Date.UTC(2024, 0, 1)) / 864e5
   }
   function active(s) {
     const a = parse(s.from), b = parse(s.to)
@@ -38,7 +39,7 @@
   function segments(s) {
     const a = dayOfYear(s.from), b = dayOfYear(s.to) + 1
     if (a <= b) return [[a, b]]
-    return [[a, 365], [0, b]]
+    return [[a, 366], [0, b]]
   }
   function add() {
     const id = 'season-' + Math.random().toString(36).slice(2, 8)
@@ -68,12 +69,12 @@
     {#each config.seasons as s, i (s.id)}
       {#each segments(s) as [a, b]}
         <button class="bar" class:current={current === s} title="{s.name}: {s.from} – {s.to}"
-          style="left: {(a / 365) * 100}%; width: {((b - a) / 365) * 100}%; top: {(i % 3) * 14}px; background: {palette[i % palette.length]}"
+          style="left: {(a / 366) * 100}%; width: {((b - a) / 366) * 100}%; top: {(i % 3) * 14}px; background: {palette[i % palette.length]}"
           onclick={() => (open = s.id)}>{s.emoji}</button>
       {/each}
     {/each}
   </div>
-  <div class="today" style="left: {(dayOfYear(fmt(today.getMonth() + 1, today.getDate())) / 365) * 100}%"><span>{t('seasonEditor.heute')}</span></div>
+  <div class="today" style="left: {(dayOfYear(fmt(today.getMonth() + 1, today.getDate())) / 366) * 100}%"><span>{t('seasonEditor.heute')}</span></div>
 </div>
 
 <p class="hint">{t('seasonEditor.ueberschneiden_sich_zeitraeume_gewinnt_d')}</p>
@@ -95,7 +96,7 @@
         <button class="btn ghost icon sm" onclick={() => move(i, -1)} disabled={i === 0} title={t('seasonEditor.hoehere_prioritaet')}><Icon name="up" size={15} /></button>
         <button class="btn ghost icon sm" onclick={() => move(i, 1)} disabled={i === config.seasons.length - 1} title={t('seasonEditor.niedrigere_prioritaet')}><Icon name="down" size={15} /></button>
         <button class="btn ghost icon sm" onclick={() => onpreview?.(s.source)} title={t('seasonEditor.vorschau')}><Icon name="eye" size={15} /></button>
-        <button class="btn ghost icon sm" onclick={() => config.seasons.splice(i, 1)} title={t('seasonEditor.entfernen')}><Icon name="trash" size={15} /></button>
+        <button class="btn ghost icon sm" onclick={() => confirm(t('seasonEditor.removeConfirm', [s.name])) && config.seasons.splice(i, 1)} title={t('seasonEditor.entfernen')}><Icon name="trash" size={15} /></button>
       </div>
       {#if open === s.id}
         <div class="season-body">

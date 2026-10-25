@@ -20,6 +20,7 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	q := store.HistoryQuery{Search: v.Get("q")}
 	q.ChannelID, _ = strconv.ParseInt(v.Get("channel"), 10, 64)
 	q.Before, _ = strconv.ParseInt(v.Get("before"), 10, 64)
+	q.BeforeChannel, _ = strconv.ParseInt(v.Get("beforeChannel"), 10, 64)
 	q.Limit, _ = strconv.Atoi(v.Get("limit"))
 	if d := v.Get("day"); d != "" {
 		day, err := time.ParseInLocation("2006-01-02", d, time.Local)

@@ -108,7 +108,7 @@
 </select> <div class="value">
 <div class="tags input">
 <span class="tag">Komödie<button aria-label="Remove" class="" type="button">×</button>
-</span> <input class="" inputmode="text" placeholder="Choose or type…">
+</span> <input aria-autocomplete="list" aria-expanded="false" aria-label="Choose or type…" class="" inputmode="text" placeholder="Choose or type…" role="combobox">
 </input> </div>
 </div> <button class="btn ghost icon sm" title="Remove condition">
 <svg aria-hidden="true" class="icon" fill="none" height="15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="15">
@@ -144,7 +144,7 @@
 </div> <div class="stack">
 <div>
 <span class="label">Order</span> <div class="seg md" role="radiogroup">
-<button aria-checked="true" class="active" role="radio" title="" type="button">
+<button aria-checked="true" class="active" role="radio" tabindex="0" type="button">
 <svg aria-hidden="true" class="icon" fill="none" height="15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="15">
 <path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22">
 </path>
@@ -153,7 +153,7 @@
 <path d="m18 14 4 4-4 4">
 </path>
 </svg> Shuffle</button>
-<button aria-checked="false" class="" role="radio" title="" type="button">
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button">
 <svg aria-hidden="true" class="icon" fill="none" height="15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="15">
 <path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4">
 </path>
@@ -169,11 +169,11 @@
 </span>
 </label> <div>
 <span class="label">Avoid repeats for</span> <div class="seg sm" role="radiogroup">
-<button aria-checked="true" class="active" role="radio" title="" type="button"> Off</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> 12 h</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> 2 days</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> 1 week</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> 1 month</button>
+<button aria-checked="true" class="active" role="radio" tabindex="0" type="button"> Off</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> 12 h</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> 2 days</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> 1 week</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> 1 month</button>
 </div>
 </div>
 </div>
@@ -189,18 +189,18 @@
 </div> <div class="stack">
 <div>
 <span class="label">Titles start</span> <div class="seg sm" role="radiogroup">
-<button aria-checked="true" class="active" role="radio" title="" type="button"> Right away</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> 5 min</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> :00 :15 :30 :45</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> Every half hour</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> On the hour</button>
+<button aria-checked="true" class="active" role="radio" tabindex="0" type="button"> Right away</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> 5 min</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> :00 :15 :30 :45</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> Every half hour</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> On the hour</button>
 </div> <p class="hint">Titles play back to back, without breaks.</p>
 </div> <div>
 <span class="label">Clips after each title</span> <div class="seg sm" role="radiogroup">
-<button aria-checked="true" class="active" role="radio" title="" type="button"> None</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> 1</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> 2</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> 3</button>
+<button aria-checked="true" class="active" role="radio" tabindex="0" type="button"> None</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> 1</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> 2</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> 3</button>
 </div> <p class="hint">Like commercial breaks – just with trailers, music videos or short films from your library.</p>
 </div> </div>
 </section> <section class="card" id="sec-logo">
@@ -613,9 +613,9 @@
 </label> </div> <div class="wm">
 <div>
 <span class="label">Credits</span> <div class="seg sm" role="radiogroup">
-<button aria-checked="true" class="active" role="radio" title="" type="button"> Default (unchanged)</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> Unchanged</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> Shrink with info panel</button>
+<button aria-checked="true" class="active" role="radio" tabindex="0" type="button"> Default (unchanged)</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> Unchanged</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> Shrink with info panel</button>
 </div> <p class="hint">During the credits the picture shrinks to the top left, next to it you see what's up next, and below highlights of the other channels take turns. If a scene follows the credits, the picture stays big and a small card takes turns at the bottom left: what's up next, then movies on other channels. Without matching credits (at least 30 seconds, at most 3 minutes before the end) it appears in the last minute. The sound stays unchanged. Needs Plex's credits detection (Plex Pass).</p>
 </div> </div>
 </section> <section class="card danger-zone">

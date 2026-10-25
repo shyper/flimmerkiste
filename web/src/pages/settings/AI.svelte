@@ -4,7 +4,7 @@
   import Segmented from '../../components/Segmented.svelte'
   import { put, post } from '../../lib/api.js'
 
-  let { s } = $props()
+  let { s, persisted } = $props()
   let testing = $state(false)
   let result = $state(null)
 
@@ -12,8 +12,11 @@
     testing = true
     result = null
     try {
-      await put('/api/settings', $state.snapshot(s))
-      result = { ok: true, picks: await post('/api/ai/test') }
+      // the test runs with what is entered, so it is saved first (and counts as saved)
+      const snap = $state.snapshot(s)
+      await put('/api/settings', snap)
+      persisted?.(snap)
+      result = { ok: true, picks: (await post('/api/ai/test')) || [] }
     } catch (e) {
       result = { ok: false, error: e.message }
     } finally {
@@ -62,7 +65,7 @@
     {#if result?.ok}
       <div class="alert info small stack">
         <b>{t('settings.ai.works')}</b>
-        {#each result.picks as p}<div>🎬 <b>{p.title}</b> – {p.reason}</div>{/each}
+        {#each result.picks || [] as p}<div>🎬 <b>{p.title}</b> – {p.reason}</div>{/each}
       </div>
     {:else if result}
       <div class="alert error small">{result.error}</div>

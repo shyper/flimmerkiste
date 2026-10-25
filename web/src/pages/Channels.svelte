@@ -4,49 +4,57 @@
   import Icon from '../components/Icon.svelte'
   import Menu from '../components/Menu.svelte'
   import Modal from '../components/Modal.svelte'
+  import LoadError from '../components/LoadError.svelte'
   import { app, isAdmin, toast } from '../lib/state.svelte.js'
   import { get, post, del } from '../lib/api.js'
   import { link, navigate } from '../lib/router.svelte.js'
   import { fmtTime, fmtDuration, kindLabels, kindIcons } from '../lib/format.js'
+  import { poll } from '../lib/poll.js'
 
   let channels = $state(null)
   let sessions = $state([])
+  let loadError = $state('')
   let now = $state(Date.now())
-  let timer, clock
+  let poller, clock
   let confirmReplan = $state(false)
 
   async function load() {
-    const [c, s] = await Promise.all([get('/api/channels'), get('/api/sessions')])
-    channels = c
-    sessions = s
+    try {
+      const [c, s] = await Promise.all([get('/api/channels'), get('/api/sessions')])
+      channels = c
+      sessions = s
+      loadError = ''
+    } catch (e) {
+      loadError = e.message
+    }
   }
-  // Poll often while a channel is being planned, otherwise rarely.
-  function schedule() {
-    clearTimeout(timer)
-    timer = setTimeout(async () => { await load().catch(() => {}); schedule() }, channels?.some((c) => c.planning) ? 3000 : 30000)
-  }
-  onMount(async () => {
-    await load().catch(() => {})
-    schedule()
+  onMount(() => {
+    // Poll often while a channel is being planned, otherwise rarely.
+    poller = poll(load, () => (channels?.some((c) => c.planning) ? 3000 : 30000))
     clock = setInterval(() => (now = Date.now()), 10000)
   })
-  onDestroy(() => { clearTimeout(timer); clearInterval(clock) })
+  onDestroy(() => { poller?.stop(); clearInterval(clock) })
 
   async function replanAll() {
     confirmReplan = false
-    const r = await post('/api/channels/regenerate')
-    toast(t('channels.replanning', [r.channels]))
-    await load()
-    schedule()
+    try {
+      const r = await post('/api/channels/regenerate')
+      toast(t('channels.replanning', [r.channels]))
+    } catch (e) {
+      toast(e.message, 'error')
+    }
+    poller?.now()
   }
 
-  // The card itself is a button, so the close control is a span with button role.
   async function dismissError(e, c) {
     e.stopPropagation()
-    c.error = ''
-    await del(`/api/channels/${c.id}/error`).catch((err) => toast(err.message, 'error'))
+    try {
+      await del(`/api/channels/${c.id}/error`)
+      c.error = ''
+    } catch (err) {
+      toast(err.message, 'error')
+    }
   }
-  const onKey = (e, c) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), dismissError(e, c))
 
   const pct = (p) => Math.min(100, Math.max(0, ((now - p.start) / (p.stop - p.start)) * 100))
   const watching = (id) => sessions.filter((s) => s.channelId === id).length
@@ -70,7 +78,9 @@
     <div class="alert warn"><Icon name="alert" size={16} /> {t('channels.es_ist_noch_kein_plex')}</div>
   {/if}
 
-  {#if channels === null}
+  {#if channels === null && loadError}
+    <LoadError message={loadError} retry={() => poller?.now()} />
+  {:else if channels === null}
     <div class="grid">{#each Array(3) as _}<div class="skeleton sk"></div>{/each}</div>
   {:else if !channels.length}
     <div class="empty-state card">
@@ -82,7 +92,8 @@
   {:else}
     <div class="grid">
       {#each channels as c (c.id)}
-        <button class="ch" class:disabled={!c.enabled} onclick={() => navigate(isAdmin() ? `/channels/${c.id}` : '/guide')}>
+        <!-- the name's button covers the card (::after), the close control sits above it -->
+        <div class="ch" class:disabled={!c.enabled}>
           <div class="logo" style="--c: {c.color || 'var(--accent)'}">
             <img src={c.logoUrl} alt={c.name} loading="lazy" />
             <span class="num">{c.number}</span>
@@ -90,7 +101,7 @@
           </div>
           <div class="info">
             <div class="row">
-              <h3 class="grow ellipsis">{c.name}</h3>
+              <h3 class="grow ellipsis"><button class="open" onclick={() => navigate(isAdmin() ? `/channels/${c.id}` : '/guide')}>{c.name}</button></h3>
               {#if c.planning}<span class="chip violet planning" role="status"><span class="spinner"></span> {t('channels.planning')}</span>{/if}
               <span class="chip"><Icon name={kindIcons[c.kind]} size={12} /> {kindLabels[c.kind]}</span>
             </div>
@@ -98,8 +109,8 @@
               <div class="err tiny">
                 <Icon name="alert" size={13} /> <span class="grow">{c.error}</span>
                 {#if isAdmin()}
-                  <span class="dismiss" role="button" tabindex="0" title={t('channels.meldung_schliessen')} aria-label={t('channels.meldung_schliessen')}
-                    onclick={(e) => dismissError(e, c)} onkeydown={(e) => onKey(e, c)}><Icon name="x" size={13} /></span>
+                  <button class="dismiss" title={t('channels.meldung_schliessen')} aria-label={t('channels.meldung_schliessen')}
+                    onclick={(e) => dismissError(e, c)}><Icon name="x" size={13} /></button>
                 {/if}
               </div>
             {/if}
@@ -122,7 +133,7 @@
               <p class="muted small row"><span class="spinner"></span> {t('channels.programm_wird_erstellt')}</p>
             {/if}
           </div>
-        </button>
+        </div>
       {/each}
     </div>
   {/if}
@@ -139,7 +150,10 @@
 <style>
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 1rem; }
   .sk { height: 320px; border-radius: var(--radius); }
-  .ch { text-align: left; display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; padding: 0; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
+  .ch { position: relative; text-align: left; display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; padding: 0; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
+  .ch:has(.open:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .open { all: unset; cursor: pointer; }
+  .open::after { content: ''; position: absolute; inset: 0; }
   .ch:hover { transform: translateY(-3px); border-color: var(--border-strong); box-shadow: var(--shadow); }
   .ch.disabled { opacity: 0.55; }
   .logo { position: relative; aspect-ratio: 16 / 9; display: grid; place-items: center; overflow: hidden;
@@ -154,7 +168,7 @@
   .next { padding-top: 0.4rem; border-top: 1px dashed var(--border); }
   .planning .spinner { width: 10px; height: 10px; border-width: 1.5px; }
   .err { color: #fca5a5; display: flex; gap: 0.3rem; align-items: flex-start; }
-  .dismiss { flex-shrink: 0; display: grid; place-items: center; padding: 0.15rem; margin: -0.15rem; border-radius: 4px; opacity: 0.7; cursor: pointer; }
+  .dismiss { position: relative; z-index: 1; border: 0; background: none; color: inherit; flex-shrink: 0; display: grid; place-items: center; padding: 0.15rem; margin: -0.15rem; border-radius: 4px; opacity: 0.7; cursor: pointer; }
   .dismiss:hover, .dismiss:focus-visible { opacity: 1; background: rgba(239, 68, 68, 0.18); }
   .empty-state { text-align: center; padding: 3rem 1.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.9rem; }
   .tv-art { width: 90px; height: 90px; border-radius: 24px; display: grid; place-items: center; background: rgba(229, 160, 13, 0.12); color: var(--accent); }

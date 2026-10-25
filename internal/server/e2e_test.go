@@ -54,8 +54,8 @@ func atoi64(s string) int64 {
 }
 
 func TestE2E(t *testing.T) {
-	if os.Getenv("FLIMMERKISTE_E2E") != "1" {
-		t.Skip("set FLIMMERKISTE_E2E=1 to run")
+	if os.Getenv("FLIMMERKISTE_E2E") != "1" || testing.Short() {
+		t.Skip("set FLIMMERKISTE_E2E=1 (and leave out -short) to run")
 	}
 	dir := t.TempDir()
 
@@ -337,6 +337,16 @@ func TestE2E(t *testing.T) {
 	// planning runs in the background: wait for the first six programs of
 	// channel 1, the sixth one not marked as left over from an earlier plan
 	// (slow under the race detector)
+	// waitPlanned waits until the background planning of a new or changed
+	// channel is done (it counts as planning from the answer of the request on).
+	waitPlanned := func(id int64) {
+		t.Helper()
+		for deadline := time.Now().Add(30 * time.Second); srv.sched.Planning(id); time.Sleep(20 * time.Millisecond) {
+			if time.Now().After(deadline) {
+				t.Fatalf("channel %d still planning after 30s", id)
+			}
+		}
+	}
 	const oldPlan = "e2e: before the re-plan"
 	planned := func() []store.Program {
 		t.Helper()
@@ -488,7 +498,7 @@ func TestE2E(t *testing.T) {
 		"order": "fixed", "align": 5, "fillerBetween": 1,
 		"filler": map[string]any{"type": "manual", "items": []map[string]any{{"key": "100", "type": "show"}}},
 		"source": map[string]any{"type": "manual", "items": []map[string]any{{"key": "1", "type": "movie"}, {"key": "2", "type": "movie"}}}}}, &ch4)
-	time.Sleep(500 * time.Millisecond)
+	waitPlanned(ch4.ID)
 	// A new channel with round start times begins at the last round time, as if it had been running.
 	early, _ := st.ProgramsBetween(ctx, ch4.ID, time.Now().Add(-6*time.Minute), time.Now())
 	if len(early) == 0 || early[0].RatingKey != "1" || early[0].Start > time.Now().UnixMilli() ||
@@ -566,7 +576,7 @@ func TestE2E(t *testing.T) {
 	var ch5 struct{ ID int64 }
 	call("POST", "/api/channels", map[string]any{"name": "Tafeltest", "number": 5, "kind": "manual", "config": map[string]any{
 		"order": "fixed", "source": map[string]any{"type": "manual", "items": []map[string]any{{"key": "2", "type": "movie"}}}}}, &ch5)
-	time.Sleep(300 * time.Millisecond)
+	waitPlanned(ch5.ID)
 	now2 := time.Now()
 	st.DeleteProgramsAfter(ctx, ch5.ID, now2.Add(-time.Hour))
 	st.InsertPrograms(ctx, []store.Program{
@@ -581,10 +591,11 @@ func TestE2E(t *testing.T) {
 		t.Fatal("card image was not rendered")
 	}
 
+	var ch6 struct{ ID int64 }
 	call("POST", "/api/channels", map[string]any{"name": "Logo im Bild", "number": 6, "kind": "manual", "config": map[string]any{
 		"order": "fixed", "transcode": "full", "watermark": map[string]any{"enabled": true, "position": "br", "opacity": 60, "size": 15},
-		"source": map[string]any{"type": "manual", "items": []map[string]any{{"key": "1", "type": "movie"}}}}}, nil)
-	time.Sleep(300 * time.Millisecond)
+		"source": map[string]any{"type": "manual", "items": []map[string]any{{"key": "1", "type": "movie"}}}}}, &ch6)
+	waitPlanned(ch6.ID)
 	if out := capture(6, 6*time.Second); !strings.Contains(out, "h264") || !strings.Contains(out, "width=1280") || !strings.Contains(out, "aac") {
 		t.Fatalf("watermark stream: %s", out)
 	}
@@ -604,7 +615,7 @@ func TestE2E(t *testing.T) {
 	call("POST", "/api/channels", map[string]any{"name": "Kino", "number": 8, "kind": "manual", "config": map[string]any{
 		"order": "fixed", "align": 5, "previews": true, "filler": map[string]any{"type": "trailers"},
 		"source": map[string]any{"type": "manual", "items": []map[string]any{{"key": "1", "type": "movie"}, {"key": "2", "type": "movie"}}}}}, &ch8)
-	time.Sleep(300 * time.Millisecond)
+	waitPlanned(ch8.ID)
 	var tprev struct{ Count, Trailers int }
 	call("POST", "/api/preview", map[string]any{"source": map[string]any{"type": "trailers", "trailerOrigin": "library"}}, &tprev)
 	if tprev.Count != 1 || tprev.Trailers != 1 {
@@ -644,7 +655,7 @@ func TestE2E(t *testing.T) {
 	var ch9 struct{ ID int64 }
 	call("POST", "/api/channels", map[string]any{"name": "Trailerstream", "number": 9, "kind": "manual", "config": map[string]any{
 		"order": "fixed", "source": map[string]any{"type": "manual", "items": []map[string]any{{"key": "2", "type": "movie"}}}}}, &ch9)
-	time.Sleep(300 * time.Millisecond)
+	waitPlanned(ch9.ID)
 	now3 := time.Now()
 	st.DeleteProgramsAfter(ctx, ch9.ID, now3.Add(-time.Hour))
 	st.InsertPrograms(ctx, []store.Program{
@@ -697,7 +708,7 @@ func TestE2E(t *testing.T) {
 	var ch11 struct{ ID int64 }
 	call("POST", "/api/channels", map[string]any{"name": "Nur Trailer", "number": 11, "kind": "manual", "config": map[string]any{
 		"order": "shuffle", "filler": map[string]any{"type": "trailers"}, "source": map[string]any{"type": "manual", "items": []any{}}}}, &ch11)
-	time.Sleep(300 * time.Millisecond)
+	waitPlanned(ch11.ID)
 	if e := srv.sched.LastError(ch11.ID); e != nil {
 		t.Fatalf("trailer-only channel: %s", e)
 	}
@@ -737,7 +748,7 @@ func TestE2E(t *testing.T) {
 	var ch10 struct{ ID int64 }
 	call("POST", "/api/channels", map[string]any{"name": "Wackelkandidat", "number": 10, "kind": "manual", "config": map[string]any{
 		"order": "fixed", "source": map[string]any{"type": "manual", "items": []map[string]any{{"key": "1", "type": "movie"}}}}}, &ch10)
-	time.Sleep(300 * time.Millisecond)
+	waitPlanned(ch10.ID)
 	now4 := time.Now()
 	st.DeleteProgramsAfter(ctx, ch10.ID, now4.Add(-time.Hour))
 	st.InsertPrograms(ctx, []store.Program{
@@ -790,7 +801,7 @@ func TestE2E(t *testing.T) {
 	call("POST", "/api/channels", map[string]any{"name": "Nur Komödie", "number": 7, "kind": "smart", "config": map[string]any{
 		"order": "shuffle", "noRepeatHours": 0, "source": map[string]any{"type": "rules", "rules": map[string]any{
 			"match": "all", "rules": []map[string]any{{"field": "genre", "op": "is", "values": []string{"Komödie"}}}}}}}, &ch7)
-	time.Sleep(500 * time.Millisecond)
+	waitPlanned(ch7.ID)
 	stableUntil := time.Now().Add(stableWindow)
 	before7, _ := st.ProgramsBetween(ctx, ch7.ID, time.Now(), stableUntil)
 

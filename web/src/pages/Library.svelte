@@ -7,50 +7,72 @@
   import { get, post, put } from '../lib/api.js'
   import { app, toast } from '../lib/state.svelte.js'
   import { fmtAgo, fmtNumber } from '../lib/format.js'
+  import { poll } from '../lib/poll.js'
+  import LoadError from '../components/LoadError.svelte'
 
   let data = $state(null)
+  let loadError = $state('')
   // Folders mounted in the container, per library: Plex folder -> local folder
   let paths = $state({})
   let checks = $state({})
   let savingPaths = $state(null)
-  let timer
+  let poller = null
+  let destroyed = false
 
   async function load() {
-    data = await get('/api/libraries')
+    let d
+    try {
+      d = await get('/api/libraries')
+    } catch (e) {
+      if (!destroyed) loadError = e.message
+      return
+    }
+    if (destroyed) return
+    data = d
+    loadError = ''
     for (const l of data.libraries) {
       // keep what is being typed while the sync status is polled
       paths[l.id] ??= Object.fromEntries((l.locations || []).map((x) => [x.plex, x.local || '']))
     }
-    if (!data.status.running && timer) {
-      clearInterval(timer)
-      timer = null
-      get('/api/library/facets').then((f) => (app.facets = f))
-      get('/api/meta').then((m) => (app.meta = m))
+    if (!data.status?.running && poller) {
+      poller.stop()
+      poller = null
+      get('/api/library/facets').then((f) => (app.facets = f)).catch(() => {})
+      get('/api/meta').then((m) => (app.meta = m)).catch(() => {})
     }
   }
   onMount(async () => {
     await load()
-    if (data.status.running) poll()
+    if (data?.status?.running) watch()
   })
-  onDestroy(() => clearInterval(timer))
+  onDestroy(() => {
+    destroyed = true
+    poller?.stop()
+  })
 
-  function poll() {
-    clearInterval(timer)
-    timer = setInterval(load, 1500)
+  // watch polls the sync status until the sync is done
+  function watch() {
+    if (!poller && !destroyed) poller = poll(load, 1500)
   }
 
   async function sync() {
-    await post('/api/library/sync')
-    toast(t('library.syncStarted'))
-    poll()
-    load()
+    try {
+      await post('/api/library/sync')
+      toast(t('library.syncStarted'))
+      watch()
+    } catch (e) {
+      toast(e.message, 'error')
+    }
   }
 
   async function fullScan(l) {
-    await post(`/api/libraries/${l.id}/fullscan`)
-    toast(t('library.fullScanStarted', [l.title]))
-    poll()
-    load()
+    try {
+      await post(`/api/libraries/${l.id}/fullscan`)
+      toast(t('library.fullScanStarted', [l.title]))
+      watch()
+    } catch (e) {
+      toast(e.message, 'error')
+    }
   }
 
   async function savePaths(l) {
@@ -68,10 +90,15 @@
   }
 
   async function setEnabled(l, enabled) {
-    await put(`/api/libraries/${l.id}`, { enabled })
-    toast(enabled ? t('library.used', [l.title]) : t('library.ignored', [l.title]))
-    if (enabled) poll()
-    load()
+    try {
+      await put(`/api/libraries/${l.id}`, { enabled })
+      toast(enabled ? t('library.used', [l.title]) : t('library.ignored', [l.title]))
+      if (enabled) watch()
+      else load()
+    } catch (e) {
+      toast(e.message, 'error')
+      load()
+    }
   }
 </script>
 
@@ -82,7 +109,7 @@
       <p>{t('library.waehle_welche_plex_bibliotheken_fuer')}</p>
     </div>
     <button class="btn primary" onclick={sync} disabled={data?.status.running}>
-      {#if data?.status.running}<span class="spinner"></span>{:else}<Icon name="refresh" size={16} />{/if} {t('library.jetzt_synchronisieren')} </button>
+      {#if data?.status?.running}<span class="spinner"></span>{:else}<Icon name="refresh" size={16} />{/if} {t('library.jetzt_synchronisieren')} </button>
   </div>
 
   {#if data}
@@ -153,6 +180,8 @@
     </div>
     <p class="hint">{t('library.syncHint')}</p>
     <Help>{t('library.syncMore')}{#if !data.container} {t('library.liegen_die_dateien_auf_diesem')}{/if}</Help>
+  {:else if loadError}
+    <LoadError message={loadError} retry={load} />
   {/if}
 </div>
 

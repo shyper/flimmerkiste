@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,7 +32,19 @@ const (
 	ticksPerMs = 10_000
 )
 
-var httpClient = &http.Client{Timeout: 60 * time.Second}
+// httpClient follows redirects only on the same host: the token headers would
+// otherwise go along to wherever a server (or someone posing as one) points.
+var httpClient = &http.Client{Timeout: 60 * time.Second, CheckRedirect: sameHostRedirect}
+
+func sameHostRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	if req.URL.Hostname() != via[0].URL.Hostname() {
+		return http.ErrUseLastResponse
+	}
+	return nil
+}
 
 // Client is a connection to one server.
 type Client struct {
@@ -111,7 +124,7 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 		return &StatusError{Code: resp.StatusCode, URL: mediaserver.Redact(req.URL.Redacted())}
 	}
 	if out == nil {
-		io.Copy(io.Discard, resp.Body)
+		io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16)) // reuses the connection, but never reads megabytes
 		return nil
 	}
 	return json.NewDecoder(resp.Body).Decode(out)

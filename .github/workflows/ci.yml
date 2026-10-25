@@ -1,17 +1,22 @@
 # Checks every push and pull request; the image goes to the GitHub container registry
 # (ghcr.io/<owner>/<repo>) from the default branch (:latest) and from tags (:<tag>),
-# for amd64 and arm64 (e.g. Raspberry Pi 4).
+# for amd64 and arm64 (e.g. Raspberry Pi 4). The checks themselves live in ci/*.sh,
+# which GitLab runs as well.
+#
+# Actions are pinned to commits (the version in the comment); Dependabot moves them.
 name: CI
 
 on:
   push:
     branches: ["**"]
-    tags: ["*"]
+    tags: ["**"]
   pull_request:
 
+# A push and the pull request of the same branch share one group, so only one of
+# them runs. Tag builds publish images and are never cancelled.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 permissions:
   contents: read
@@ -19,66 +24,84 @@ permissions:
 jobs:
   go-lint:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
-      - name: gofmt
-        run: |
-          unformatted=$(gofmt -l cmd internal web)
-          if [ -n "$unformatted" ]; then echo "Please run gofmt:"; echo "$unformatted"; exit 1; fi
-      - run: go vet ./...
+          go-version: "1.26.x" # the newest patch, as the image (golang:1.26) builds with; go.mod sets the minimum
+      - run: ci/lint.sh
 
   go-test:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version: "1.26.x"
       # the ffmpeg of the image (jellyfin-ffmpeg) for the stream tests, a font for text subtitles (libass)
       - run: sudo sh build/jellyfin-ffmpeg.sh && sudo apt-get install -y --no-install-recommends fontconfig fonts-dejavu-core
-      - name: Go tests (including the end-to-end test with real MPEG-TS streams)
-        env:
-          FLIMMERKISTE_E2E: "1"
-        # two packages at a time: the stream tests measure timing
-        run: go test -p 2 ./...
-      - name: Helper scripts
-        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Go tests (including the end-to-end test with real MPEG-TS streams) and helper scripts
+        run: ci/test-go.sh
+
+  go-race:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.x"
+      - run: ci/test-race.sh
+
+  # Jellyfin and Emby in containers; on the default branch, tags and pull requests,
+  # as the servers take a few minutes to start.
+  mediaservers:
+    if: github.event_name == 'pull_request' || github.ref_type == 'tag' || github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.x"
+      - run: sudo sh build/jellyfin-ffmpeg.sh
+      - run: ci/test-mediaservers.sh
 
   web:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - run: npm ci --no-audit --no-fund
-        working-directory: web
-      - run: npm test
-        working-directory: web
-      - run: npm run build
-        working-directory: web
+      - run: ci/test-web.sh
 
   docker:
-    needs: [go-lint, go-test, web]
+    needs: [go-lint, go-test, go-race, web]
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-qemu-action@v4
-      - uses: docker/setup-buildx-action@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Version
         id: version
+        # through the environment: a ref name may hold characters the shell would run
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          if [ "${{ github.ref_type }}" = tag ]; then echo "value=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          if [ "$REF_TYPE" = tag ]; then printf 'value=%s\n' "$REF_NAME" >> "$GITHUB_OUTPUT"
           else echo "value=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"; fi
-      - uses: docker/metadata-action@v6
+      - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         id: meta
         with:
           images: ghcr.io/${{ github.repository }}
@@ -88,14 +111,14 @@ jobs:
             type=sha,prefix=
             type=ref,event=tag
             type=raw,value=latest,enable={{is_default_branch}}
-      - uses: docker/login-action@v4
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       # pull requests and other branches only build; the default branch and tags publish
-      - uses: docker/build-push-action@v7
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64

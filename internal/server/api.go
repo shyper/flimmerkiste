@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"io"
@@ -15,12 +16,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/shyper/flimmerkiste/internal/ai"
 	"github.com/shyper/flimmerkiste/internal/i18n"
 	"github.com/shyper/flimmerkiste/internal/jellyfin"
 	"github.com/shyper/flimmerkiste/internal/library"
 	"github.com/shyper/flimmerkiste/internal/logo"
+	"github.com/shyper/flimmerkiste/internal/mediaserver"
 	"github.com/shyper/flimmerkiste/internal/plex"
 	"github.com/shyper/flimmerkiste/internal/rules"
 	"github.com/shyper/flimmerkiste/internal/schedule"
@@ -91,7 +94,7 @@ type channelView struct {
 }
 
 func (s *Server) channelView(ctx context.Context, c *store.Channel, withNow bool) channelView {
-	v := channelView{Channel: c, LogoURL: s.logoPath(ctx, c), AutoLogo: c.Logo == "", Error: i18n.Message(s.lang(ctx), s.sched.LastError(c.ID)),
+	v := channelView{Channel: c, LogoURL: s.logoPath(ctx, c), AutoLogo: c.Logo == "", Error: mediaserver.Redact(i18n.Message(s.lang(ctx), s.sched.LastError(c.ID))),
 		Planning: s.sched.Planning(c.ID)}
 	if c.Logo != "" {
 		v.CustomLogoURL = "/logos/" + c.Logo
@@ -238,6 +241,9 @@ func (s *Server) applyChannelInput(ctx context.Context, c *store.Channel, in cha
 	if in.Name == "" {
 		return i18n.E("api.nameMissing")
 	}
+	if utf8.RuneCountInString(in.Name) > logo.MaxNameRunes {
+		return i18n.E("api.nameTooLong", logo.MaxNameRunes)
+	}
 	switch in.Kind {
 	case schedule.KindManual, schedule.KindSmart, schedule.KindSeasonal, schedule.KindAI:
 	default:
@@ -271,7 +277,7 @@ func (s *Server) applyChannelInput(ctx context.Context, c *store.Channel, in cha
 func (s *Server) handleCreateChannel(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var in channelInput
-	if err := readJSON(r, &in); err != nil {
+	if err := readJSON(w, r, &in); err != nil {
 		s.fail(w, r, http.StatusBadRequest, "api.badRequest")
 		return
 	}
@@ -295,7 +301,7 @@ func (s *Server) handleUpdateChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in channelInput
-	if err := readJSON(r, &in); err != nil {
+	if err := readJSON(w, r, &in); err != nil {
 		s.fail(w, r, http.StatusBadRequest, "api.badRequest")
 		return
 	}
@@ -375,7 +381,7 @@ func (s *Server) handleRegenerateAll(w http.ResponseWriter, r *http.Request) {
 // is being planned right now; the editor polls it.
 func (s *Server) handleChannelError(w http.ResponseWriter, r *http.Request) {
 	if c := s.channelFromPath(w, r); c != nil {
-		writeJSON(w, http.StatusOK, map[string]any{"error": i18n.Message(s.reqLang(r), s.sched.LastError(c.ID)),
+		writeJSON(w, http.StatusOK, map[string]any{"error": mediaserver.Redact(i18n.Message(s.reqLang(r), s.sched.LastError(c.ID))),
 			"planning": s.sched.Planning(c.ID)})
 	}
 }
@@ -392,12 +398,12 @@ func (s *Server) handleDeleteChannel(w http.ResponseWriter, r *http.Request) {
 	if c == nil {
 		return
 	}
-	if c.Logo != "" {
-		_ = os.Remove(filepath.Join(s.cfg.DataDir, "logos", c.Logo))
-	}
 	if err := s.store.DeleteChannel(r.Context(), c.ID); err != nil {
 		s.failErr(w, r, http.StatusInternalServerError, err)
 		return
+	}
+	if c.Logo != "" { // only once the channel is gone, so it never points to a missing file
+		_ = os.Remove(filepath.Join(s.cfg.DataDir, "logos", c.Logo))
 	}
 	s.guideChanged(false)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -427,17 +433,20 @@ func (s *Server) handleUploadLogo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := fmt.Sprintf("ch%d-%s.png", c.ID, randomHex(4))
-	if err := os.WriteFile(filepath.Join(s.cfg.DataDir, "logos", name), data, 0o644); err != nil {
+	path := filepath.Join(s.cfg.DataDir, "logos", name)
+	if err := writeFileAtomic(path, data); err != nil {
 		s.failErr(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	if c.Logo != "" {
-		_ = os.Remove(filepath.Join(s.cfg.DataDir, "logos", c.Logo))
-	}
+	old := c.Logo
 	c.Logo = name
 	if err := s.store.UpdateChannel(r.Context(), c); err != nil {
+		_ = os.Remove(path)
 		s.failErr(w, r, http.StatusInternalServerError, err)
 		return
+	}
+	if old != "" {
+		_ = os.Remove(filepath.Join(s.cfg.DataDir, "logos", old))
 	}
 	s.guideChanged(false)
 	writeJSON(w, http.StatusOK, s.channelView(r.Context(), c, false))
@@ -448,23 +457,37 @@ func (s *Server) handleDeleteLogo(w http.ResponseWriter, r *http.Request) {
 	if c == nil {
 		return
 	}
-	if c.Logo != "" {
-		_ = os.Remove(filepath.Join(s.cfg.DataDir, "logos", c.Logo))
+	if old := c.Logo; old != "" {
 		c.Logo = ""
 		if err := s.store.UpdateChannel(r.Context(), c); err != nil {
 			s.failErr(w, r, http.StatusInternalServerError, err)
 			return
 		}
+		_ = os.Remove(filepath.Join(s.cfg.DataDir, "logos", old))
 		s.guideChanged(false)
 	}
 	writeJSON(w, http.StatusOK, s.channelView(r.Context(), c, false))
 }
 
+// previewSlots limits the logo previews drawn at once: the picker asks for
+// every style together, and requests the browser gave up wait no longer.
+var previewSlots = make(chan struct{}, 4)
+
 func (s *Server) handleLogoPreview(w http.ResponseWriter, r *http.Request) {
+	select {
+	case previewSlots <- struct{}{}:
+		defer func() { <-previewSlots }()
+	case <-r.Context().Done():
+		return
+	}
 	q := r.URL.Query()
 	num := func(k string) int { n, _ := strconv.Atoi(q.Get(k)); return n }
 	data, err := logo.Render(logo.Options{Name: q.Get("name"), Style: q.Get("style"), Color: q.Get("color"), Hint: q.Get("hint"),
 		Seed: num("seed"), Hue: num("hue"), Tagline: q.Get("tagline"), Number: num("number"), Holiday: q.Get("holiday"), Symbol: q.Get("symbol")})
+	if errors.Is(err, logo.ErrNoGlyphs) {
+		s.fail(w, r, http.StatusUnprocessableEntity, "api.logoNoGlyphs")
+		return
+	}
 	if err != nil {
 		s.failErr(w, r, http.StatusInternalServerError, err)
 		return
@@ -487,6 +510,9 @@ func (s *Server) handleGuide(w http.ResponseWriter, r *http.Request) {
 		hours = 6
 	}
 	to := from.Add(time.Duration(hours) * time.Hour)
+	// channel and limit: one channel's next programs (the editor's "up next")
+	only, _ := strconv.ParseInt(r.URL.Query().Get("channel"), 10, 64)
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	chans, err := s.store.ListChannels(ctx)
 	if err != nil {
 		s.failErr(w, r, http.StatusInternalServerError, err)
@@ -498,7 +524,7 @@ func (s *Server) handleGuide(w http.ResponseWriter, r *http.Request) {
 	}
 	out := []row{}
 	for _, c := range chans {
-		if !c.Enabled {
+		if !c.Enabled || only != 0 && c.ID != only {
 			continue
 		}
 		rw := row{Channel: s.channelView(ctx, c, false), Programs: []programView{}}
@@ -509,6 +535,9 @@ func (s *Server) handleGuide(w http.ResponseWriter, r *http.Request) {
 		}
 		progs := s.mainPrograms(ctx, c.ID, from, to)
 		for _, p := range progs {
+			if limit > 0 && len(rw.Programs) == limit {
+				break
+			}
 			if m := s.lib.Get(ctx, p.RatingKey); m != nil {
 				rw.Programs = append(rw.Programs, programView{Start: p.Start, Stop: p.Stop, Note: p.Note, Source: p.Source, Media: viewOf(m, true)})
 			}
@@ -547,7 +576,7 @@ func (s *Server) handlePutLibrary(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Enabled bool `json:"enabled"`
 	}
-	if err := readJSON(r, &in); err != nil {
+	if err := readJSON(w, r, &in); err != nil {
 		s.fail(w, r, http.StatusBadRequest, "api.badRequest")
 		return
 	}
@@ -710,7 +739,7 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 		SortBy  string          `json:"sortBy"`
 		Channel *channelInput   `json:"channel"` // the channel being edited, for trailers following its filter
 	}
-	if err := readJSON(r, &in); err != nil {
+	if err := readJSON(w, r, &in); err != nil {
 		s.fail(w, r, http.StatusBadRequest, "api.badRequest")
 		return
 	}
@@ -765,7 +794,7 @@ func (s *Server) handlePosterColor(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Source schedule.Source `json:"source"`
 	}
-	if err := readJSON(r, &in); err != nil {
+	if err := readJSON(w, r, &in); err != nil {
 		s.fail(w, r, http.StatusBadRequest, "api.badRequest")
 		return
 	}
@@ -910,7 +939,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		NewsFeeds        *string         `json:"newsFeeds"`
 		ServerURL        *string         `json:"serverUrl"`
 	}
-	if err := readJSON(r, &in); err != nil {
+	if err := readJSON(w, r, &in); err != nil {
 		s.fail(w, r, http.StatusBadRequest, "api.badRequest")
 		return
 	}
@@ -1056,17 +1085,15 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		url := strings.TrimRight(*in.ServerURL, "/")
 		var id string
 		var err error
+		// The identity is asked without credentials: the stored token only goes
+		// to the new address once it has proven to be the same server.
 		if s.platform(r.Context()) == "plex" {
-			var srv *plex.Server
-			if srv, err = s.plexServer(r.Context()); err == nil {
-				srv.BaseURL = url
-				id, err = srv.Identity(r.Context())
-			}
+			srv := &plex.Server{BaseURL: url, ClientID: s.instanceID(r.Context())}
+			id, err = srv.Identity(r.Context())
 		} else {
-			var c *jellyfin.Client
-			if c, err = s.jellyfinClient(r.Context()); err == nil {
-				c.BaseURL = url
-				id, err = c.Identity(r.Context())
+			var info *jellyfin.PublicInfo
+			if info, _, err = jellyfin.Public(r.Context(), url); err == nil {
+				id = info.ID
 			}
 		}
 		if err != nil || id != s.store.Setting(r.Context(), store.SetServerID, "") {
@@ -1171,11 +1198,15 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePutUser(w http.ResponseWriter, r *http.Request) {
-	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
 	var in struct {
 		Role string `json:"role"`
 	}
-	if err := readJSON(r, &in); err != nil || (in.Role != "admin" && in.Role != "viewer") {
+	if err := readJSON(w, r, &in); err != nil || (in.Role != "admin" && in.Role != "viewer") {
 		s.fail(w, r, http.StatusBadRequest, "api.badRole")
 		return
 	}
@@ -1187,7 +1218,10 @@ func (s *Server) handlePutUser(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, http.StatusBadRequest, "api.ownerAdmin")
 		return
 	}
-	if err := s.store.SetUserRole(r.Context(), id, in.Role); err != nil {
+	if err := s.store.SetUserRole(r.Context(), id, in.Role); errors.Is(err, store.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
 		s.failErr(w, r, http.StatusInternalServerError, err)
 		return
 	}
@@ -1213,7 +1247,11 @@ func (s *Server) ownerUserID(ctx context.Context) int64 {
 }
 
 func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
-	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
 	if id == userFrom(r).ID {
 		s.fail(w, r, http.StatusBadRequest, "api.removeSelf")
 		return
@@ -1222,7 +1260,10 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, http.StatusBadRequest, "api.removeOwner")
 		return
 	}
-	if err := s.store.DeleteUser(r.Context(), id); err != nil {
+	if err := s.store.DeleteUser(r.Context(), id); errors.Is(err, store.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
 		s.failErr(w, r, http.StatusInternalServerError, err)
 		return
 	}

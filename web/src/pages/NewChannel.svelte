@@ -32,8 +32,8 @@
     {#each kinds as k}
       <button class="kind" style="--c: {k.color}" onclick={() => start(k.kind)}>
         <span class="ic"><Icon name={k.icon} size={26} /></span>
-        <h3>{k.title}</h3>
-        <p>{k.text}</p>
+        <span class="title">{k.title}</span>
+        <span class="text">{k.text}</span>
         <span class="go">{t('newChannel.los_geht_s')} <Icon name="right" size={14} /></span>
       </button>
     {/each}
@@ -59,7 +59,9 @@
   .kind { text-align: left; display: flex; flex-direction: column; gap: 0.6rem; padding: 1.4rem; border-radius: 16px; border: 1px solid var(--border); background: linear-gradient(160deg, color-mix(in srgb, var(--c) 12%, transparent), transparent 55%), var(--surface); color: var(--text); font: inherit; cursor: pointer; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
   .kind:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--c) 60%, transparent); box-shadow: 0 12px 30px color-mix(in srgb, var(--c) 15%, transparent); }
   .ic { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); }
-  .kind p { color: var(--text-2); font-size: 0.9rem; flex: 1; }
+  /* a button holds phrasing content only: spans styled like the heading and the text */
+  .title { font-size: 1.05rem; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em; }
+  .text { color: var(--text-2); font-size: 0.9rem; flex: 1; }
   .go { color: var(--c); font-weight: 700; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.3rem; }
   .tpl-title { margin: 2.5rem 0 1rem; }
   .templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.6rem; }

@@ -213,9 +213,7 @@ func (s *Scheduler) discard(ctx context.Context, channelID int64, from time.Time
 	if len(taken) > 0 {
 		s.changed(false)
 	}
-	state := &State{}
-	_ = json.Unmarshal(ch.State, state)
-	state.init()
+	state := s.loadState(ch)
 	if freshAI {
 		for id, ss := range state.Sources {
 			if src := cfg.SourceByID(id); src != nil && src.Type == "ai" {
@@ -311,6 +309,20 @@ func (s *Scheduler) TrailerLanguages(ctx context.Context) []string {
 	return out
 }
 
+// loadState reads the planning state of a channel; a damaged one starts over
+// (titles may repeat sooner then), which the log tells.
+func (s *Scheduler) loadState(ch *store.Channel) *State {
+	state := &State{}
+	if len(ch.State) > 0 {
+		if err := json.Unmarshal(ch.State, state); err != nil {
+			s.log.Warn("planning state unreadable, starting over", "channel", ch.Name, "err", err)
+			state = &State{}
+		}
+	}
+	state.init()
+	return state
+}
+
 // Ensure fills the guide of one channel up to now+horizon.
 func (s *Scheduler) Ensure(ctx context.Context, channelID int64) error {
 	l := s.lock(channelID)
@@ -394,9 +406,7 @@ func (s *Scheduler) ensure(ctx context.Context, channelID int64) error {
 		return i18n.E("schedule.emptyLibrary")
 	}
 
-	state := &State{}
-	_ = json.Unmarshal(ch.State, state)
-	state.init()
+	state := s.loadState(ch)
 
 	g := &generator{
 		s: s, ctx: ctx, ch: ch, cfg: cfg, state: state, catalog: catalog,
@@ -1178,7 +1188,11 @@ func (g *generator) pickAI(id string, ss *SourceState, src *Source, t time.Time)
 	// Leave the remaining guide unfilled while enough programme is prepared.
 	// Returning the failure stops this run without discarding its progress.
 	if g.aiFallbackUsed || !t.Before(g.aiFallbackUntil) {
-		return nil, "", g.aiFailures[id]
+		err := g.aiFailures[id]
+		if err == nil {
+			err = i18n.E("ai.empty") // nothing playable came back; never a nil item without an error
+		}
+		return nil, "", err
 	}
 	// Keep the guide mostly open for the next AI retry. The allowance belongs
 	// to the whole channel's planning run, including channels with several sources.

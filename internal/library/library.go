@@ -258,10 +258,12 @@ func (l *Library) sync(ctx context.Context, changes *Changes, libraryID string) 
 			continue
 		}
 		if !seen[k.ID] {
-			if keys, err := l.store.MediaKeys(ctx, k.ID); err == nil {
-				for key := range keys {
-					changes.Removed[key] = true
-				}
+			keys, err := l.store.MediaKeys(ctx, k.ID)
+			if err != nil {
+				return err // deleted without knowing its titles, channels would keep them
+			}
+			for key := range keys {
+				changes.Removed[key] = true
 			}
 			if err := l.store.DeleteLibrary(ctx, k.ID); err != nil {
 				return err
@@ -662,7 +664,7 @@ func convert(md *mediaserver.Item, libraryID string, show *mediaserver.Item) *st
 func merge(a, b []string) []string {
 	seen := map[string]bool{}
 	var out []string
-	for _, s := range append(a, b...) {
+	for _, s := range append(a[:len(a):len(a)], b...) { // never into a's spare capacity: a may be shared
 		if !seen[s] {
 			seen[s] = true
 			out = append(out, s)

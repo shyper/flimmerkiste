@@ -297,6 +297,10 @@ Live TV & DVR in Plex requires a Plex Pass.
 
 ## Notes
 
+- The database (`flimmerkiste.db` in the data folder) holds the tokens of the media server and plex.tv and the
+  TMDb and AI keys. Flimmerkiste makes it readable for its own user only; keep backups of the data folder as
+  private as the keys themselves. Sign-in sessions and MCP tokens are stored only as hashes.
+- The history keeps what aired for 7 days.
 - The tuner endpoints (`/discover.json`, `/lineup.json`, `/stream/…`) need no sign-in,
   because media servers cannot sign in there. They therefore only answer requests from the local network
   (loopback, private networks, addresses of the computer itself) and block everything that comes
@@ -387,14 +391,20 @@ Tests: `python3 -m unittest discover -s scripts -p 'test_*.py'` (needs ffmpeg).
 
 ## CI/CD (GitHub and GitLab)
 
-Both run the same checks on every push and merge/pull request:
+Both run the same checks on every push and merge/pull request; the checks are the scripts in `ci/`, so they also
+run locally (`ci/lint.sh`, `ci/test-go.sh`, `ci/test-race.sh`, `ci/test-web.sh`):
 
 - **lint**: `gofmt` and `go vet`
 - **test**: all Go tests including the end-to-end test (fake Plex, real ffmpeg, MPEG-TS streams), and the tests of
   the helper scripts
+- **race**: the Go tests with the race detector (without the end-to-end test, whose timing the detector slows down)
 - **web**: frontend tests and build
 - **docker**: builds the image. From the default branch it is pushed as `:latest` and `:<commit>`, for Git tags also
   as `:<tag>`. Merge/pull requests only build.
+
+GitHub also runs the **Jellyfin and Emby** integration tests (`ci/test-mediaservers.sh`, see below) for pull
+requests, the default branch and tags. Actions are pinned to commits and the base images to digests; Dependabot
+proposes updates for both (the GitLab file names its images itself, move them along with the Dockerfile).
 
 Tests run with jellyfin-ffmpeg as in the image (`build/jellyfin-ffmpeg.sh` installs it on Debian or Ubuntu).
 
@@ -406,7 +416,7 @@ The compose file uses the GitHub image `ghcr.io/shyper/flimmerkiste:latest`; a f
 ## Development
 
 ```bash
-# Backend (the frontend has to be built once: cd web && npm install && npm run build)
+# Backend (the frontend has to be built once: cd web && npm ci && npm run build)
 go run ./cmd/flimmerkiste
 
 # Frontend with hot reload against the running backend
@@ -423,6 +433,7 @@ cd web && npm test                                                 # editor, pag
 with ffmpeg, metadata comes from NFO files, so no internet is needed:
 
 ```bash
+ci/test-mediaservers.sh   # all of the following in one go, as GitHub runs it
 cd test/mediaserver && ./make-media.sh && docker compose -p flimmerkiste-test up -d
 FLIMMERKISTE_MEDIASERVER_E2E=all go test -count=1 -v ./internal/jellyfin/   # or =jellyfin / =emby
 docker compose -p flimmerkiste-test down -v

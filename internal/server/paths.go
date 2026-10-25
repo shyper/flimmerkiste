@@ -119,7 +119,7 @@ func (s *Server) handlePutLibraryPaths(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Paths map[string]string `json:"paths"` // Plex folder -> local folder ("" = none)
 	}
-	if err := readJSON(r, &in); err != nil {
+	if err := readJSON(w, r, &in); err != nil {
 		s.fail(w, r, http.StatusBadRequest, "api.badRequest")
 		return
 	}

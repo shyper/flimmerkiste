@@ -66,6 +66,7 @@
       const started = Date.now()
       timer = setInterval(async () => {
         if (Date.now() - started > 10 * 60 * 1000) {
+          popup?.close() // the plex.tv sign-in would no longer count
           stop(t('login.timeout'))
           return
         }

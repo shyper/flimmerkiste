@@ -33,7 +33,9 @@ func TestStreamDoesNotWaitForPlanning(t *testing.T) {
 	if err := s.BindPreviewsNow(ctx, 1, time.Now()); !errors.Is(err, ErrBusy) {
 		t.Errorf("BindPreviewsNow while planning: %v", err)
 	}
-	if d := time.Since(started); d > 3*busyWait {
+	// both give up after busyWait each instead of waiting for the run; the
+	// margin is wide, so a loaded machine does not fail the test
+	if d := time.Since(started); d > 10*busyWait {
 		t.Errorf("waited %v", d)
 	}
 

@@ -50,15 +50,21 @@ func RenderCaption(o CaptionOptions) ([]byte, error) {
 // as wide as the widest one.
 func RenderCaptionPages(pages []CaptionOptions) ([]*image.RGBA, error) {
 	widest := 0
-	for _, o := range pages {
-		_, pw, err := drawCaption(o)
+	out := make([]*image.RGBA, len(pages))
+	widths := make([]int, len(pages))
+	for i, o := range pages {
+		img, pw, err := drawCaption(o)
 		if err != nil {
 			return nil, err
 		}
+		out[i], widths[i] = img, pw
 		widest = max(widest, pw)
 	}
-	out := make([]*image.RGBA, len(pages))
+	// only the narrower pages are drawn again, widened to the widest
 	for i, o := range pages {
+		if widths[i] == widest {
+			continue
+		}
 		o.MinWidth = widest
 		img, _, err := drawCaption(o)
 		if err != nil {

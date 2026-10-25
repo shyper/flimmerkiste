@@ -3,6 +3,7 @@
   import { onMount, onDestroy } from 'svelte'
   import Icon from '../components/Icon.svelte'
   import Modal from '../components/Modal.svelte'
+  import LoadError from '../components/LoadError.svelte'
   import { get } from '../lib/api.js'
   import { app } from '../lib/state.svelte.js'
   import { fmtTime, fmtDay, fmtDuration } from '../lib/format.js'
@@ -25,8 +26,19 @@
   const slots = $derived(Array.from({ length: HOURS * 2 }, (_, i) => from + i * SLOT))
   const x = (t) => ((t - from) / 60000) * PX_PER_MIN
 
+  let loadError = $state('')
+  // only the newest request may paint: clicking on quickly sends several
+  let request = 0
   async function load() {
-    rows = await get(`/api/guide?from=${from}&hours=${HOURS}`)
+    const n = ++request
+    try {
+      const r = await get(`/api/guide?from=${from}&hours=${HOURS}`)
+      if (n !== request) return
+      rows = r
+      loadError = ''
+    } catch (e) {
+      if (n === request) loadError = e.message
+    }
   }
 
   onMount(() => {
@@ -82,7 +94,9 @@
     </div>
   </div>
 
-  {#if rows === null}
+  {#if rows === null && loadError}
+    <LoadError message={loadError} retry={load} />
+  {:else if rows === null}
     <div class="skeleton" style="height: 400px"></div>
   {:else if !rows.length}
     <div class="empty card">{t('guide.noch_keine_aktiven_sender')}</div>
@@ -101,7 +115,7 @@
             <img src={row.channel.logoUrl} alt={row.channel.name} title={row.channel.name} />
           </div>
           <div class="lane" style="width: {width}px">
-            {#each row.programs as p (p.start)}
+            {#each row.programs as p (p.start + '-' + p.stop)}
               {@const left = Math.max(0, x(p.start))}
               {@const right = Math.min(width, x(p.stop))}
               {#if right > left}

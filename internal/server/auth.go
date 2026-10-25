@@ -261,19 +261,20 @@ func (s *Server) handleSetupServers(w http.ResponseWriter, r *http.Request) {
 				c.Connections = append(c.Connections, con.URI)
 			}
 		}
-		c.Suggested = s.probe(ctx, c.Connections, srv.AccessToken, srv.ClientIdentifier)
+		c.Suggested = s.probe(ctx, c.Connections, srv.ClientIdentifier)
 		out = append(out, c)
 	}
 	writeJSON(w, http.StatusOK, out)
 }
 
 // probe returns the first connection URL that answers with the expected machine id.
-func (s *Server) probe(ctx context.Context, urls []string, token, machineID string) string {
+func (s *Server) probe(ctx context.Context, urls []string, machineID string) string {
 	if s.cfg.PlexURL != "" {
 		return s.cfg.PlexURL
 	}
 	for _, u := range urls {
-		srv := &plex.Server{BaseURL: u, Token: token, ClientID: s.instanceID(ctx)}
+		// without the token: it only goes to an address that proved to be the server
+		srv := &plex.Server{BaseURL: u, ClientID: s.instanceID(ctx)}
 		if id, err := srv.Identity(ctx); err == nil && (machineID == "" || id == machineID) {
 			return u
 		}
@@ -287,7 +288,7 @@ func (s *Server) handleSetupServer(w http.ResponseWriter, r *http.Request) {
 		ID  string `json:"id"`
 		URL string `json:"url"`
 	}
-	if err := readJSON(r, &req); err != nil {
+	if err := readJSON(w, r, &req); err != nil {
 		s.fail(w, r, http.StatusBadRequest, "api.badRequest")
 		return
 	}
@@ -304,7 +305,7 @@ func (s *Server) handleSetupServer(w http.ResponseWriter, r *http.Request) {
 		if url == "" {
 			url = s.cfg.PlexURL
 		}
-		p := &plex.Server{BaseURL: url, Token: srv.AccessToken, ClientID: s.instanceID(ctx)}
+		p := &plex.Server{BaseURL: url, ClientID: s.instanceID(ctx)} // no token before the identity matches
 		id, err := p.Identity(ctx)
 		if err != nil || id != srv.ClientIdentifier {
 			s.fail(w, r, http.StatusBadRequest, "auth.unreachable")

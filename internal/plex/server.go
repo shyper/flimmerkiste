@@ -44,6 +44,9 @@ func (s *Server) Identity(ctx context.Context) (string, error) {
 	if err := s.get(ctx, "/identity", nil, &r); err != nil {
 		return "", err
 	}
+	if r.MediaContainer.MachineIdentifier == "" {
+		return "", fmt.Errorf("plex: %s answers, but is no Plex server", s.BaseURL)
+	}
 	return r.MediaContainer.MachineIdentifier, nil
 }
 
@@ -198,7 +201,8 @@ const (
 // page. filter narrows the list (e.g. label=<id>), it may be nil.
 func (s *Server) ListAll(ctx context.Context, section string, typ int, filter url.Values, fn func([]Metadata) error) error {
 	const pageSize = 300
-	for start := 0; ; start += pageSize {
+	first := "" // of the page before: a server ignoring the offset sends it again
+	for start := 0; ; {
 		q := url.Values{}
 		for k, v := range filter {
 			q[k] = v
@@ -217,14 +221,24 @@ func (s *Server) ListAll(ctx context.Context, section string, typ int, filter ur
 		if err := s.get(ctx, "/library/sections/"+url.PathEscape(section)+"/all", q, &r); err != nil {
 			return err
 		}
-		if len(r.MediaContainer.Metadata) > 0 {
-			if err := fn(r.MediaContainer.Metadata); err != nil {
+		page := r.MediaContainer.Metadata
+		if len(page) > 0 && start > 0 && page[0].RatingKey == first {
+			return fmt.Errorf("plex: section %s returns the same page again", section)
+		}
+		if len(page) > 0 {
+			first = page[0].RatingKey
+			if err := fn(page); err != nil {
 				return err
 			}
 		}
-		if len(r.MediaContainer.Metadata) < pageSize {
+		total := r.MediaContainer.TotalSize
+		if total > 0 && start+len(page) >= total || total == 0 && len(page) < pageSize {
 			return nil
 		}
+		if len(page) == 0 {
+			return fmt.Errorf("plex: section %s ends after %d of %d items", section, start, total)
+		}
+		start += len(page) // a short page: go on right after it
 	}
 }
 
@@ -280,7 +294,7 @@ func (s *Server) Item(ctx context.Context, ratingKey string) (*Metadata, error) 
 			Metadata []Metadata `json:"Metadata"`
 		} `json:"MediaContainer"`
 	}
-	q := url.Values{"includeMarkers": {"1"}}
+	q := url.Values{"includeMarkers": {"1"}, "includeGuids": {"1"}}
 	if err := s.get(ctx, "/library/metadata/"+url.PathEscape(ratingKey), q, &r); err != nil {
 		return nil, err
 	}

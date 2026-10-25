@@ -15,26 +15,33 @@
   let channel = $state('')
   let day = $state('')
 
-  function query(before) {
+  function query(last) {
     const q = new URLSearchParams({ limit: String(pageSize) })
     if (search.trim()) q.set('q', search.trim())
     if (channel) q.set('channel', channel)
     if (day) q.set('day', day)
-    if (before) q.set('before', String(before))
+    if (last) {
+      q.set('before', String(last.start))
+      q.set('beforeChannel', String(last.channelId))
+    }
     return '/api/history?' + q
   }
 
+  // Only the newest request may show its answer (a search typed on while a page loads).
+  let request = 0
   async function load(append = false) {
+    const id = ++request
     loading = true
     error = ''
     try {
-      const page = await get(query(append && entries?.length ? entries[entries.length - 1].start : 0))
+      const page = await get(query(append ? entries?.at(-1) : null))
+      if (id !== request) return
       entries = append ? [...entries, ...page] : page
       more = page.length === pageSize
     } catch (e) {
-      error = e.message
+      if (id === request) error = e.message
     } finally {
-      loading = false
+      if (id === request) loading = false
     }
   }
   const reload = debounce(() => load(), 300)

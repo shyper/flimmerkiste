@@ -60,9 +60,7 @@ func fadeEdges(m *image.Alpha, x0, x1, fade int, yFade, yEnd int) *image.Alpha {
 
 func (r *renderer) nature() {
 	tb := r.text.bounds
-	cx, _ := center(tb)
 	base := float32(tb.Max.Y) + 22
-	_ = cx
 	sunX, sunY := float32(tb.Max.X)+6, float32(tb.Min.Y)+4
 	r.paintColor(blur(rasterMask(func(z *vector.Rasterizer) { circle(z, sunX, sunY, 44) }), 16), withAlpha(hex("#fdba74"), 0.45), 0, 0)
 	r.paintColor(rasterMask(func(z *vector.Rasterizer) { circle(z, sunX, sunY, 24) }), withAlpha(hex("#fcd34d"), 0.85), 0, 0)
@@ -324,7 +322,7 @@ func (r *renderer) ice() {
 		if g.x1-g.x0 < 8 {
 			continue
 		}
-		x := g.x0 + 4 + r.rng.Intn(g.x1-g.x0-6)
+		x := g.x0 + 4 + r.rng.Intn(max(1, g.x1-g.x0-6))
 		bottom := -1
 		for y := min(H-1, g.y1); y >= g.y0; y-- {
 			if y >= 0 && mask.Pix[y*mask.Stride+x] > 160 {

@@ -1,12 +1,27 @@
 <script>
   import Icon from './Icon.svelte'
   let { value = $bindable(), options = [], size = 'md', onchange } = $props()
+
+  function choose(o) {
+    value = o.value
+    onchange?.(o.value)
+  }
+  // A radio group is one tab stop; the arrow keys move the choice (as with native radios).
+  function onKey(e, i) {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]
+    let next = step ? (i + step + options.length) % options.length : e.key === 'Home' ? 0 : e.key === 'End' ? options.length - 1 : -1
+    if (next < 0) return
+    e.preventDefault()
+    choose(options[next])
+    e.currentTarget.parentElement.children[next]?.focus()
+  }
+  const current = $derived(Math.max(0, options.findIndex((o) => o.value === value)))
 </script>
 
 <div class="seg {size}" role="radiogroup">
-  {#each options as o}
+  {#each options as o, i}
     <button type="button" role="radio" aria-checked={value === o.value} class:active={value === o.value}
-      onclick={() => { value = o.value; onchange?.(o.value) }} title={o.hint || ''}>
+      tabindex={i === current ? 0 : -1} onclick={() => choose(o)} onkeydown={(e) => onKey(e, i)} title={o.hint || undefined}>
       {#if o.icon}<Icon name={o.icon} size={15} />{/if}
       {o.label}
     </button>

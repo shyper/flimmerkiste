@@ -218,6 +218,10 @@ var secrets = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)(X-Emby-Token=)[^&\s"'<>]+`),
 	regexp.MustCompile(`(?i)(Token=")[^"]+`),
 	regexp.MustCompile(`(fk_)[0-9a-f]{64}`), // Flimmerkiste API tokens, e.g. in /mcp/<token>
+	// header style, e.g. in echoed request dumps
+	regexp.MustCompile(`(?i)(X-(?:Plex|Emby|MediaBrowser)-Token:\s*)[^\s"'<>]+`),
+	regexp.MustCompile(`(?i)(Bearer\s+)[A-Za-z0-9._~+/=-]+`),
+	regexp.MustCompile(`(sk-)[A-Za-z0-9_*-]{8,}`), // AI provider keys echoed in error bodies
 }
 
 // Redact hides access tokens in URLs inside s (error messages, ffmpeg output,

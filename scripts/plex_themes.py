@@ -25,6 +25,7 @@ YouTube), ffmpeg and deno or node for yt-dlp.
 """
 
 import argparse
+import fcntl
 import json
 import os
 import shutil
@@ -148,6 +149,14 @@ def main():
     if not args.url or not args.token:
         ap.error("give the Plex address and token (--url/--token or PLEX_URL/PLEX_TOKEN)")
 
+    # one run at a time: two cron runs would download twice and race on the state file
+    lock = open(args.state + ".lock", "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        if not args.silent:
+            print("plex_themes: already running")
+        return
     try:
         run(args)
     except (urllib.error.URLError, OSError, ValueError) as e:

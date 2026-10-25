@@ -144,7 +144,7 @@ func (r *renderer) horror() {
 		if g.x1-g.x0 < 6 {
 			continue
 		}
-		x := g.x0 + 3 + r.rng.Intn(g.x1-g.x0-5)
+		x := g.x0 + 3 + r.rng.Intn(max(1, g.x1-g.x0-5))
 		bottom := -1
 		for y := min(H-1, g.y1); y >= g.y0; y-- {
 			if y >= 0 && mask.Pix[y*mask.Stride+x] > 160 {

@@ -172,7 +172,7 @@ func (r *renderer) fairytale() {
 	// tiny golden stars around
 	r.paintColor(rasterMask(func(z *vector.Rasterizer) {
 		for i := 0; i < 5; i++ {
-			star5(z, float32(r.rng.Intn(W)), float32(8+r.rng.Intn(int(y0)-4+1)), 5+float32(r.rng.Intn(5)))
+			star5(z, float32(r.rng.Intn(W)), float32(8+r.rng.Intn(max(1, int(y0)-4+1))), 5+float32(r.rng.Intn(5)))
 			star5(z, float32(r.rng.Intn(W)), float32(int(y1)+18+r.rng.Intn(max(1, H-int(y1)-24))), 5+float32(r.rng.Intn(5)))
 		}
 	}), hex("#f6d77a"), 0, 0)

@@ -10,10 +10,21 @@ set -eu
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends ca-certificates curl gnupg
-curl -fsSL https://repo.jellyfin.org/jellyfin_team.gpg.key | gpg --dearmor --yes -o /usr/share/keyrings/jellyfin.gpg
+# The key is checked against the fingerprint of the Jellyfin team key
+# (https://repo.jellyfin.org), so a swapped download cannot sign packages.
+JELLYFIN_KEY=4918AABC486CA052358D778D49023CD01DE21A7B
+curl -fsSL https://repo.jellyfin.org/jellyfin_team.gpg.key -o /tmp/jellyfin.key
+if ! gpg --show-keys --with-colons /tmp/jellyfin.key | grep -q "^fpr:::::::::$JELLYFIN_KEY:"; then
+	echo "jellyfin key: unexpected fingerprint" >&2
+	exit 1
+fi
+gpg --dearmor --yes -o /usr/share/keyrings/jellyfin.gpg /tmp/jellyfin.key
+rm -f /tmp/jellyfin.key
 echo "deb [signed-by=/usr/share/keyrings/jellyfin.gpg] https://repo.jellyfin.org/$ID $VERSION_CODENAME main" \
 	> /etc/apt/sources.list.d/jellyfin.list
 apt-get update
-apt-get install -y --no-install-recommends jellyfin-ffmpeg7
+# the major version is pinned on purpose: a new one changes filters and flags
+JELLYFIN_FFMPEG=${JELLYFIN_FFMPEG:-jellyfin-ffmpeg7}
+apt-get install -y --no-install-recommends "$JELLYFIN_FFMPEG"
 ln -sf /usr/lib/jellyfin-ffmpeg/ffmpeg /usr/local/bin/ffmpeg
 ln -sf /usr/lib/jellyfin-ffmpeg/ffprobe /usr/local/bin/ffprobe

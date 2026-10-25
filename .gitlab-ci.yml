@@ -1,9 +1,15 @@
 # Flimmerkiste – GitLab CI
 #
-#   test:  gofmt/vet, Go unit + end-to-end tests (fake Plex + real ffmpeg), frontend tests + build
+#   test:  gofmt/vet, Go unit + end-to-end tests (fake Plex + real ffmpeg), race detector,
+#          frontend tests + build
 #   build: Docker image; pushed to the GitLab Container Registry on the default branch and on tags
 #
+# The checks themselves are ci/*.sh, the same GitHub runs. The Jellyfin/Emby
+# integration tests (ci/test-mediaservers.sh) run on GitHub only: here they would
+# need Docker-in-Docker for the test jobs too.
 # The docker job uses Docker-in-Docker and therefore needs a runner with privileged mode.
+# Images are pinned by digest; Dependabot does not read this file, so move them
+# together with the Dockerfile.
 
 stages:
   - test
@@ -13,8 +19,10 @@ variables:
   GOPATH: $CI_PROJECT_DIR/.go
   GOFLAGS: -mod=readonly
   npm_config_cache: $CI_PROJECT_DIR/.npm
-  GO_IMAGE: golang:1.26-alpine
-  NODE_IMAGE: node:22-alpine
+  GO_IMAGE: golang:1.26-alpine@sha256:27f2d3b83cfc5803c8078f8e730af0f7c431bf067afaec8f60a36fb763187cba
+  GO_DEBIAN_IMAGE: golang:1.26-trixie@sha256:909771fef53e3dcb0950255f0c9a8b4728c3b841e61509c7b29b098de7ee02d4 # Debian like the image, for jellyfin-ffmpeg
+  NODE_IMAGE: node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+  DOCKER_IMAGE: docker:27@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce
 
 # Run for merge requests, branches (unless an MR is open for them) and tags.
 workflow:
@@ -40,25 +48,28 @@ go:lint:
   extends: .go
   stage: test
   script:
-    - unformatted=$(gofmt -l cmd internal web)
-    - if [ -n "$unformatted" ]; then echo "Please run gofmt:"; echo "$unformatted"; exit 1; fi
-    - go vet ./...
+    - ci/lint.sh
 
 go:test:
   extends: .go
   stage: test
-  image: golang:1.26-trixie # Debian like the image, for jellyfin-ffmpeg
+  image: $GO_DEBIAN_IMAGE
   variables:
-    FLIMMERKISTE_E2E: "1" # includes the end-to-end test: fake Plex server, scheduling, real MPEG-TS streams
+    COVERAGE: "1"
   before_script:
     # the ffmpeg of the image (jellyfin-ffmpeg), a font for text subtitles (libass), python for the helper scripts
     - sh build/jellyfin-ffmpeg.sh
     - apt-get install -y --no-install-recommends fontconfig fonts-dejavu-core python3
   script:
-    - go test -coverprofile=coverage.out ./...
-    - go tool cover -func=coverage.out | tail -n 1
-    - python3 -m unittest discover -s scripts -p 'test_*.py'
+    - ci/test-go.sh # includes the end-to-end test: fake Plex server, scheduling, real MPEG-TS streams
   coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
+
+go:race:
+  extends: .go
+  stage: test
+  image: $GO_DEBIAN_IMAGE # with a C compiler for the race detector
+  script:
+    - ci/test-race.sh
 
 web:build:
   image: $NODE_IMAGE
@@ -69,37 +80,37 @@ web:build:
       prefix: npm
     paths: [.npm/]
   script:
-    - cd web
-    - npm ci --no-audit --no-fund
-    - npm test # editor opens channels stored by older versions (internal/schedule/testdata)
-    - npm run build
-  artifacts:
-    paths: [web/dist/]
-    expire_in: 1 week
+    - ci/test-web.sh # editor opens channels stored by older versions (internal/schedule/testdata)
 
 docker:
   stage: build
-  image: docker:27
+  image: $DOCKER_IMAGE
   services:
-    - docker:27-dind
+    - name: $DOCKER_IMAGE
+      alias: docker
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
     IMAGE: $CI_REGISTRY_IMAGE
-  needs: [go:lint, go:test, web:build]
+    DOCKER_BUILDKIT: "1"
+  needs: [go:lint, go:test, go:race, web:build]
   script:
     - VERSION=${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}
-    - docker build --pull --build-arg VERSION="$VERSION" -t "$IMAGE:$CI_COMMIT_SHORT_SHA" .
+    # the last published image is the cache: npm, Go modules and the ffmpeg layer are reused
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY" || true
+    - docker pull "$IMAGE:latest" || true
+    - docker build --pull --cache-from "$IMAGE:latest" --build-arg BUILDKIT_INLINE_CACHE=1 --build-arg VERSION="$VERSION" -t "$IMAGE:$CI_COMMIT_SHORT_SHA" .
     - |
       if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
         echo "Merge request: image built only, not published."
         exit 0
       fi
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
     - docker push "$IMAGE:$CI_COMMIT_SHORT_SHA"
     - |
       if [ -n "$CI_COMMIT_TAG" ]; then
-        docker tag "$IMAGE:$CI_COMMIT_SHORT_SHA" "$IMAGE:$CI_COMMIT_TAG"
-        docker push "$IMAGE:$CI_COMMIT_TAG"
+        # image tags cannot hold "/" (release/v1)
+        TAG=$(printf '%s' "$CI_COMMIT_TAG" | tr '/' '-')
+        docker tag "$IMAGE:$CI_COMMIT_SHORT_SHA" "$IMAGE:$TAG"
+        docker push "$IMAGE:$TAG"
       fi
     - |
       if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then

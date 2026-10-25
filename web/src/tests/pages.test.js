@@ -34,17 +34,49 @@ const stubs = {
   ] },
 }
 
+// unknown collects requests no fixture answers: a renamed endpoint or a lost
+// fixture must fail the test instead of rendering an empty page.
+let unknown = []
+let inflight = 0
+let requests = 0
+
 function mockApi(extra = {}) {
   globalThis.fetch = vi.fn(async (url) => {
-    const path = String(url).split('?')[0]
-    let body = extra[path] ?? fixtures.api[path] ?? stubs[path]
-    if (body === undefined && path.startsWith('/api/channels/') && path.endsWith('/error')) body = {}
-    if (body === undefined) body = {}
-    return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    requests++
+    inflight++
+    try {
+      const path = String(url).split('?')[0]
+      let body = extra[path] ?? fixtures.api[path] ?? stubs[path]
+      if (body === undefined && path.startsWith('/api/channels/') && path.endsWith('/error')) body = {}
+      if (body === undefined) {
+        unknown.push(path)
+        return new Response(JSON.stringify({ error: 'no fixture' }), { status: 404, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    } finally {
+      inflight--
+    }
   })
 }
 
-const settle = () => new Promise((r) => setTimeout(r, 1500))
+// settle waits until the page is quiet: no request open and none started for a
+// while (debounced previews start up to 450 ms late), at most 5 s. It needs the
+// real setTimeout and performance.now: the tests fake only Date (beforeEach).
+async function settle() {
+  const end = performance.now() + 5000
+  let last = -1
+  let since = 0
+  while (performance.now() < end) {
+    await new Promise((r) => setTimeout(r, 50))
+    if (inflight === 0 && requests === last) {
+      since += 50
+      if (since >= 600) return
+    } else {
+      since = 0
+      last = requests
+    }
+  }
+}
 
 // normalize writes the DOM as the browser shows it: attributes sorted,
 // runs of whitespace collapsed, comments and Svelte's scoping classes left out.
@@ -67,6 +99,7 @@ async function snapIn(lang, name, Component, props = {}) {
 
 beforeEach(() => {
   setLang('de')
+  // only Date: settle() waits with the real timers
   vi.useFakeTimers({ now: fixtures.now, toFake: ['Date'] })
   mockApi()
   app.status = fixtures.api['/api/auth/status']
@@ -79,6 +112,9 @@ afterEach(() => {
   cleanup()
   vi.useRealTimers()
   vi.restoreAllMocks()
+  const missing = [...new Set(unknown)]
+  unknown = []
+  expect(missing, 'requests without a fixture').toEqual([])
 })
 
 function pages(lang) {

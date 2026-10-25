@@ -10,20 +10,28 @@
   let { s } = $props()
   let sync = $state(null)
   let timer
+  let destroyed = false
 
+  // load shows the sync status and asks again while a sync runs
   async function load() {
-    sync = await get('/api/library/status').catch(() => null)
     clearTimeout(timer)
+    const st = await get('/api/library/status').catch(() => null)
+    if (destroyed) return
+    sync = st
     if (sync?.running) timer = setTimeout(load, 2000)
   }
   onMount(load)
-  onDestroy(() => clearTimeout(timer))
+  onDestroy(() => {
+    destroyed = true
+    clearTimeout(timer)
+  })
 
   async function syncNow() {
     try {
       await post('/api/library/sync')
       toast(t('settings.server.syncStarted'))
-      setTimeout(load, 500)
+      clearTimeout(timer)
+      timer = setTimeout(load, 500)
     } catch (e) {
       toast(e.message, 'error')
     }

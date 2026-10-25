@@ -125,7 +125,14 @@ func (s *Streamer) prepareSubtitles(ctx context.Context, srv mediaserver.Server,
 	if u == "" {
 		return nil
 	}
-	f, err := os.CreateTemp(s.CacheDir, "sub-*."+codec)
+	// the codec names the file type; it comes from the media server, so only letters and digits pass
+	ext := strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, codec)
+	f, err := os.CreateTemp(s.CacheDir, "sub-*."+ext)
 	if err != nil {
 		log.Warn("forced subtitles skipped", "err", err)
 		return nil

@@ -8,21 +8,32 @@
   import { app, toast } from '../../lib/state.svelte.js'
   import { fmtAgo } from '../../lib/format.js'
 
-  let { s } = $props()
+  let { s, persisted } = $props()
   // The cinema & streaming lists come from Plex Discover.
   const plex = $derived((app.meta?.platform || 'plex') === 'plex')
   let trailers = $state(null)
   let hubs = $state(null)
   let hubsError = $state('')
   let timer
+  let destroyed = false
 
   async function load() {
-    trailers = await get('/api/trailers').catch(() => null)
     clearTimeout(timer)
-    if (trailers?.discover?.running) timer = setTimeout(load, 3000)
+    const data = await get('/api/trailers').catch(() => null)
+    if (destroyed) return
+    trailers = data
+    if (trailers?.discover?.running) later(3000)
+  }
+  // later loads again after ms; one timer, cleared when the page goes
+  function later(ms) {
+    clearTimeout(timer)
+    if (!destroyed) timer = setTimeout(load, ms)
   }
   onMount(load)
-  onDestroy(() => clearTimeout(timer))
+  onDestroy(() => {
+    destroyed = true
+    clearTimeout(timer)
+  })
 
   async function loadHubs() {
     hubsError = ''
@@ -39,10 +50,12 @@
 
   async function refresh() {
     try {
-      await put('/api/settings', { trailerHubs: $state.snapshot(s.trailerHubs) })
+      const hubs = $state.snapshot(s.trailerHubs)
+      await put('/api/settings', { trailerHubs: hubs })
+      persisted?.({ trailerHubs: hubs })
       await post('/api/trailers/refresh')
       toast(t('settings.trailers.fetching'))
-      setTimeout(load, 1500)
+      later(1500)
     } catch (e) {
       toast(e.message, 'error')
     }
@@ -53,16 +66,13 @@
       await put('/api/settings', { tmdbKey: s.tmdbKey, tmdbRegion: s.tmdbRegion, slateSeconds: s.slateSeconds })
       await post('/api/slates/refresh')
       toast(t('settings.trailers.slatesFetching'))
-      setTimeout(load, 1500)
+      later(1500)
     } catch (e) {
       toast(e.message, 'error')
     }
   }
   $effect(() => {
-    if (trailers?.slates?.running || trailers?.info?.weather?.running || trailers?.info?.news?.running) {
-      clearTimeout(timer)
-      timer = setTimeout(load, 3000)
-    }
+    if (trailers?.slates?.running || trailers?.info?.weather?.running || trailers?.info?.news?.running) later(3000)
   })
 
   // Weather and news slates (Jellyfin/Emby)
@@ -88,7 +98,7 @@
       await put('/api/settings', { weatherPlace: $state.snapshot(s.weatherPlace), newsFeeds: s.newsFeeds })
       await post('/api/info/refresh')
       toast(t('settings.trailers.infoFetching'))
-      setTimeout(load, 2500)
+      later(2500)
     } catch (e) {
       toast(e.message, 'error')
     }

@@ -25,6 +25,7 @@
   let actions = $state({}) // index -> skip | new | replace
   let importing = $state(false)
   let importOpen = $state(false)
+  let importInput
 
   async function pickFile(e) {
     const f = e.currentTarget.files?.[0]
@@ -91,10 +92,11 @@
   <div class="block">
     <h3>{t('settings.general.import')}</h3>
     <p class="hint">{t('settings.general.importHint')}</p>
-    <label class="btn sm file">
+    <!-- a real button, so the keyboard reaches it (a hidden input cannot take the focus) -->
+    <button class="btn sm" onclick={() => importInput.click()}>
       <Icon name="upload" size={14} /> {t('settings.general.importButton')}
-      <input type="file" accept="application/json,.json" onchange={pickFile} hidden />
-    </label>
+    </button>
+    <input bind:this={importInput} type="file" accept="application/json,.json" onchange={pickFile} hidden />
   </div>
 
   <div>
@@ -146,7 +148,6 @@
   .chans { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.3rem 0.75rem; margin: 0.5rem 0; padding: 0.5rem; background: var(--bg-2); border-radius: var(--radius-sm); max-height: 240px; overflow: auto; }
   .chans label { display: flex; align-items: center; gap: 0.45rem; font-size: 0.88rem; cursor: pointer; }
   .num { display: inline-block; min-width: 1.6rem; font-weight: 800; color: var(--muted); font-size: 0.8rem; }
-  .file { cursor: pointer; }
   .disabled { opacity: 0.5; pointer-events: none; }
   .preview { list-style: none; padding: 0; margin: 0.75rem 0 0; display: flex; flex-direction: column; gap: 0.5rem; }
   .preview li { padding: 0.6rem 0.75rem; background: var(--bg-2); border-radius: var(--radius-sm); }

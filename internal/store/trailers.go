@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"strings"
 	"time"
 )
@@ -119,9 +120,14 @@ func scanTrailer(sc interface{ Scan(...any) error }) (*Trailer, error) {
 		&t.ContentRating, &t.Summary, &t.Thumb, &t.Name, &t.Language, &t.DurationMs, &parts, &hubs, &t.LastSeen, &t.Art, &t.RuntimeMin, &t.ShowKey, &t.Season); err != nil {
 		return nil, err
 	}
-	_ = json.Unmarshal([]byte(genres), &t.Genres)
-	_ = json.Unmarshal([]byte(parts), &t.Parts)
-	_ = json.Unmarshal([]byte(hubs), &t.Hubs)
+	for _, col := range []struct {
+		raw string
+		v   any
+	}{{genres, &t.Genres}, {parts, &t.Parts}, {hubs, &t.Hubs}} {
+		if err := json.Unmarshal([]byte(col.raw), col.v); err != nil && col.raw != "" {
+			slog.Warn("trailer column unreadable", "key", t.Key, "err", err)
+		}
+	}
 	return &t, nil
 }
 

@@ -5,6 +5,7 @@ package logo
 import (
 	"bytes"
 	"embed"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"image"
@@ -19,6 +20,7 @@ import (
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
+	"golang.org/x/image/font/sfnt"
 	"golang.org/x/image/math/fixed"
 	"golang.org/x/image/vector"
 )
@@ -253,10 +255,11 @@ func Render(o Options) ([]byte, error) {
 	if name == "" {
 		name = "Flimmerkiste"
 	}
+	name = clipName(name)
 	if uppercaseStyles[style] {
 		name = strings.ToUpper(name)
 	}
-	f, err := loadFont(styleFonts[style])
+	f, err := fontFor(styleFonts[style], name)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +313,7 @@ func Render(o Options) ([]byte, error) {
 	if o.Hue%360 != 0 {
 		rotateHue(img, float64(o.Hue%360))
 	}
-	if err := r.tagline(o.Tagline, center); err != nil {
+	if err := r.tagline(o.Tagline); err != nil {
 		return nil, err
 	}
 	if strings.TrimSpace(o.Symbol) != "" {
@@ -329,6 +332,74 @@ func Render(o Options) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// MaxNameRunes limits the name a logo shows; longer names are cut at a word.
+const MaxNameRunes = 80
+
+// ErrNoGlyphs means no font of the logos can write any letter of the name
+// (e.g. only emoji or a script like Japanese).
+var ErrNoGlyphs = errors.New("logo: no font has the letters of the name")
+
+func clipName(name string) string {
+	r := []rune(name)
+	if len(r) <= MaxNameRunes {
+		return name
+	}
+	cut := string(r[:MaxNameRunes])
+	if i := strings.LastIndexFunc(cut, unicode.IsSpace); i > MaxNameRunes/2 {
+		cut = cut[:i]
+	}
+	return strings.TrimSpace(cut)
+}
+
+// fontFor returns the style's font, or the bundled font that knows most of the
+// letters when the style's font knows none of them (other scripts).
+func fontFor(file, name string) (*opentype.Font, error) {
+	f, err := loadFont(file)
+	if err != nil {
+		return nil, err
+	}
+	if covered(f, name) > 0 {
+		return f, nil
+	}
+	entries, err := fontFS.ReadDir("fonts")
+	if err != nil {
+		return nil, err
+	}
+	var best *opentype.Font
+	most := 0
+	for _, e := range entries {
+		if !strings.HasSuffix(e.Name(), ".ttf") {
+			continue
+		}
+		g, err := loadFont(e.Name())
+		if err != nil {
+			continue
+		}
+		if n := covered(g, name); n > most {
+			best, most = g, n
+		}
+	}
+	if best == nil {
+		return nil, ErrNoGlyphs
+	}
+	return best, nil
+}
+
+// covered counts the letters of s (spaces aside) that f has a glyph for.
+func covered(f *opentype.Font, s string) int {
+	var buf sfnt.Buffer
+	n := 0
+	for _, r := range s {
+		if unicode.IsSpace(r) {
+			continue
+		}
+		if i, err := f.GlyphIndex(&buf, r); err == nil && i != 0 {
+			n++
+		}
+	}
+	return n
 }
 
 // ---- text layout ----
@@ -438,32 +509,52 @@ func measure(face font.Face, s string) float64 {
 	return float64(font.MeasureString(face, s)) / 64
 }
 
-// splitBalanced splits words into n lines minimising the widest line.
+// splitBalanced splits words into n lines minimising the widest line. Every
+// line is measured once, so long names stay cheap (the first best split wins
+// ties, as the candidates are tried in order).
 func splitBalanced(words []string, n int, width func(string) float64) []string {
 	if n <= 1 {
 		return []string{strings.Join(words, " ")}
 	}
+	type span struct{ from, to int }
+	widths := map[span]float64{}
+	lineWidth := func(from, to int) float64 {
+		w, ok := widths[span{from, to}]
+		if !ok {
+			w = width(strings.Join(words[from:to], " "))
+			widths[span{from, to}] = w
+		}
+		return w
+	}
 	best := math.Inf(1)
-	var bestSplit []string
-	var rec func(start, left int, acc []string)
-	rec = func(start, left int, acc []string) {
+	var bestEnds []int
+	ends := make([]int, 0, n)
+	var rec func(start, left int, widest float64)
+	rec = func(start, left int, widest float64) {
 		if left == 1 {
-			lines := append(append([]string{}, acc...), strings.Join(words[start:], " "))
-			widest := 0.0
-			for _, l := range lines {
-				widest = math.Max(widest, width(l))
-			}
-			if widest < best {
-				best, bestSplit = widest, lines
+			if widest = math.Max(widest, lineWidth(start, len(words))); widest < best {
+				best, bestEnds = widest, append(append([]int{}, ends...), len(words))
 			}
 			return
 		}
 		for end := start + 1; end <= len(words)-left+1; end++ {
-			rec(end, left-1, append(acc, strings.Join(words[start:end], " ")))
+			w := math.Max(widest, lineWidth(start, end))
+			if w >= best {
+				continue // cannot beat the best split any more
+			}
+			ends = append(ends, end)
+			rec(end, left-1, w)
+			ends = ends[:len(ends)-1]
 		}
 	}
-	rec(0, n, nil)
-	return bestSplit
+	rec(0, n, 0)
+	lines := make([]string, 0, n)
+	start := 0
+	for _, end := range bestEnds {
+		lines = append(lines, strings.Join(words[start:end], " "))
+		start = end
+	}
+	return lines
 }
 
 func alphaBounds(a *image.Alpha) image.Rectangle {
@@ -479,7 +570,9 @@ func alphaBounds(a *image.Alpha) image.Rectangle {
 		}
 	}
 	if minX > maxX {
-		return image.Rect(0, 0, W, H)
+		// nothing inked: a point in the middle, so decorations placed around
+		// the text stay on the canvas
+		return image.Rect(W/2, H/2, W/2+1, H/2+1)
 	}
 	return image.Rect(minX, minY, maxX+1, maxY+1)
 }
@@ -531,7 +624,10 @@ func withAlpha(c color.RGBA, a float64) color.RGBA {
 // gradient builds a vertical gradient across rect from evenly spaced stops.
 func gradient(rect image.Rectangle, stops ...color.RGBA) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, W, H))
-	h := float64(rect.Dy())
+	if len(stops) == 1 {
+		stops = append(stops, stops[0])
+	}
+	h := math.Max(1, float64(rect.Dy()))
 	for y := 0; y < H; y++ {
 		t := (float64(y - rect.Min.Y)) / h
 		t = math.Max(0, math.Min(1, t))

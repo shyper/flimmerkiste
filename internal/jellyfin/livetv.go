@@ -2,6 +2,7 @@ package jellyfin
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -111,7 +112,8 @@ func (c *Client) refreshGuide(ctx context.Context) (bool, error) {
 			return true, c.do(ctx, http.MethodPost, "/ScheduledTasks/Running/"+url.PathEscape(t.ID), nil, nil, nil)
 		}
 	}
-	return false, nil
+	// our guide is set up, but the server has no such task (renamed in a new version?)
+	return false, fmt.Errorf("%s: no scheduled task to refresh the guide", c.Flavor)
 }
 
 // ReloadGuide refreshes the guide when our guide is set up (returns 1, else 0).

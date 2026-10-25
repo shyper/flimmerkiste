@@ -1,12 +1,13 @@
 <script>
   import { t, setLang, setServer } from './lib/i18n.svelte.js'
   import { onMount } from 'svelte'
-  import { app, isAdmin } from './lib/state.svelte.js'
+  import { app, isAdmin, toast } from './lib/state.svelte.js'
   import { route, match, link, navigate } from './lib/router.svelte.js'
   import { get, post } from './lib/api.js'
   import Icon from './components/Icon.svelte'
   import Toasts from './components/Toasts.svelte'
   import NotFound from './components/NotFound.svelte'
+  import LoadError from './components/LoadError.svelte'
   import Login from './pages/Login.svelte'
   import Setup from './pages/Setup.svelte'
   import Channels from './pages/Channels.svelte'
@@ -18,23 +19,38 @@
   import Settings from './pages/Settings.svelte'
 
   let menuOpen = $state(false)
+  let bootError = $state('')
 
   async function refresh() {
-    app.status = await get('/api/auth/status')
-    setLang(app.status.language)
-    setServer(app.status.platform)
-    app.user = app.status.user || null
-    if (app.user) {
-      app.meta = await get('/api/meta')
-      if (isAdmin()) get('/api/library/facets').then((f) => (app.facets = f)).catch(() => {})
+    try {
+      const status = await get('/api/auth/status')
+      app.status = status
+      setLang(status.language)
+      setServer(status.platform)
+      app.user = status.user || null
+      if (app.user) {
+        app.meta = await get('/api/meta')
+        if (isAdmin()) get('/api/library/facets').then((f) => (app.facets = f)).catch(() => {})
+      }
+    } catch (e) {
+      // before the first answer there is nothing to show but the problem (the server may be restarting)
+      if (!app.ready) bootError = e.message
+      else toast(e.message, 'error')
+      return
     }
+    bootError = ''
     app.ready = true
   }
 
   onMount(refresh)
 
   async function logout() {
-    await post('/api/auth/logout')
+    try {
+      await post('/api/auth/logout')
+    } catch (e) {
+      toast(e.message, 'error')
+      return
+    }
     app.user = null
     navigate('/')
   }
@@ -58,7 +74,9 @@
   })
 </script>
 
-{#if !app.ready}
+{#if !app.ready && bootError}
+  <div class="boot"><LoadError message={bootError} retry={refresh} /></div>
+{:else if !app.ready}
   <div class="boot"><span class="spinner"></span></div>
 {:else if !app.user}
   <Login onlogin={refresh} />
@@ -102,7 +120,7 @@
       {:else if route.path === '/channels/new' && isAdmin()}
         <NewChannel />
       {:else if match('/channels/new/:kind') && isAdmin()}
-        <ChannelEditor kind={match('/channels/new/:kind').kind} />
+        {#key route.path}<ChannelEditor kind={match('/channels/new/:kind').kind} />{/key}
       {:else if match('/channels/:id') && isAdmin()}
         {#key route.path}<ChannelEditor id={match('/channels/:id').id} />{/key}
       {:else if route.path === '/guide'}

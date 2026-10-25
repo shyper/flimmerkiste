@@ -7,6 +7,7 @@
   import { app, toast } from '../lib/state.svelte.js'
   import { get, post } from '../lib/api.js'
   import { navigate } from '../lib/router.svelte.js'
+  import { poll } from '../lib/poll.js'
 
   let { ondone } = $props()
 
@@ -18,22 +19,32 @@
   let error = $state('')
   let sync = $state(null)
   let libs = $state([])
-  let poll
+  let poller
+  let destroyed = false
 
-  onMount(async () => {
-    if (step === 1) {
-      try {
-        servers = await get('/api/setup/servers')
-        if (servers.length) pick(servers[0])
-      } catch (e) {
-        error = e.message
-        servers = []
-      }
-    } else {
-      startPolling()
+  async function findServers() {
+    servers = null
+    error = ''
+    try {
+      const list = await get('/api/setup/servers')
+      if (destroyed) return
+      servers = list
+      if (servers.length) pick(servers[0])
+    } catch (e) {
+      if (destroyed) return
+      error = e.message
+      servers = []
     }
+  }
+
+  onMount(() => {
+    if (step === 1) findServers()
+    else startPolling()
   })
-  onDestroy(() => clearInterval(poll))
+  onDestroy(() => {
+    destroyed = true
+    poller?.stop()
+  })
 
   function pick(s) {
     selected = s.id
@@ -55,17 +66,22 @@
   }
 
   function startPolling() {
-    const load = async () => {
-      const r = await get('/api/libraries')
-      libs = r.libraries
-      sync = r.status
-    }
-    load()
-    poll = setInterval(load, 1500)
+    if (destroyed || poller) return
+    poller = poll(async () => {
+      try {
+        const r = await get('/api/libraries')
+        if (destroyed) return
+        libs = r.libraries
+        sync = r.status
+        error = ''
+      } catch (e) {
+        if (!destroyed) error = e.message
+      }
+    }, 1500)
   }
 
   async function finish(target) {
-    clearInterval(poll)
+    poller?.stop()
     await ondone()
     navigate(target)
   }
@@ -96,6 +112,7 @@
         <div class="row"><span class="spinner"></span> {t('setup.suche_server')}</div>
       {:else if !servers.length}
         <div class="alert warn">{t('setup.keine_eigenen_plex_server_gefunden', [error])}</div>
+        <button class="btn" onclick={findServers}><Icon name="refresh" size={16} /> {t('setup.searchAgain')}</button>
       {:else}
         <div class="servers">
           {#each servers as s}
@@ -131,6 +148,7 @@
         <span>{sync?.message || '…'}</span>
       </div>
       {#if sync?.error}<div class="alert error small">{sync.error}</div>{/if}
+      {#if error}<div class="alert error small">{error}</div>{/if}
       <ul class="libs">
         {#each libs as l}
           <li><Icon name={l.type === 'movie' ? 'film' : 'tv'} size={16} /> <span class="grow">{l.title}</span> <span class="muted small">{t('setup.eintraege', [l.items])}</span></li>

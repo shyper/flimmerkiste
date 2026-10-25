@@ -39,16 +39,19 @@ func (l *Library) SyncTMDb(ctx context.Context, c *tmdb.Client, region, language
 	}
 	// ownedShows: the last season of each show in the library
 	owned, ownedShows := map[string]bool{}, map[string]int{}
-	if all, err := l.All(ctx); err == nil {
-		for _, m := range all {
-			if id := m.Ext["tmdb"]; id != "" && m.Type == "movie" {
-				owned[id] = true
-			}
-			if id := m.Ext["show.tmdb"]; id != "" {
-				ownedShows[id] = max(ownedShows[id], m.Season)
-			}
+	all, err := l.All(ctx)
+	if err != nil {
+		return res, err // without the library, owned titles would come back as new
+	}
+	for _, m := range all {
+		if id := m.Ext["tmdb"]; id != "" && m.Type == "movie" {
+			owned[id] = true
+		}
+		if id := m.Ext["show.tmdb"]; id != "" {
+			ownedShows[id] = max(ownedShows[id], m.Season)
 		}
 	}
+
 	now := time.Now()
 	today := now.Format("2006-01-02")
 	var found []*store.Trailer

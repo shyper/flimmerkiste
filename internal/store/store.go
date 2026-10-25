@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	_ "modernc.org/sqlite"
@@ -32,6 +33,10 @@ func Open(dataDir string) (*Store, error) {
 	if err := s.migrate(context.Background()); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
+	}
+	// It holds the media server, plex.tv and AI keys: readable for its owner only.
+	for _, f := range []string{path, path + "-wal", path + "-shm"} {
+		_ = os.Chmod(f, 0o600)
 	}
 	return s, nil
 }

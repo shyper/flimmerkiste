@@ -5,7 +5,6 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -48,7 +47,7 @@ func (s *Server) renderCaption(ctx context.Context, c *store.Channel, prog *stor
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := writeFileAtomic(path, data); err != nil {
 		return "", err
 	}
 	return path, nil

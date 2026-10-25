@@ -223,7 +223,8 @@ func TrailerFrom(e *mediaserver.Item) *store.Trailer {
 		if t.Language == "" {
 			for _, st := range mi.Parts[0].Streams {
 				if st.StreamType == 2 && st.LanguageCode != "" {
-					t.Language = st.LanguageCode
+					t.Language = st.LanguageCode // the first audio track is the trailer's language
+					break
 				}
 			}
 		}

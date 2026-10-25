@@ -9,6 +9,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 )
@@ -104,8 +105,11 @@ func TestExtras(t *testing.T) {
 	for i := range poster.Pix {
 		poster.Pix[i] = []uint8{30, 140, 220, 255}[i%4]
 	}
-	if c, ok := DominantColor([]image.Image{poster}); !ok || c[:3] != "#2a" && c[:2] != "#1" && c[:2] != "#2" {
-		t.Logf("dominant colour: %s", c)
+	// a blue poster gives a blue accent (it may be made more vivid)
+	if c, ok := DominantColor([]image.Image{poster}); !ok {
+		t.Error("no dominant colour")
+	} else if rgb, _ := parseHex(c); rgb.B < 160 || rgb.B <= rgb.R || rgb.B <= rgb.G {
+		t.Errorf("dominant colour of a blue poster: %s", c)
 	}
 }
 
@@ -215,5 +219,91 @@ func TestGoldenLogos(t *testing.T) {
 			_ = os.WriteFile(out, data, 0o644)
 			t.Errorf("%s: %d pixels differ; got written to %s", tc.name, n, out)
 		}
+	}
+}
+
+// TestRenderOddNames renders names that once hung, crashed or came out empty
+// in every style: each finishes quickly with visible ink or reports ErrNoGlyphs.
+func TestRenderOddNames(t *testing.T) {
+	if testing.Short() {
+		t.Skip("renders every style several times (minutes under the race detector)")
+	}
+	long := ""
+	for i := 0; i < 200; i++ {
+		long += "Wort "
+	}
+	names := []string{"Москва ТВ", "東京チャンネル", "🙂😀", "!", long, string(bytes.Repeat([]byte("M"), 700))}
+	for _, s := range Styles {
+		t.Run(s.ID, func(t *testing.T) {
+			t.Parallel()
+			oddNames(t, s.ID, names)
+		})
+	}
+}
+
+func oddNames(t *testing.T, style string, names []string) {
+	for _, name := range names {
+		done := make(chan error, 1)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					done <- fmt.Errorf("panic: %v", r)
+				}
+			}()
+			data, err := Render(Options{Name: name, Style: style})
+			if err == nil && visiblePixels(data) == 0 {
+				err = fmt.Errorf("nothing visible")
+			}
+			done <- err
+		}()
+		select {
+		case err := <-done:
+			if err != nil && err != ErrNoGlyphs {
+				t.Errorf("%.20q: %v", name, err)
+			}
+		case <-time.After(20 * time.Second):
+			t.Fatalf("%.20q: no logo after 20s", name)
+		}
+	}
+}
+
+// visiblePixels counts the clearly visible pixels of a PNG (0 if it is none).
+func visiblePixels(data []byte) int {
+	img, err := png.Decode(bytes.NewReader(data))
+	if err != nil {
+		return 0
+	}
+	n := 0
+	b := img.Bounds()
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			if _, _, _, a := img.At(x, y).RGBA(); a > 0x0800 {
+				n++
+			}
+		}
+	}
+	return n
+}
+
+// TestHexLiterals: hex() draws nothing for a typo, so every colour written in
+// the styles must parse.
+func TestHexLiterals(t *testing.T) {
+	files, _ := filepath.Glob("*.go")
+	re := regexp.MustCompile(`hex\("([^"]*)"\)`)
+	n := 0
+	for _, f := range files {
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range re.FindAllSubmatch(src, -1) {
+			n++
+			if _, ok := parseHex(string(m[1])); !ok {
+				t.Errorf("%s: invalid colour %q", f, m[1])
+			}
+		}
+	}
+	if n < 100 {
+		t.Fatalf("only %d colours found", n)
 	}
 }

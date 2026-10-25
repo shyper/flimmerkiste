@@ -10,7 +10,6 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -99,5 +98,5 @@ func (s *Server) cachedPage(kind, key string, render func() ([]byte, error)) (st
 	if err != nil {
 		return "", err
 	}
-	return path, os.WriteFile(path, data, 0o644)
+	return path, writeFileAtomic(path, data)
 }

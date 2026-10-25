@@ -49,17 +49,20 @@ func (l *Library) SyncFolder(ctx context.Context, dir string) (DiscoverResult, e
 		return res, err
 	}
 	owned := map[string]bool{}
-	if all, err := l.All(ctx); err == nil {
-		for _, m := range all {
-			if m.Type == "movie" {
-				for _, p := range []string{"tmdb", "imdb"} {
-					if id := m.Ext[p]; id != "" {
-						owned[p+":"+id] = true
-					}
+	all, err := l.All(ctx)
+	if err != nil {
+		return res, err // without the library, owned titles would come back as new
+	}
+	for _, m := range all {
+		if m.Type == "movie" {
+			for _, p := range []string{"tmdb", "imdb"} {
+				if id := m.Ext[p]; id != "" {
+					owned[p+":"+id] = true
 				}
 			}
 		}
 	}
+
 	now := time.Now()
 	var found []*store.Trailer
 	for _, e := range entries {

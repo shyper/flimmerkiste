@@ -94,6 +94,8 @@ func (v *VAAPI) Available(ctx context.Context) (bool, i18n.Text) {
 		return false, i18n.M("gpu.notSetUp")
 	}
 	v.once.Do(func() {
+		// the result is kept for good: a client hanging up must not cut the probe short
+		ctx := context.WithoutCancel(ctx)
 		v.ok, v.enc, v.status = v.probe(ctx)
 		// NVIDIA cards and the Raspberry Pi often have a render node too, but no VAAPI driver
 		for _, alt := range []struct {

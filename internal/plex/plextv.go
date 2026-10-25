@@ -4,6 +4,7 @@ package plex
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,7 +14,19 @@ import (
 
 const Product = "Flimmerkiste"
 
-var httpClient = &http.Client{Timeout: 30 * time.Second}
+// httpClient follows redirects only on the same host: the X-Plex-Token header
+// would otherwise go along to wherever a server points.
+var httpClient = &http.Client{Timeout: 30 * time.Second, CheckRedirect: sameHostRedirect}
+
+func sameHostRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	if req.URL.Hostname() != via[0].URL.Hostname() {
+		return http.ErrUseLastResponse
+	}
+	return nil
+}
 
 func setHeaders(req *http.Request, clientID, token string) {
 	req.Header.Set("Accept", "application/json")
@@ -33,10 +46,11 @@ func doJSON(req *http.Request, out any) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return &StatusError{Code: resp.StatusCode, Body: string(body), URL: req.URL.Redacted()}
+		io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
+		return &StatusError{Code: resp.StatusCode, URL: req.URL.Redacted()}
 	}
 	if out == nil {
+		io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16)) // so the connection is reused
 		return nil
 	}
 	return json.NewDecoder(resp.Body).Decode(out)
@@ -44,7 +58,6 @@ func doJSON(req *http.Request, out any) error {
 
 type StatusError struct {
 	Code int
-	Body string
 	URL  string
 }
 
@@ -60,14 +73,20 @@ type Pin struct {
 }
 
 func CreatePin(ctx context.Context, clientID string) (*Pin, error) {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, "https://plex.tv/api/v2/pins?strong=true", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://plex.tv/api/v2/pins?strong=true", nil)
+	if err != nil {
+		return nil, err
+	}
 	setHeaders(req, clientID, "")
 	var p Pin
 	return &p, doJSON(req, &p)
 }
 
 func CheckPin(ctx context.Context, clientID string, id int64) (*Pin, error) {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://plex.tv/api/v2/pins/%d", id), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://plex.tv/api/v2/pins/%d", id), nil)
+	if err != nil {
+		return nil, err
+	}
 	setHeaders(req, clientID, "")
 	var p Pin
 	return &p, doJSON(req, &p)
@@ -95,7 +114,10 @@ type Account struct {
 }
 
 func GetAccount(ctx context.Context, clientID, token string) (*Account, error) {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "https://plex.tv/api/v2/user", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://plex.tv/api/v2/user", nil)
+	if err != nil {
+		return nil, err
+	}
 	setHeaders(req, clientID, token)
 	var a Account
 	return &a, doJSON(req, &a)
@@ -122,8 +144,11 @@ type Resource struct {
 
 // Servers lists the Plex Media Servers an account can access (owned and shared).
 func Servers(ctx context.Context, clientID, token string) ([]Resource, error) {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet,
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		"https://plex.tv/api/v2/resources?includeHttps=1&includeRelay=0&includeIPv6=0", nil)
+	if err != nil {
+		return nil, err
+	}
 	setHeaders(req, clientID, token)
 	var all []Resource
 	if err := doJSON(req, &all); err != nil {

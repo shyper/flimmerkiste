@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/shyper/flimmerkiste/internal/i18n"
 	"github.com/shyper/flimmerkiste/internal/logo"
+	"github.com/shyper/flimmerkiste/internal/mediaserver"
 	"github.com/shyper/flimmerkiste/internal/schedule"
 	"github.com/shyper/flimmerkiste/internal/store"
 	"github.com/shyper/flimmerkiste/internal/stream"
@@ -141,10 +143,14 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if max := s.store.SettingInt(ctx, store.SetTunerCount, 4); len(s.streamer.Sessions()) >= max {
+	// counted here, before the stream starts: two clients tuning at once must
+	// not both get the last tuner
+	if max := int64(s.store.SettingInt(ctx, store.SetTunerCount, 4)); s.tuners.Add(1) > max {
+		s.tuners.Add(-1)
 		http.Error(w, "all tuners busy", http.StatusServiceUnavailable)
 		return
 	}
+	defer s.tuners.Add(-1)
 	cfg, _ := schedule.ParseConfig(ch.Config)
 	var langs []string
 	for _, l := range strings.Split(s.store.Setting(ctx, store.SetAudioLanguages, "deu,ger"), ",") {
@@ -231,7 +237,8 @@ func (s *Server) handleXMLTV(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	chans, err := s.store.ListChannels(ctx)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.log.Error("xmltv", "err", err)
+		http.Error(w, "guide unavailable", http.StatusInternalServerError)
 		return
 	}
 	base := s.baseURL(r)
@@ -418,7 +425,8 @@ func (s *Server) handleLogo(w http.ResponseWriter, r *http.Request) {
 		}
 		data, err := s.renderLogoCached(c)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			s.log.Warn("render logo", "channel", c.Name, "err", err)
+			http.Error(w, "logo unavailable", http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "image/png")
@@ -445,6 +453,11 @@ func (s *Server) renderLogoCached(c *store.Channel) ([]byte, error) {
 	defer s.logoMu.Unlock()
 	_, o := s.activeLogo(c)
 	data, err := logo.Render(o)
+	if errors.Is(err, logo.ErrNoGlyphs) {
+		// a name no font can write (only emoji, say): the channel number stands in
+		o.Name = strconv.Itoa(c.Number)
+		data, err = logo.Render(o)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -479,10 +492,15 @@ func (s *Server) handleImage(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := s.imageURL(ctx, path, width, height)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		s.log.Debug("image url", "key", r.PathValue("key"), "err", mediaserver.Redact(err.Error()))
+		http.Error(w, "image unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		http.Error(w, "image unavailable", http.StatusBadGateway)
+		return
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		http.Error(w, "image unavailable", http.StatusBadGateway)
@@ -493,7 +511,18 @@ func (s *Server) handleImage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "image unavailable", resp.StatusCode)
 		return
 	}
-	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+	// Only pictures pass: whatever else an artwork host sends (an HTML page,
+	// say) must not be shown under our origin.
+	head := make([]byte, 512)
+	n, _ := io.ReadFull(resp.Body, head)
+	head = head[:n]
+	ctype := http.DetectContentType(head)
+	if !strings.HasPrefix(ctype, "image/") {
+		http.Error(w, "image unavailable", http.StatusBadGateway)
+		return
+	}
+	w.Header().Set("Content-Type", ctype)
 	w.Header().Set("Cache-Control", "public, max-age=604800")
+	w.Write(head)
 	io.Copy(w, resp.Body)
 }

@@ -13,6 +13,7 @@ import http.server
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -28,6 +29,10 @@ def load(name):
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+# The tests that make videos need ffmpeg; without it they say so instead of failing.
+needs_ffmpeg = unittest.skipUnless(shutil.which("ffmpeg"), "needs ffmpeg (build/jellyfin-ffmpeg.sh or the distribution's package)")
 
 
 def ffmpeg(*args):
@@ -82,6 +87,7 @@ class FakePlex(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
 
+@needs_ffmpeg
 class PlexSubtitlesTest(unittest.TestCase):
     def test_run(self):
         srv = http.server.HTTPServer(("127.0.0.1", 0), FakePlex)
@@ -272,6 +278,7 @@ class FakeMovieAPIs(http.server.BaseHTTPRequestHandler):
         self.answer({}, 404)
 
 
+@needs_ffmpeg
 class TrailersTest(unittest.TestCase):
     def test_run(self):
         srv = http.server.HTTPServer(("127.0.0.1", 0), FakeMovieAPIs)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -56,11 +57,13 @@ type baseItem struct {
 		Played    bool `json:"Played"`
 	} `json:"UserData"`
 	MediaSources []mediaSource `json:"MediaSources"`
-	Chapters     []struct {
-		StartPositionTicks int64  `json:"StartPositionTicks"`
-		Name               string `json:"Name"`
-		MarkerType         string `json:"MarkerType"` // Emby: IntroStart, IntroEnd, CreditsStart
-	} `json:"Chapters"`
+	Chapters     []chapter     `json:"Chapters"`
+}
+
+type chapter struct {
+	StartPositionTicks int64  `json:"StartPositionTicks"`
+	Name               string `json:"Name"`
+	MarkerType         string `json:"MarkerType"` // Emby: IntroStart, IntroEnd, CreditsStart
 }
 
 type mediaSource struct {
@@ -108,6 +111,9 @@ func (c *Client) Identity(ctx context.Context) (string, error) {
 	if err := c.get(ctx, "/System/Info/Public", nil, &info); err != nil {
 		return "", err
 	}
+	if info.ID == "" {
+		return "", fmt.Errorf("%s: %s answers, but sends no server id", c.Flavor, c.BaseURL)
+	}
 	return info.ID, nil
 }
 
@@ -141,8 +147,10 @@ func kindType(k mediaserver.Kind) string {
 		return "Movie"
 	case mediaserver.KindShow:
 		return "Series"
+	case mediaserver.KindEpisode:
+		return "Episode"
 	}
-	return "Episode"
+	return ""
 }
 
 // items pages through /Items.
@@ -151,29 +159,43 @@ func (c *Client) items(ctx context.Context, q url.Values, fn func([]baseItem) er
 	q = c.userQuery(q)
 	q.Set("Recursive", "true")
 	q.Set("Fields", itemFields)
-	for start := 0; ; start += pageSize {
+	first := "" // of the page before: a server ignoring the offset sends it again
+	for start := 0; ; {
 		q.Set("StartIndex", strconv.Itoa(start))
 		q.Set("Limit", strconv.Itoa(pageSize))
 		var r struct {
-			Items []baseItem `json:"Items"`
+			Items            []baseItem `json:"Items"`
+			TotalRecordCount int        `json:"TotalRecordCount"`
 		}
 		if err := c.get(ctx, "/Items", q, &r); err != nil {
 			return err
 		}
+		if len(r.Items) > 0 && start > 0 && r.Items[0].ID == first {
+			return fmt.Errorf("%s: the item list returns the same page again", c.Flavor)
+		}
 		if len(r.Items) > 0 {
+			first = r.Items[0].ID
 			if err := fn(r.Items); err != nil {
 				return err
 			}
 		}
-		if len(r.Items) < pageSize {
+		total := r.TotalRecordCount
+		if total > 0 && start+len(r.Items) >= total || total == 0 && len(r.Items) < pageSize {
 			return nil
 		}
+		if len(r.Items) == 0 {
+			return fmt.Errorf("%s: the item list ends after %d of %d items", c.Flavor, start, total)
+		}
+		start += len(r.Items) // a short page: go on right after it
 	}
 }
 
 // Items lists the movies, shows or episodes of a library, with collections
 // (box sets) for movies and shows.
 func (c *Client) Items(ctx context.Context, libraryID string, kind mediaserver.Kind, fn func([]mediaserver.Item) error) error {
+	if kindType(kind) == "" {
+		return fmt.Errorf("%s: no item type for kind %v", c.Flavor, kind)
+	}
 	collections := map[string][]string{}
 	if kind != mediaserver.KindEpisode {
 		collections = c.boxSets(ctx)
@@ -193,10 +215,12 @@ func (c *Client) Items(ctx context.Context, libraryID string, kind mediaserver.K
 func (c *Client) boxSets(ctx context.Context) map[string][]string {
 	out := map[string][]string{}
 	var sets []baseItem
-	_ = c.items(ctx, url.Values{"IncludeItemTypes": {"BoxSet"}}, func(page []baseItem) error {
+	if err := c.items(ctx, url.Values{"IncludeItemTypes": {"BoxSet"}}, func(page []baseItem) error {
 		sets = append(sets, page...)
 		return nil
-	})
+	}); err != nil {
+		slog.Warn("load collections", "server", c.Flavor, "err", mediaserver.Redact(err.Error()))
+	}
 	for _, set := range sets {
 		var r struct {
 			Items []struct {
@@ -204,6 +228,7 @@ func (c *Client) boxSets(ctx context.Context) map[string][]string {
 			} `json:"Items"`
 		}
 		if err := c.get(ctx, "/Items", c.userQuery(url.Values{"ParentId": {set.ID}}), &r); err != nil {
+			slog.Warn("load collection", "collection", set.Name, "err", mediaserver.Redact(err.Error()))
 			continue
 		}
 		for _, it := range r.Items {
@@ -224,7 +249,32 @@ func (c *Client) Item(ctx context.Context, id string) (*mediaserver.Item, error)
 		return nil, err
 	}
 	out := c.itemFrom(&it)
+	out.Markers = chapterMarkers(it.Chapters, it.RunTimeTicks)
 	return &out, nil
+}
+
+// chapterMarkers turns the intro and credits chapters Emby detects into
+// markers (Jellyfin keeps them elsewhere and sends none).
+func chapterMarkers(chapters []chapter, runTicks int64) []mediaserver.Marker {
+	var out []mediaserver.Marker
+	var introStart int64 = -1
+	for _, ch := range chapters {
+		ms := ch.StartPositionTicks / 10000
+		switch ch.MarkerType {
+		case "IntroStart":
+			introStart = ms
+		case "IntroEnd":
+			if introStart >= 0 && ms > introStart {
+				out = append(out, mediaserver.Marker{Type: "intro", StartTimeOffset: introStart, EndTimeOffset: ms})
+			}
+			introStart = -1
+		case "CreditsStart":
+			if end := runTicks / 10000; ms > 0 && (end == 0 || ms < end) {
+				out = append(out, mediaserver.Marker{Type: "credits", StartTimeOffset: ms, EndTimeOffset: end, Final: true})
+			}
+		}
+	}
+	return out
 }
 
 // Extras lists the local trailers of an item.
@@ -307,13 +357,15 @@ func (c *Client) ImageURL(path string, width, height int) string {
 	return c.withKey(path + "?" + q.Encode())
 }
 
-var ratingRE = regexp.MustCompile(`(?i)^(?:fsk|de)[-\s]?(\d{1,2})$`)
+var ratingRE = regexp.MustCompile(`(?i)^(?:(?:fsk|de)[-\s]?(\d{1,2})|(0|6|12|16|18))$`)
 
 // normRating writes German ratings the way Plex does ("FSK-12", "DE-12" → "de/12"),
-// so filters written for Plex libraries keep working.
+// so filters written for Plex libraries keep working. A bare 0, 6, 12, 16 or 18
+// (as some NFO scrapers write it) is taken as FSK too: no other common system
+// uses exactly these steps.
 func normRating(r string) string {
 	if m := ratingRE.FindStringSubmatch(strings.TrimSpace(r)); m != nil {
-		return "de/" + m[1]
+		return "de/" + m[1] + m[2]
 	}
 	return r
 }

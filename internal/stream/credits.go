@@ -335,10 +335,11 @@ func buildCreditsArgs(input string, offset, length, tsOffset, burst time.Duratio
 	}
 	e := creditsEase(at)
 	// the fade to black at the end (shorter if tuned in just before it)
-	fadeOut := ""
+	fadeOut, audioFadeOut := "", "" // picture and sound, same timing
 	if black := length - creditsBlack; black > 0 {
 		d := min(creditsFadeOut, black)
-		fadeOut = fmt.Sprintf("fade=t=out:st=%s:d=%s", secs(black-d), secs(d))
+		timing := fmt.Sprintf("t=out:st=%s:d=%s", secs(black-d), secs(d))
+		fadeOut, audioFadeOut = "fade="+timing, "afade="+timing
 	}
 	// The panel and the clock change rarely: both are combined and converted
 	// while they are still single stills, and only then repeated at the frame
@@ -365,10 +366,6 @@ func buildCreditsArgs(input string, offset, length, tsOffset, burst time.Duratio
 	args = append(args, "-filter_complex", strings.Join(parts, ";"), "-map", "[v]")
 	args = append(args, encodeArgs(opts, gpu, "ultrafast")...)
 	// the picture needs no padding: the panel goes on, with its last frame
-	audio := audioPad
-	if fadeOut != "" {
-		audio += ",a" + fadeOut // afade, same timing
-	}
-	args = append(args, "-filter:a", audio)
+	args = append(args, "-filter:a", audioPad+prefixed(",", audioFadeOut))
 	return append(args, outputArgs(audioIdx, tsOffset)...)
 }

@@ -5,7 +5,8 @@
 
 <div class="toasts" aria-live="polite">
   {#each app.toasts as t (t.id)}
-    <div class="toast {t.kind}">
+    <!-- errors are announced at once, other notes when the reader is free -->
+    <div class="toast {t.kind}" role={t.kind === 'error' ? 'alert' : undefined}>
       <Icon name={t.kind === 'error' ? 'alert' : t.kind === 'success' ? 'check' : 'info'} size={16} />
       <span>{t.message}</span>
     </div>

@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/shyper/flimmerkiste/internal/ai"
@@ -43,8 +44,10 @@ type Server struct {
 
 	pinsMu sync.Mutex
 	pins   map[int64]time.Time
+	rate   rateLimit // login, PIN and setup requests per client
 
 	logoMu sync.Mutex
+	tuners atomic.Int64 // streams being served (the tuner count limits them)
 
 	discoverMu sync.Mutex
 	discover   discoverStatus
@@ -58,6 +61,9 @@ type Server struct {
 	// clock replaces time.Now in tests (nil = the real time).
 	clock func() time.Time
 }
+
+// historyKeep is how long the history keeps what aired.
+const historyKeep = 7 * 24 * time.Hour
 
 // Version is the build version, shown in the settings (set by main).
 var Version = "dev"
@@ -85,9 +91,13 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, status int, key st
 	writeErr(w, status, i18n.T(s.reqLang(r), key, args...))
 }
 
-// failErr answers with the (translated) message of err.
+// failErr answers with the (translated) message of err, access tokens hidden
+// (errors of ffmpeg and media servers may carry URLs).
 func (s *Server) failErr(w http.ResponseWriter, r *http.Request, status int, err error) {
-	writeErr(w, status, i18n.Message(s.reqLang(r), err))
+	if status >= http.StatusInternalServerError {
+		s.log.Warn("request failed", "path", r.URL.Path, "err", mediaserver.Redact(err.Error()))
+	}
+	writeErr(w, status, mediaserver.Redact(i18n.Message(s.reqLang(r), err)))
 }
 
 // now is the current time; tests fix it through clock.
@@ -206,6 +216,9 @@ func (s *Server) Background(ctx context.Context) {
 			}
 			s.maybeInfo(ctx)
 			_ = s.store.PurgeSessions(ctx)
+			if err := s.store.PurgeHistoryBefore(ctx, time.Now().Add(-historyKeep)); err != nil {
+				s.log.Warn("purge history", "err", err)
+			}
 			s.purgeCache()
 			select {
 			case <-ctx.Done():
@@ -329,11 +342,11 @@ func (s *Server) Handler() http.Handler {
 
 	// --- auth ---
 	mux.HandleFunc("GET /api/auth/status", s.handleAuthStatus)
-	mux.HandleFunc("POST /api/auth/pin", s.handleCreatePin)
+	mux.HandleFunc("POST /api/auth/pin", s.limited(s.handleCreatePin))
 	mux.HandleFunc("GET /api/auth/pin/{id}", s.handleCheckPin)
 	mux.HandleFunc("POST /api/auth/logout", s.handleLogout)
-	mux.HandleFunc("POST /api/auth/login", s.handleLogin)
-	mux.HandleFunc("POST /api/setup/connect", s.handleSetupConnect)
+	mux.HandleFunc("POST /api/auth/login", s.limited(s.handleLogin))
+	mux.HandleFunc("POST /api/setup/connect", s.limited(s.handleSetupConnect))
 
 	// --- API (viewer) ---
 	mux.Handle("GET /api/meta", s.auth(s.handleMeta, false))
@@ -406,26 +419,27 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Reject cross-site state changing requests (session cookies are SameSite=Lax as well).
 		if r.Method != http.MethodGet && r.Method != http.MethodHead && strings.HasPrefix(r.URL.Path, "/api/") {
-			if origin := r.Header.Get("Origin"); origin != "" && !sameOrigin(origin, r) && !s.cfg.DevCORS {
+			origin := r.Header.Get("Origin")
+			// without an Origin header, browsers still tell where a request comes from
+			crossSite := origin != "" && !sameOrigin(origin, r) || origin == "" && r.Header.Get("Sec-Fetch-Site") == "cross-site"
+			if crossSite && !s.cfg.DevCORS {
 				http.Error(w, "cross-origin request rejected", http.StatusForbidden)
 				return
 			}
 		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		if strings.HasPrefix(r.URL.Path, "/api/") {
+		if strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/mcp" || strings.HasPrefix(r.URL.Path, "/mcp/") {
 			w.Header().Set("Cache-Control", "no-store")
 		}
 		next.ServeHTTP(w, r)
 	})
 }
 
+// sameOrigin reports whether origin names this server, directly or as a
+// reverse proxy forwards it (browsers cannot set X-Forwarded-Host cross-site).
 func sameOrigin(origin string, r *http.Request) bool {
 	o := strings.TrimPrefix(strings.TrimPrefix(origin, "https://"), "http://")
-	host := r.Host
-	if fh := r.Header.Get("X-Forwarded-Host"); fh != "" {
-		host = fh
-	}
-	return o == host
+	return o == r.Host || o == r.Header.Get("X-Forwarded-Host") && o != ""
 }
 
 // spa serves the embedded frontend, falling back to index.html for client-side routes.
@@ -512,13 +526,14 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
 }
 
-func readJSON(r *http.Request, v any) error {
-	return readJSONLimit(r, v, 4<<20)
+func readJSON(w http.ResponseWriter, r *http.Request, v any) error {
+	return readJSONLimit(w, r, v, 4<<20)
 }
 
 // readJSONLimit decodes a request body of at most limit bytes.
-func readJSONLimit(r *http.Request, v any, limit int64) error {
-	return json.NewDecoder(http.MaxBytesReader(nil, r.Body, limit)).Decode(v)
+func readJSONLimit(w http.ResponseWriter, r *http.Request, v any, limit int64) error {
+	// with w, the server also closes a connection whose body is too large
+	return json.NewDecoder(http.MaxBytesReader(w, r.Body, limit)).Decode(v)
 }
 
 func randomHex(n int) string {

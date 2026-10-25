@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -465,7 +466,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 		Choices []importChoice  `json:"choices"`
 	}
 	// the file comes along, so the limit is the file's plus room for the choices
-	if err := readJSONLimit(r, &in, maxImport+(1<<20)); err != nil {
+	if err := readJSONLimit(w, r, &in, maxImport+(1<<20)); err != nil {
 		s.fail(w, r, http.StatusBadRequest, "api.badRequest")
 		return
 	}
@@ -511,7 +512,10 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			err = s.importChannel(ctx, ec, raw, action == "replace")
 		}
-		if err != nil {
+		var warning importWarning
+		if errors.As(err, &warning) {
+			res.Errors = append(res.Errors, ec.Name+": "+i18n.Message(s.reqLang(r), warning.error))
+		} else if err != nil {
 			res.Errors = append(res.Errors, ec.Name+": "+i18n.Message(s.reqLang(r), err))
 			continue
 		}
@@ -550,28 +554,55 @@ func (s *Server) importChannel(ctx context.Context, ec exportChannel, cfg json.R
 	if err != nil {
 		return err
 	}
+	var warning error
 	if ec.Logo != "" {
-		if data, err := base64.StdEncoding.DecodeString(ec.Logo); err == nil {
-			if data, err = logo.NormalizeUpload(data); err == nil {
-				name := fmt.Sprintf("ch%d-%s.png", c.ID, randomHex(4))
-				if err := os.WriteFile(filepath.Join(s.cfg.DataDir, "logos", name), data, 0o644); err == nil {
-					if c.Logo != "" {
-						_ = os.Remove(filepath.Join(s.cfg.DataDir, "logos", c.Logo))
-					}
-					c.Logo = name
-					if err := s.store.UpdateChannel(ctx, c); err != nil {
-						return err
-					}
-				}
-			}
+		var err error
+		if warning, err = s.importLogo(ctx, c, ec.Logo); err != nil {
+			return err
 		}
-	} else if replace && c.Logo != "" {
-		_ = os.Remove(filepath.Join(s.cfg.DataDir, "logos", c.Logo))
+	} else if old := c.Logo; replace && old != "" {
 		c.Logo = ""
 		if err := s.store.UpdateChannel(ctx, c); err != nil {
 			return err
 		}
+		_ = os.Remove(filepath.Join(s.cfg.DataDir, "logos", old))
 	}
 	s.regenerate(c.ID)
+	if warning != nil {
+		return importWarning{warning}
+	}
 	return nil
+}
+
+// importWarning: the channel came in, but not all of it (its logo).
+type importWarning struct{ error }
+
+func (w importWarning) Unwrap() error { return w.error }
+
+// importLogo stores the logo of an imported channel (base64 PNG, JPG …); the
+// old file goes only once the channel points to the new one.
+// A logo that cannot be read only gives a warning.
+func (s *Server) importLogo(ctx context.Context, c *store.Channel, b64 string) (warning, err error) {
+	data, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		return i18n.E("transfer.logoUnreadable", err), nil
+	}
+	if data, err = logo.NormalizeUpload(data); err != nil {
+		return i18n.E("transfer.logoUnreadable", err), nil
+	}
+	name := fmt.Sprintf("ch%d-%s.png", c.ID, randomHex(4))
+	path := filepath.Join(s.cfg.DataDir, "logos", name)
+	if err := writeFileAtomic(path, data); err != nil {
+		return nil, err
+	}
+	old := c.Logo
+	c.Logo = name
+	if err := s.store.UpdateChannel(ctx, c); err != nil {
+		_ = os.Remove(path)
+		return nil, err
+	}
+	if old != "" {
+		_ = os.Remove(filepath.Join(s.cfg.DataDir, "logos", old))
+	}
+	return nil, nil
 }

@@ -5,7 +5,7 @@
   import Modal from '../../components/Modal.svelte'
   import Segmented from '../../components/Segmented.svelte'
   import { get, post, del } from '../../lib/api.js'
-  import { toast } from '../../lib/state.svelte.js'
+  import { toast, copyText } from '../../lib/state.svelte.js'
   import { fmtAgo } from '../../lib/format.js'
 
   let data = $state({ tokens: [], scopes: [], endpoint: '' })
@@ -36,14 +36,7 @@
     { value: 'chatgpt', label: 'ChatGPT' },
   ]
 
-  async function copy(text) {
-    try {
-      await navigator.clipboard.writeText(text)
-      toast(t('tunerHelp.copied'), 'success')
-    } catch {
-      toast(t('tunerHelp.copyFailed'))
-    }
-  }
+  const copy = copyText
 
   function toggle(scope) {
     scopes = scopes.includes(scope) ? scopes.filter((x) => x !== scope) : [...scopes, scope]

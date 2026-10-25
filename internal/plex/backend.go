@@ -2,6 +2,7 @@ package plex
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -59,14 +60,19 @@ func plexType(kind mediaserver.Kind) int {
 		return TypeMovie
 	case mediaserver.KindShow:
 		return TypeShow
+	case mediaserver.KindEpisode:
+		return TypeEpisode
 	}
-	return TypeEpisode
+	return 0
 }
 
 // Items lists a library page by page. Plex leaves collections and labels out
 // of the listing, so for movies and shows they come from their own lists.
 func (b *Backend) Items(ctx context.Context, libraryID string, kind mediaserver.Kind, fn func([]mediaserver.Item) error) error {
 	typ := plexType(kind)
+	if typ == 0 {
+		return fmt.Errorf("plex: no item type for kind %v", kind)
+	}
 	var collections, labels map[string][]Tag
 	if kind != mediaserver.KindEpisode {
 		collections, labels = b.sectionTags(ctx, libraryID, typ)

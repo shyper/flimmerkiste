@@ -122,7 +122,7 @@
       </button>
     </div>
     {#if i < group.rules.length - 1 || group.groups.length}
-      <div class="joiner">{group.match === 'all' ? t('ruleGroup.and') : group.match === 'any' ? t('ruleGroup.or') : t('ruleGroup.or')}</div>
+      <div class="joiner">{group.match === 'all' ? t('ruleGroup.and') : t('ruleGroup.or')}</div>
     {/if}
   {/each}
 

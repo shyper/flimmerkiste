@@ -86,3 +86,53 @@ func TestHistory(t *testing.T) {
 		t.Fatalf("after deleting the channel: %d", len(got))
 	}
 }
+
+// Pages continue right after the last entry, also when several channels
+// started at the same time; old entries are purged.
+func TestHistoryPagesAndPurge(t *testing.T) {
+	ctx := context.Background()
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	st.UpsertLibrary(ctx, Library{ID: "1", Title: "Filme", Type: "movie"})
+	st.UpsertMedia(ctx, []*Media{{RatingKey: "m1", LibraryID: "1", Type: "movie", Title: "Film", DurationMs: 1}}, time.Now().Unix())
+	now := time.Now().Truncate(time.Minute)
+	var progs []Program
+	for i := 0; i < 3; i++ {
+		ch := &Channel{Name: "Kanal", Number: i + 1}
+		if err := st.CreateChannel(ctx, ch); err != nil {
+			t.Fatal(err)
+		}
+		progs = append(progs,
+			Program{ChannelID: ch.ID, Start: now.Add(-time.Hour).UnixMilli(), Stop: now.UnixMilli(), RatingKey: "m1"},
+			Program{ChannelID: ch.ID, Start: now.Add(-9 * 24 * time.Hour).UnixMilli(), Stop: now.Add(-9*24*time.Hour + time.Hour).UnixMilli(), RatingKey: "m1"})
+	}
+	st.InsertPrograms(ctx, progs)
+	if _, err := st.RecordHistory(ctx, now); err != nil {
+		t.Fatal(err)
+	}
+	var seen []HistoryEntry
+	q := HistoryQuery{Limit: 2}
+	for {
+		page, err := st.History(ctx, q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		seen = append(seen, page...)
+		if len(page) < q.Limit {
+			break
+		}
+		q.Before, q.BeforeChannel = page[len(page)-1].Start, page[len(page)-1].ChannelID
+	}
+	if len(seen) != 6 {
+		t.Fatalf("paged through %d of 6 entries", len(seen))
+	}
+	if err := st.PurgeHistoryBefore(ctx, now.Add(-7*24*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := st.History(ctx, HistoryQuery{}); len(got) != 3 {
+		t.Fatalf("after the purge: %d entries, want 3", len(got))
+	}
+}

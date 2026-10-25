@@ -1,7 +1,8 @@
 <script>
   import { t } from '../lib/i18n.svelte.js'
   // Multi-value input with autocompletion from library facets.
-  let { values = $bindable([]), suggestions = [], placeholder = t('tagInput.placeholder'), numeric = false } = $props()
+  let { values = $bindable([]), suggestions = [], placeholder = t('tagInput.placeholder'), numeric = false, label = '' } = $props()
+  const listId = $props.id()
   let text = $state('')
   let open = $state(false)
   let active = $state(0)
@@ -27,6 +28,8 @@
   }
 
   function onKey(e) {
+    // Tab adds only what was typed or picked; otherwise it just leaves the field
+    if (e.key === 'Tab' && !text.trim()) return
     if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
       if (open && filtered[active] && e.key !== ',') {
         e.preventDefault()
@@ -53,15 +56,18 @@
   {#each values as v, i}
     <span class="tag">{v}<button type="button" onclick={() => remove(i)} aria-label={t('tagInput.entfernen')}>×</button></span>
   {/each}
-  <input bind:value={text} {placeholder} inputmode={numeric ? 'numeric' : 'text'}
+  <input bind:value={text} {placeholder} inputmode={numeric ? 'numeric' : 'text'} aria-label={label || placeholder}
+    role="combobox" aria-autocomplete="list" aria-expanded={open && filtered.length > 0} aria-controls={open && filtered.length ? listId : undefined}
+    aria-activedescendant={open && filtered[active] ? `${listId}-${active}` : undefined}
     onfocus={() => (open = true)} onblur={() => setTimeout(() => { open = false; if (text.trim()) add(text) }, 150)}
     onkeydown={onKey} oninput={() => { open = true; active = 0 }} />
   {#if open && filtered.length}
-    <ul class="menu">
+    <ul class="menu" role="listbox" id={listId}>
       {#each filtered as s, i}
-        <li><button type="button" class:active={i === active} onmousedown={(e) => { e.preventDefault(); add(s.value) }}>
+        <li role="option" id="{listId}-{i}" aria-selected={i === active} class:active={i === active}
+          onmousedown={(e) => { e.preventDefault(); add(s.value) }}>
           <span class="ellipsis">{s.value}</span><span class="count">{s.count}</span>
-        </button></li>
+        </li>
       {/each}
     </ul>
   {/if}
@@ -75,7 +81,7 @@
   .tag button:hover { opacity: 1; }
   input { flex: 1; min-width: 100px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 0.9rem; outline: none; padding: 0.2rem; }
   .menu { position: absolute; left: 0; right: 0; top: calc(100% + 4px); list-style: none; margin: 0; padding: 0.3rem; background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow); z-index: 30; max-height: 260px; overflow: auto; }
-  .menu button { width: 100%; display: flex; justify-content: space-between; gap: 0.5rem; border: 0; background: none; color: var(--text); font: inherit; font-size: 0.88rem; padding: 0.4rem 0.6rem; border-radius: 6px; cursor: pointer; text-align: left; }
-  .menu button:hover, .menu button.active { background: var(--surface-3); }
+  .menu li { width: 100%; display: flex; justify-content: space-between; gap: 0.5rem; color: var(--text); font-size: 0.88rem; padding: 0.4rem 0.6rem; border-radius: 6px; cursor: pointer; text-align: left; }
+  .menu li:hover, .menu li.active { background: var(--surface-3); }
   .count { color: var(--muted); font-size: 0.78rem; }
 </style>

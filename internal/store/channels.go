@@ -93,9 +93,9 @@ func (s *Store) CreateChannel(ctx context.Context, c *Channel) error {
 
 func (s *Store) UpdateChannel(ctx context.Context, c *Channel) error {
 	c.UpdatedAt = time.Now().Unix()
-	_, err := s.DB.ExecContext(ctx, `UPDATE channels SET number=?, name=?, enabled=?, kind=?, logo=?, color=?, config=?, updated_at=? WHERE id=?`,
-		c.Number, c.Name, c.Enabled, c.Kind, c.Logo, c.Color, string(c.Config), c.UpdatedAt, c.ID)
-	return err
+	// ErrNotFound when the channel was deleted meanwhile
+	return affected(s.DB.ExecContext(ctx, `UPDATE channels SET number=?, name=?, enabled=?, kind=?, logo=?, color=?, config=?, updated_at=? WHERE id=?`,
+		c.Number, c.Name, c.Enabled, c.Kind, c.Logo, c.Color, string(c.Config), c.UpdatedAt, c.ID))
 }
 
 // SetChannelConfig rewrites the stored configuration (format migrations), leaving

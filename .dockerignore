@@ -2,7 +2,10 @@
 .git
 .gitignore
 .gitlab-ci.yml
+.github
+ci
 .dockerignore
+.claude
 
 # Local build output and dependencies (rebuilt inside the image)
 web/node_modules
@@ -20,8 +23,11 @@ data
 .env
 .env.*
 
-# Not needed to build the image
+# Not needed to build the image (test media is generated and large)
 README.md
+docs
+test
+scripts/__pycache__
 docker-compose*.yml
 *.out
 coverage.*

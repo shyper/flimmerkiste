@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -151,7 +152,10 @@ func ParseConfig(raw json.RawMessage) (*Config, error) {
 	c := &Config{}
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, c); err != nil {
-			return nil, err
+			// callers that only read settings (logo, tuner) keep working with the defaults
+			c = &Config{}
+			c.normalize()
+			return c, err
 		}
 	}
 	c.normalize()
@@ -314,13 +318,18 @@ func (c *Config) validateFiller() error {
 }
 
 // parseDay turns "MM-DD" into a comparable month*100+day.
+// The date must exist (29 February does, in leap years).
 func parseDay(s string) (int, bool) {
-	var m, d int
-	if _, err := fmt.Sscanf(s, "%d-%d", &m, &d); err != nil || m < 1 || m > 12 || d < 1 || d > 31 {
+	ms, ds, ok := strings.Cut(s, "-")
+	m, err1 := strconv.Atoi(ms)
+	d, err2 := strconv.Atoi(ds)
+	if !ok || err1 != nil || err2 != nil || m < 1 || m > 12 || d < 1 || d > daysIn[m-1] {
 		return 0, false
 	}
 	return m*100 + d, true
 }
+
+var daysIn = [12]int{31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
 
 // Active reports whether t falls inside the season.
 func (s *Season) Active(t time.Time) bool {

@@ -1,3 +1,5 @@
+import { t } from './i18n.svelte.js'
+
 export const app = $state({
   ready: false,
   user: null,
@@ -19,3 +21,13 @@ export function toast(message, kind = 'info') {
 }
 
 export const isAdmin = () => app.user?.role === 'admin'
+
+// copyText puts text on the clipboard and says whether it worked.
+export async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text)
+    toast(t('tunerHelp.copied'), 'success')
+  } catch {
+    toast(t('tunerHelp.copyFailed'))
+  }
+}

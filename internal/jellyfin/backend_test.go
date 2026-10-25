@@ -3,6 +3,7 @@ package jellyfin
 import (
 	"encoding/json"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/shyper/flimmerkiste/internal/mediaserver"
@@ -66,7 +67,7 @@ func TestItemFrom(t *testing.T) {
 }
 
 func TestNormRating(t *testing.T) {
-	for in, want := range map[string]string{"FSK-12": "de/12", "DE-16": "de/16", "fsk 6": "de/6", "PG-13": "PG-13", "": ""} {
+	for in, want := range map[string]string{"FSK-12": "de/12", "DE-16": "de/16", "fsk 6": "de/6", "16": "de/16", "0": "de/0", "13": "13", "PG-13": "PG-13", "": ""} {
 		if got := normRating(in); got != want {
 			t.Errorf("%q: %q", in, got)
 		}
@@ -115,5 +116,25 @@ func TestColorTransfer(t *testing.T) {
 		if !hdr {
 			t.Errorf("%s: HDR video not recognised: %+v", f, m.Media[0].Parts[0].Streams)
 		}
+	}
+}
+
+func TestChapterMarkers(t *testing.T) {
+	sec := int64(10_000_000) // ticks per second
+	got := chapterMarkers([]chapter{
+		{StartPositionTicks: 0, Name: "Chapter 1"},
+		{StartPositionTicks: 30 * sec, MarkerType: "IntroStart"},
+		{StartPositionTicks: 90 * sec, MarkerType: "IntroEnd"},
+		{StartPositionTicks: 2500 * sec, MarkerType: "CreditsStart"},
+	}, 2700*sec)
+	want := []mediaserver.Marker{
+		{Type: "intro", StartTimeOffset: 30_000, EndTimeOffset: 90_000},
+		{Type: "credits", StartTimeOffset: 2_500_000, EndTimeOffset: 2_700_000, Final: true},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+	if got := chapterMarkers([]chapter{{StartPositionTicks: 0, Name: "Chapter 1"}}, 2700*sec); got != nil {
+		t.Fatalf("plain chapters became markers: %+v", got)
 	}
 }

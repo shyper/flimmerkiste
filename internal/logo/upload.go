@@ -23,7 +23,7 @@ var ErrUnsupportedImage = errors.New("unsupported image")
 // MaxUploadSide. Smaller images keep their size; GIFs keep their first frame.
 func NormalizeUpload(data []byte) ([]byte, error) {
 	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
-	if err != nil || cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width*cfg.Height > 50_000_000 {
+	if err != nil || cfg.Width <= 0 || cfg.Height <= 0 || int64(cfg.Width)*int64(cfg.Height) > 50_000_000 {
 		return nil, ErrUnsupportedImage // also guards against decompression bombs
 	}
 	src, _, err := image.Decode(bytes.NewReader(data))

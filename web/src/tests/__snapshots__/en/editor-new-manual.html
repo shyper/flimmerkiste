@@ -72,11 +72,10 @@
 </svg> <input class="input" placeholder="Search movies or shows…">
 </input>
 </div> <div class="seg sm" role="radiogroup">
-<button aria-checked="true" class="active" role="radio" title="" type="button"> Movies</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> Shows</button>
+<button aria-checked="true" class="active" role="radio" tabindex="0" type="button"> Movies</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> Shows</button>
 </div>
-</div> <div class="results">
-<div class="empty small">No movies found</div> </div>
+</div> <div class="results"> <div class="empty small">No movies found</div> </div>
 </div> <div class="selected-col">
 <div class="row">
 <h4 class="grow">Programme order <span class="muted small">(0)</span>
@@ -105,7 +104,7 @@
 </div> <div class="stack">
 <div>
 <span class="label">Order</span> <div class="seg md" role="radiogroup">
-<button aria-checked="false" class="" role="radio" title="" type="button">
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button">
 <svg aria-hidden="true" class="icon" fill="none" height="15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="15">
 <path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22">
 </path>
@@ -114,7 +113,7 @@
 <path d="m18 14 4 4-4 4">
 </path>
 </svg> Shuffle</button>
-<button aria-checked="true" class="active" role="radio" title="" type="button">
+<button aria-checked="true" class="active" role="radio" tabindex="0" type="button">
 <svg aria-hidden="true" class="icon" fill="none" height="15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke="currentColor" viewBox="0 0 24 24" width="15">
 <path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4">
 </path>
@@ -552,9 +551,9 @@
 </label> </div> <div class="wm">
 <div>
 <span class="label">Credits</span> <div class="seg sm" role="radiogroup">
-<button aria-checked="true" class="active" role="radio" title="" type="button"> Default (unchanged)</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> Unchanged</button>
-<button aria-checked="false" class="" role="radio" title="" type="button"> Shrink with info panel</button>
+<button aria-checked="true" class="active" role="radio" tabindex="0" type="button"> Default (unchanged)</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> Unchanged</button>
+<button aria-checked="false" class="" role="radio" tabindex="-1" type="button"> Shrink with info panel</button>
 </div> <p class="hint">During the credits the picture shrinks to the top left, next to it you see what's up next, and below highlights of the other channels take turns. If a scene follows the credits, the picture stays big and a small card takes turns at the bottom left: what's up next, then movies on other channels. Without matching credits (at least 30 seconds, at most 3 minutes before the end) it appears in the last minute. The sound stays unchanged. Needs Plex's credits detection (Plex Pass).</p>
 </div> </div>
 </section> </div> <aside class="side">

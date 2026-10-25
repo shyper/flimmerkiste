@@ -46,25 +46,46 @@ func (c *Client) get(ctx context.Context, path string, q url.Values, out any) er
 	if !bearer {
 		q.Set("api_key", c.Key)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+path+"?"+q.Encode(), nil)
-	if err != nil {
-		return err
+	for attempt := 0; ; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+path+"?"+q.Encode(), nil)
+		if err != nil {
+			return fmt.Errorf("TMDb: %w", unwrapURL(err)) // the URL carries the key
+		}
+		if bearer {
+			req.Header.Set("Authorization", "Bearer "+c.Key)
+		}
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("User-Agent", userAgent)
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("TMDb: %w", unwrapURL(err))
+		}
+		if resp.StatusCode == http.StatusTooManyRequests && attempt < 2 {
+			// rate limited: wait as asked (a few seconds at most), then try again
+			wait := 2 * time.Second
+			if n, err := strconv.Atoi(resp.Header.Get("Retry-After")); err == nil && n > 0 {
+				wait = min(time.Duration(n)*time.Second, 10*time.Second)
+			}
+			io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
+			resp.Body.Close()
+			select {
+			case <-time.After(wait):
+				continue
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode >= 300 {
+			io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
+			return &StatusError{Code: resp.StatusCode}
+		}
+		return json.NewDecoder(resp.Body).Decode(out)
 	}
-	if bearer {
-		req.Header.Set("Authorization", "Bearer "+c.Key)
-	}
-	req.Header.Set("Accept", "application/json")
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("TMDb: %w", unwrapURL(err))
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
-		return &StatusError{Code: resp.StatusCode}
-	}
-	return json.NewDecoder(resp.Body).Decode(out)
 }
+
+// userAgent names the app, as TMDb asks of API clients.
+const userAgent = "Flimmerkiste (+https://github.com/shyper/flimmerkiste)"
 
 // unwrapURL drops the URL (with the key) from transport errors.
 func unwrapURL(err error) error {

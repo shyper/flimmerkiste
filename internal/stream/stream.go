@@ -131,7 +131,8 @@ type Streamer struct {
 	sessions map[int64]*Session
 	lastEnd  time.Time // when the last session ended
 
-	filtersOnce      sync.Once // the ffmpeg filters for tone mapping, looked up once
+	filtersMu        sync.Mutex // the ffmpeg filters for tone mapping, looked up once
+	filtersKnown     bool
 	tonemapx, zscale bool
 }
 
@@ -226,6 +227,9 @@ func (s *Streamer) Serve(w http.ResponseWriter, r *http.Request, ch *store.Chann
 			}
 		}
 		p, err := s.Program(ctx, ch.ID, t)
+		if err == nil && p == nil {
+			err = errors.New("no program at this time")
+		}
 		return p, false, err
 	}
 	for ctx.Err() == nil {
@@ -756,7 +760,10 @@ func (s *Streamer) renderCredits(ctx context.Context, ch *store.Channel, prog *s
 func checkSource(ctx context.Context, url string) string {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return mediaserver.Redact(err.Error())
+	}
 	req.Header.Set("Range", "bytes=0-0")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -959,7 +966,12 @@ func (s *Streamer) encodeCardClip(ctx context.Context, clip string, inputs []str
 	if now := time.Now(); os.Chtimes(clip, now, now) == nil {
 		return clip, nil
 	}
-	tmp := clip + ".tmp" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	f, err := os.CreateTemp(filepath.Dir(clip), filepath.Base(clip)+".tmp*") // unique, also for parallel encodes
+	if err != nil {
+		return "", err
+	}
+	tmp := f.Name()
+	f.Close()
 	args := append([]string{"-hide_banner", "-nostdin", "-loglevel", "error"}, inputs...)
 	args = append(args, "-t", secs(d), "-filter_complex", filter, "-map", "[v]")
 	args = append(args, cardVideoArgs...)
@@ -1009,7 +1021,11 @@ func (s *Streamer) wake(ctx context.Context, prog *store.Program, log *slog.Logg
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.StreamURL(m.PartKey), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.StreamURL(m.PartKey), nil)
+	if err != nil {
+		log.Debug("wake next file", "title", titleOf(m), "err", mediaserver.Redact(err.Error()))
+		return
+	}
 	req.Header.Set("Range", "bytes=0-65535")
 	started := time.Now()
 	resp, err := http.DefaultClient.Do(req)
@@ -1017,7 +1033,8 @@ func (s *Streamer) wake(ctx context.Context, prog *store.Program, log *slog.Logg
 		log.Debug("wake next file", "title", titleOf(m), "err", mediaserver.Redact(err.Error()))
 		return
 	}
-	_, _ = io.Copy(io.Discard, resp.Body)
+	// at most the requested start, also when the server ignores the range
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 	resp.Body.Close()
 	log.Debug("wake next file", "title", titleOf(m), "status", resp.StatusCode, "took", time.Since(started).Round(time.Millisecond))
 }

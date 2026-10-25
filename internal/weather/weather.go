@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -116,8 +117,8 @@ type Report struct {
 // Load reads the current weather and the hourly forecast for the next days at p.
 func (c *Client) Load(ctx context.Context, p Place, days int, now time.Time) (*Report, error) {
 	tz := now.Location().String()
-	if tz == "Local" || tz == "" {
-		tz = "auto"
+	if tz == "Local" || tz == "" || tz != "UTC" && !strings.Contains(tz, "/") {
+		tz = "auto" // Open-Meteo knows IANA names only, not fixed zones like "UTC+2"
 	}
 	q := url.Values{
 		"latitude":      {strconv.FormatFloat(p.Lat, 'f', 4, 64)},
@@ -192,7 +193,7 @@ func (c *Client) Load(ctx context.Context, p Place, days int, now time.Time) (*R
 const windy = 50
 
 // Icon names the icon of a WMO weather code (as Open-Meteo gives it): clear-day,
-// partly-cloudy-night, cloudy, fog, wind, rain, sleet, snow, hail, thunderstorm.
+// partly-cloudy-night, cloudy, fog, wind, rain, sleet, snow, thunderstorm.
 func Icon(code int, day bool, wind float64) string {
 	sky := func(clear, partly string) string {
 		if day {
@@ -232,8 +233,9 @@ type Day struct {
 }
 
 // severity orders icons: the worse weather of a day is what people want to know.
-var severity = map[string]int{"clear-day": 1, "partly-cloudy-day": 2, "cloudy": 3, "wind": 4, "fog": 4,
-	"rain": 5, "sleet": 6, "snow": 6, "hail": 7, "thunderstorm": 8}
+// Evenings of winter days fall into the daytime window, hence the night icons.
+var severity = map[string]int{"clear-day": 1, "clear-night": 1, "partly-cloudy-day": 2, "partly-cloudy-night": 2,
+	"cloudy": 3, "wind": 4, "fog": 4, "rain": 5, "sleet": 6, "snow": 6, "thunderstorm": 8}
 
 // Days sums up the forecast per calendar day, starting with the day of from.
 func (r *Report) Days(from time.Time, n int) []Day {

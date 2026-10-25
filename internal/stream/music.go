@@ -20,7 +20,20 @@ func (s *Streamer) DefaultMusicPath() string {
 		return target
 	}
 	_ = os.MkdirAll(s.CacheDir, 0o755)
-	if err := os.WriteFile(target, defaultCardMusic, 0o644); err != nil {
+	// written aside and renamed, so a parallel stream never plays half a file
+	f, err := os.CreateTemp(s.CacheDir, "intermission-*.tmp")
+	if err != nil {
+		return ""
+	}
+	_, err = f.Write(defaultCardMusic)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Rename(f.Name(), target)
+	}
+	if err != nil {
+		os.Remove(f.Name())
 		return ""
 	}
 	return target

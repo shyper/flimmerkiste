@@ -16,6 +16,7 @@
   import Mcp from './settings/Mcp.svelte'
   import General from './settings/General.svelte'
   import NotFound from '../components/NotFound.svelte'
+  import LoadError from '../components/LoadError.svelte'
 
   let { onchange } = $props()
 
@@ -37,12 +38,29 @@
   let s = $state(null)
   let saved = $state('')
   let saving = $state(false)
+  let loadError = $state('')
   const dirty = $derived(!!s && pick(s) !== saved)
 
-  onMount(async () => {
-    s = await get('/api/settings')
-    saved = pick(s)
-  })
+  async function load() {
+    loadError = ''
+    try {
+      s = await get('/api/settings')
+      saved = pick(s)
+    } catch (e) {
+      loadError = e.message
+    }
+  }
+  onMount(load)
+
+  // persisted: a section saved some values itself (a test, a refresh), so
+  // they no longer count as unsaved, and discarding does not seem to undo them
+  function persisted(values) {
+    const base = JSON.parse(saved || '[]')
+    editable.forEach((k, i) => {
+      if (k in values) base[i] = values[k] ?? null
+    })
+    saved = JSON.stringify(base)
+  }
 
   function onBeforeUnload(e) {
     if (dirty) e.preventDefault()
@@ -50,11 +68,12 @@
   onMount(() => {
     window.addEventListener('beforeunload', onBeforeUnload)
     // within the settings changes survive switching sections; leaving asks first
-    leaveGuard.check = (to) => !dirty || to.startsWith('/settings') || confirm(t('settings.leaveConfirm'))
+    leaveGuard.hold(guard)
   })
+  const guard = (to) => !dirty || to.startsWith('/settings') || confirm(t('settings.leaveConfirm'))
   onDestroy(() => {
     window.removeEventListener('beforeunload', onBeforeUnload)
-    leaveGuard.check = null
+    leaveGuard.release(guard)
   })
 
   $effect(() => {
@@ -66,7 +85,8 @@
     saving = true
     try {
       const reload = s.language !== i18n.lang
-      s = await put('/api/settings', $state.snapshot(s))
+      const data = await put('/api/settings', $state.snapshot(s))
+      if (data) s = data
       saved = pick(s)
       // texts computed once in scripts follow only after a reload
       if (reload) return location.reload()
@@ -80,8 +100,12 @@
   }
 
   async function discard() {
-    s = await get('/api/settings')
-    saved = pick(s)
+    try {
+      s = await get('/api/settings')
+      saved = pick(s)
+    } catch (e) {
+      toast(e.message, 'error')
+    }
   }
 
   function pickSection(e) {
@@ -121,7 +145,9 @@
       <p class="small muted intro">{t(`settings.${current[0]}.intro`)}</p>
       {#if s}
         {@const Section = current[2]}
-        <Section {s} />
+        <Section {s} {persisted} />
+      {:else if loadError}
+        <LoadError message={loadError} retry={load} />
       {:else}
         <div class="skeleton" style="height: 240px"></div>
       {/if}

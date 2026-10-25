@@ -352,7 +352,10 @@ func (s *Server) fetchPoster(ctx context.Context, m *store.Media) image.Image {
 func (s *Server) fetchImage(ctx context.Context, u string) image.Image {
 	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil

@@ -3,7 +3,7 @@
 // Toggle, TagInput and MediaPicker fail on a missing bound value. Every field
 // the editor binds therefore gets its default here – also for new fields.
 
-export const emptyRules = () => ({ match: 'all', rules: [], groups: [] })
+const emptyRules = () => ({ match: 'all', rules: [], groups: [] })
 
 export function normalizeRules(g) {
   g ??= emptyRules()

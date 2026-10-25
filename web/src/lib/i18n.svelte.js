@@ -23,6 +23,7 @@ export function t(key, params) {
     const values = Array.isArray(params) ? params : Object.values(params || {})
     const n = values.find((v) => typeof v === 'number')
     msg = n === 1 && msg.one !== undefined ? msg.one : msg.other
+    if (typeof msg !== 'string') return key // a broken catalog entry shows its key, never breaks the page
   }
   if (params) msg = msg.replace(/\{(\w+)\}/g, (m, k) => (params[k] ?? m))
   if (msg.includes('{server}')) msg = msg.replaceAll('{server}', i18n.server)

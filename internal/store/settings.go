@@ -60,6 +60,8 @@ func (s *Store) GetSetting(ctx context.Context, key string) (string, error) {
 	return v, err
 }
 
+// Setting returns a setting, or def when it is unset or empty: saving an empty
+// value restores the default (an empty audio language list means "deu,ger").
 func (s *Store) Setting(ctx context.Context, key, def string) string {
 	v, err := s.GetSetting(ctx, key)
 	if err != nil || v == "" {
@@ -155,27 +157,40 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 }
 
 func (s *Store) SetUserRole(ctx context.Context, id int64, role string) error {
-	_, err := s.DB.ExecContext(ctx, `UPDATE users SET role = ? WHERE id = ?`, role, id)
-	return err
+	return affected(s.DB.ExecContext(ctx, `UPDATE users SET role = ? WHERE id = ?`, role, id))
 }
 
 func (s *Store) DeleteUser(ctx context.Context, id int64) error {
-	_, err := s.DB.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id)
-	return err
+	return affected(s.DB.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id))
 }
 
+// affected turns a statement that changed no row into ErrNotFound.
+func affected(res sql.Result, err error) error {
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// CreateSession stores a session; like API tokens only the hash of the cookie
+// value is kept, so a copy of the database signs nobody in.
 func (s *Store) CreateSession(ctx context.Context, token string, userID int64, ttl time.Duration) error {
 	_, err := s.DB.ExecContext(ctx, `INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)`,
-		token, userID, time.Now().Add(ttl).Unix())
+		tokenHash(token), userID, time.Now().Add(ttl).Unix())
 	return err
 }
 
+// SessionUser returns the user of a session. Sessions stored before their
+// hashes were kept still work until they expire.
 func (s *Store) SessionUser(ctx context.Context, token string) (*User, error) {
 	var u User
 	err := scanUser(s.DB.QueryRowContext(ctx, `
 		SELECT `+prefixed("u.", userCols)+`
 		FROM sessions s JOIN users u ON u.id = s.user_id
-		WHERE s.token = ? AND s.expires_at > ?`, token, time.Now().Unix()), &u)
+		WHERE s.token IN (?, ?) AND s.expires_at > ?`, tokenHash(token), token, time.Now().Unix()), &u)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -183,7 +198,7 @@ func (s *Store) SessionUser(ctx context.Context, token string) (*User, error) {
 }
 
 func (s *Store) DeleteSession(ctx context.Context, token string) error {
-	_, err := s.DB.ExecContext(ctx, `DELETE FROM sessions WHERE token = ?`, token)
+	_, err := s.DB.ExecContext(ctx, `DELETE FROM sessions WHERE token IN (?, ?)`, tokenHash(token), token)
 	return err
 }
 

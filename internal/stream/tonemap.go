@@ -34,22 +34,26 @@ func toneMapFilters(transfer string, tonemapx, zscale bool) string {
 }
 
 // toneMap returns the tone mapping filters for a source, as the ffmpeg in use
-// can run them (its filters are looked up once).
+// can run them (its filters are looked up once; a failed lookup is retried).
 func (s *Streamer) toneMap(ctx context.Context, transfer string) string {
-	s.filtersOnce.Do(func() {
-		ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	s.filtersMu.Lock()
+	defer s.filtersMu.Unlock()
+	if !s.filtersKnown {
+		// not bound to the request: a client hanging up must not decide for all later streams
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 20*time.Second)
 		defer cancel()
 		out, err := exec.CommandContext(ctx, s.FFmpeg, "-hide_banner", "-filters").Output()
 		if err != nil {
 			s.Log.Warn("listing ffmpeg filters", "err", err)
-			return
+			return ""
 		}
+		s.filtersKnown = true
 		has := func(name string) bool { return strings.Contains(string(out), " "+name+" ") }
 		s.tonemapx, s.zscale = has("tonemapx"), has("zscale") && has("tonemap")
 		if !s.tonemapx && !s.zscale {
 			s.Log.Warn("this ffmpeg cannot tone map HDR; HDR titles look pale in full mode (jellyfin-ffmpeg can)")
 		}
-	})
+	}
 	return toneMapFilters(transfer, s.tonemapx, s.zscale)
 }
 

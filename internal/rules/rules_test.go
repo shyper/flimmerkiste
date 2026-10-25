@@ -104,3 +104,40 @@ func TestDecadeOfShow(t *testing.T) {
 		t.Error("year is the episode's, not the show's")
 	}
 }
+
+// Incomplete rules are ignored at any depth, as in the flat form.
+func TestIncompleteRulesNested(t *testing.T) {
+	m := movie("X", 1999, "Drama")
+	now := time.Now()
+	incomplete := Group{Match: "all", Rules: []Rule{{Field: "genre", Op: "is"}}}
+	if g := (&Group{Match: "none", Groups: []Group{incomplete}}); !g.Matches(m, now) {
+		t.Error("none[group of an incomplete rule] excludes everything")
+	}
+	if g := (&Group{Match: "all", Rules: []Rule{{Field: "genre", Op: "is", Values: []string{"Horror"}}},
+		Groups: []Group{{Match: "any", Rules: incomplete.Rules}}}); g.Matches(m, now) {
+		t.Error("an incomplete sub-group must not let everything through")
+	}
+	if g := (&Group{Match: "all", Rules: []Rule{{Field: "year", Op: "between", Values: []string{"abc", "def"}}}}); !g.IsEmpty() {
+		t.Error("a year rule without a number is no condition")
+	}
+	if g := (&Group{Match: "none", Rules: []Rule{{Field: "year", Op: "is", Values: []string{"abc"}}}}); !g.Matches(m, now) {
+		t.Error("a year rule without a number excludes everything")
+	}
+}
+
+// Without leaves an item that lacks a field neither required nor excluded,
+// also where the rule sits in an "all" group below a none.
+func TestWithoutBelowNone(t *testing.T) {
+	kids := &store.Media{RatingKey: "k", Type: "movie", Title: "K", Tags: store.Tags{Genre: []string{"Kids"}}}
+	now := time.Now()
+	g := &Group{Match: "none", Groups: []Group{{Match: "all", Rules: []Rule{
+		{Field: "genre", Op: "is", Values: []string{"Kids"}}, {Field: "country", Op: "is", Values: []string{"US"}}}}}}
+	if !g.Without(map[string]bool{"country": true}).Matches(kids, now) {
+		t.Error("excluded for a country it does not carry")
+	}
+	g = &Group{Match: "none", Groups: []Group{{Match: "any", Rules: []Rule{
+		{Field: "genre", Op: "is", Values: []string{"Kids"}}, {Field: "country", Op: "is", Values: []string{"US"}}}}}}
+	if g.Without(map[string]bool{"country": true}).Matches(kids, now) {
+		t.Error("the known genre must still exclude")
+	}
+}

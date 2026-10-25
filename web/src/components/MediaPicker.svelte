@@ -18,6 +18,7 @@
   let expanded = $state(null)
   let episodes = $state([])
   let dragIndex = $state(-1)
+  let searchError = $state('')
 
   const search = debounce(async () => {
     const id = ++searchID
@@ -26,7 +27,14 @@
       const res = await get(`/api/library/search?q=${encodeURIComponent(q)}`)
       if (id === searchID) {
         results = res
+        searchError = ''
         page++
+      }
+    } catch (e) {
+      // old results would look like answers to the new search
+      if (id === searchID) {
+        results = { movies: [], shows: [], moreMovies: false, moreShows: false }
+        searchError = e.message
       }
     } finally {
       if (id === searchID) loading = false
@@ -52,6 +60,8 @@
         results.moreShows = res.moreShows
       }
       page++
+    } catch (e) {
+      if (id === searchID) searchError = e.message
     } finally {
       loadingMore = false
     }
@@ -77,7 +87,12 @@
     }
     expanded = show.key
     episodes = []
-    episodes = await get(`/api/library/show/${encodeURIComponent(show.key)}`)
+    try {
+      const eps = await get(`/api/library/show/${encodeURIComponent(show.key)}`)
+      if (expanded === show.key) episodes = eps // another show may have been opened meanwhile
+    } catch (e) {
+      if (expanded === show.key) searchError = e.message
+    }
   }
 
   function move(from, to) {
@@ -113,6 +128,7 @@
       <Segmented bind:value={tab} size="sm" options={[{ value: 'movie', label: t('mediaPicker.movies') }, { value: 'show', label: t('mediaPicker.shows') }]} />
     </div>
     <div class="results">
+      {#if searchError}<div class="empty small err" role="alert">{searchError}</div>{/if}
       {#if loading && !results.movies.length && !results.shows.length}
         <div class="empty small"><span class="spinner"></span></div>
       {:else if tab === 'movie'}
@@ -217,6 +233,9 @@
 </div>
 
 <style>
+  /* long lists: rows out of view are not laid out */
+  .res, .selected li { content-visibility: auto; contain-intrinsic-size: auto 48px; }
+  .err { color: #fca5a5; }
   /* minmax(0, …) and min-width: 0 let long titles shorten instead of widening the columns */
   .picker { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; }
   .search-col, .selected-col, .selected .grow, .res .grow { min-width: 0; }

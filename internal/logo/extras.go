@@ -116,7 +116,7 @@ func faceFor(file string, size float64) (font.Face, error) {
 }
 
 // tagline writes a small spaced-out line below the name.
-func (r *renderer) tagline(text string, centerY float64) error {
+func (r *renderer) tagline(text string) error {
 	text = strings.ToUpper(strings.TrimSpace(text))
 	if text == "" {
 		return nil
@@ -140,9 +140,7 @@ func (r *renderer) tagline(text string, centerY float64) error {
 		return nil
 	}
 	defer face.Close()
-	// fixed slot at the bottom (the name was laid out above it), so it never collides with badges or signs
 	// close below the name, but clear of badges/signs drawn around it, and never off-canvas
-	_ = centerY
 	y := math.Min(float64(r.text.bounds.Max.Y)+34, float64(H-taglineH)-4)
 	m := image.NewAlpha(image.Rect(0, 0, W, H))
 	d := &font.Drawer{Dst: m, Src: image.Opaque, Face: face}

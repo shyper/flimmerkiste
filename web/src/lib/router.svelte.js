@@ -1,21 +1,36 @@
-export const route = $state({ path: location.pathname, query: new URLSearchParams(location.search) })
+export const route = $state({ path: location.pathname })
 
-// leaveGuard.check, if set, is asked before navigating away (false = stay).
-export const leaveGuard = { check: null }
+// leaveGuard holds the checks asked before navigating away (false = stay).
+// A page holds its own check and releases only that one, so a page mounting
+// before the previous one is gone never loses its guard.
+export const leaveGuard = {
+  checks: [],
+  hold(check) {
+    this.checks.push(check)
+  },
+  release(check) {
+    this.checks = this.checks.filter((c) => c !== check)
+  },
+  allows(to) {
+    return this.checks.every((c) => c(to))
+  },
+}
 
 export function navigate(to, { replace = false } = {}) {
   const url = new URL(to, location.origin)
-  if (leaveGuard.check && !leaveGuard.check(url.pathname)) return
+  if (url.origin !== location.origin) {
+    location.href = url.href // another site: no in-app navigation
+    return
+  }
+  if (!leaveGuard.allows(url.pathname)) return
   if (url.pathname + url.search === location.pathname + location.search) return
   history[replace ? 'replaceState' : 'pushState']({}, '', url)
   route.path = url.pathname
-  route.query = url.searchParams
   window.scrollTo(0, 0)
 }
 
 window.addEventListener('popstate', () => {
   route.path = location.pathname
-  route.query = new URLSearchParams(location.search)
 })
 
 // Svelte action: <a href="/x" use:link>

@@ -111,6 +111,9 @@ type mcpTool struct {
 }
 
 func (t mcpTool) allowed(tok *store.APIToken, u *store.User) bool {
+	if tok == nil || u == nil {
+		return false
+	}
 	return tok.Has(t.scope) && (!t.admin || u.IsAdmin())
 }
 
@@ -598,7 +601,7 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		Name   string   `json:"name"`
 		Scopes []string `json:"scopes"`
 	}
-	if err := readJSON(r, &in); err != nil {
+	if err := readJSON(w, r, &in); err != nil {
 		s.fail(w, r, http.StatusBadRequest, "api.badRequest")
 		return
 	}

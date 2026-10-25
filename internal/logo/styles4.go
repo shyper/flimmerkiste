@@ -281,7 +281,6 @@ func (r *renderer) cooking() {
 	ow := r.outlineWidth(0.06)
 	r.paintColor(dilate(r.text.mask, ow), white, 0, 0)
 	r.paint(r.text.mask, gradient(tb, hex("#f87171"), hex("#dc2626"), hex("#991b1b")), 0, 0)
-	// fork and knife above the sign
 	// fork and knife on both sides of the sign
 	cy := float32(sign.Min.Y+sign.Max.Y) / 2
 	k := float32(1.6)
@@ -374,7 +373,7 @@ func (r *renderer) graffiti() {
 		if g.x1-g.x0 < 8 {
 			continue
 		}
-		x := g.x0 + 4 + r.rng.Intn(g.x1-g.x0-6)
+		x := g.x0 + 4 + r.rng.Intn(max(1, g.x1-g.x0-6))
 		bottom := -1
 		for y := min(H-1, g.y1); y >= g.y0; y-- {
 			if y >= 0 && mask.Pix[y*mask.Stride+x] > 160 {
@@ -471,7 +470,7 @@ func (r *renderer) vhs() {
 	}
 	// ruled writing lines
 	r.paintColor(rasterMask(func(z *vector.Rasterizer) {
-		for y := tb.Min.Y + tb.Dy()/2; y <= tb.Max.Y+4; y += tb.Dy() / 2 {
+		for step, y := max(1, tb.Dy()/2), tb.Min.Y+tb.Dy()/2; y <= tb.Max.Y+4; y += step {
 			rect(z, float32(label.Min.X)+16, float32(y), float32(label.Max.X)-16, float32(y)+1)
 		}
 	}), withAlpha(hex("#93c5fd"), 0.6), 0, 0)

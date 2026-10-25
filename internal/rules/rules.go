@@ -56,13 +56,16 @@ func (g *Group) Normalized() *Group {
 	return g
 }
 
-// IsEmpty reports whether the group has no conditions at all (matches everything).
+// IsEmpty reports whether the group has no usable conditions (matches
+// everything); rules still being filled in do not count.
 func (g *Group) IsEmpty() bool {
 	if g == nil {
 		return true
 	}
-	if len(g.Rules) > 0 {
-		return false
+	for i := range g.Rules {
+		if g.Rules[i].valid() {
+			return false
+		}
 	}
 	for i := range g.Groups {
 		if !g.Groups[i].IsEmpty() {
@@ -73,49 +76,32 @@ func (g *Group) IsEmpty() bool {
 }
 
 // Matches evaluates the group against one item. A nil or empty group matches everything.
+// It stops at the first condition that decides the result.
 func (g *Group) Matches(m *store.Media, now time.Time) bool {
 	if g == nil {
 		return true
 	}
-	results := make([]bool, 0, len(g.Rules)+len(g.Groups))
-	for i := range g.Rules {
-		if !g.Rules[i].valid() {
-			continue
+	n := 0
+	// decided reports whether one result settles the whole group: a match
+	// for any and none, a miss for all.
+	decided := func(r bool) bool {
+		n++
+		if g.Match == "any" || g.Match == "none" {
+			return r
 		}
-		results = append(results, g.Rules[i].match(m, now))
+		return !r
+	}
+	for i := range g.Rules {
+		if g.Rules[i].valid() && decided(g.Rules[i].match(m, now)) {
+			return g.Match == "any"
+		}
 	}
 	for i := range g.Groups {
-		if g.Groups[i].IsEmpty() {
-			continue
+		if !g.Groups[i].IsEmpty() && decided(g.Groups[i].Matches(m, now)) {
+			return g.Match == "any"
 		}
-		results = append(results, g.Groups[i].Matches(m, now))
 	}
-	if len(results) == 0 {
-		return true
-	}
-	switch g.Match {
-	case "any":
-		for _, r := range results {
-			if r {
-				return true
-			}
-		}
-		return false
-	case "none":
-		for _, r := range results {
-			if r {
-				return false
-			}
-		}
-		return true
-	default: // all
-		for _, r := range results {
-			if !r {
-				return false
-			}
-		}
-		return true
-	}
+	return n == 0 || g.Match != "any"
 }
 
 // Without returns a copy of the group without rules on the given fields, for
@@ -124,16 +110,41 @@ func (g *Group) Without(fields map[string]bool) *Group {
 	if g == nil {
 		return nil
 	}
-	out := &Group{Match: g.Match}
-	for _, r := range g.Rules {
-		if !fields[r.Field] {
-			out.Rules = append(out.Rules, r)
-		}
+	if out := g.without(fields, false); out != nil {
+		return out
 	}
+	return &Group{Match: g.Match} // not reached: only groups below a none can be undecidable
+}
+
+// without drops the rules on fields. Below an odd number of none groups
+// (negated) a group's match excludes the item, so an "all" group that lost a
+// rule cannot be confirmed any more and must not exclude: it comes back nil,
+// which counts as not matching.
+func (g *Group) without(fields map[string]bool, negated bool) *Group {
+	out := &Group{Match: g.Match}
+	lost := false
+	for _, r := range g.Rules {
+		if fields[r.Field] {
+			lost = lost || r.valid()
+			continue
+		}
+		out.Rules = append(out.Rules, r)
+	}
+	subNegated := negated != (g.Match == "none")
 	for i := range g.Groups {
-		if sub := g.Groups[i].Without(fields); !sub.IsEmpty() {
+		sub := g.Groups[i].without(fields, subNegated)
+		if sub == nil {
+			if g.Match == "all" || g.Match == "" {
+				return nil // one condition that does not match: the whole group does not
+			}
+			continue // does not match: no part of any, nothing to exclude in none
+		}
+		if !sub.IsEmpty() {
 			out.Groups = append(out.Groups, *sub)
 		}
+	}
+	if lost && negated && (g.Match == "all" || g.Match == "") {
+		return nil
 	}
 	return out
 }
@@ -156,6 +167,9 @@ func (r *Rule) valid() bool {
 	}
 	if r.Field == "watched" || r.Op == "exists" || r.Op == "missing" {
 		return true
+	}
+	if isNumeric(r.Field) {
+		return len(parseNums(r.Values)) > 0 // "abc" for a year is no condition yet
 	}
 	for _, v := range r.Values {
 		if strings.TrimSpace(v) != "" {

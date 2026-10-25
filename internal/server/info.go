@@ -52,6 +52,7 @@ type infoState struct {
 	newsErr     string
 	newsLast    time.Time
 	running     map[string]bool
+	waiting     map[string]chan struct{} // a slate's fetch of missing data, which others wait for
 }
 
 // weatherPlace is the place of the weather slates (nil = off).
@@ -181,15 +182,38 @@ func (s *Server) fetchInfo(ctx context.Context, kind string) {
 func (s *Server) infoData(ctx context.Context, kind string) (*weather.Report, []news.Headline) {
 	s.info.mu.Lock()
 	rep, hs := s.info.weather, s.info.news
+	if (kind == "weather" && rep != nil) || (kind == "news" && hs != nil) {
+		s.info.mu.Unlock()
+		return rep, hs
+	}
+	// one fetch for all streams that start at once
+	done, fetching := s.info.waiting[kind]
+	if !fetching {
+		if s.info.waiting == nil {
+			s.info.waiting = map[string]chan struct{}{}
+		}
+		done = make(chan struct{})
+		s.info.waiting[kind] = done
+	}
 	s.info.mu.Unlock()
-	if (kind == "weather" && rep == nil) || (kind == "news" && hs == nil) {
+	if fetching {
+		select {
+		case <-done:
+		case <-ctx.Done():
+		case <-time.After(10 * time.Second):
+		}
+	} else {
 		fctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		s.fetchInfo(fctx, kind)
 		cancel()
 		s.info.mu.Lock()
-		rep, hs = s.info.weather, s.info.news
+		delete(s.info.waiting, kind)
 		s.info.mu.Unlock()
+		close(done)
 	}
+	s.info.mu.Lock()
+	rep, hs = s.info.weather, s.info.news
+	s.info.mu.Unlock()
 	return rep, hs
 }
 

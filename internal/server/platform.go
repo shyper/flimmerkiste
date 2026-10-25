@@ -61,7 +61,7 @@ func (s *Server) handleSetupConnect(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		URL string `json:"url"`
 	}
-	if err := readJSON(r, &in); err != nil || strings.TrimSpace(in.URL) == "" {
+	if err := readJSON(w, r, &in); err != nil || strings.TrimSpace(in.URL) == "" {
 		s.fail(w, r, http.StatusBadRequest, "api.badRequest")
 		return
 	}
@@ -92,7 +92,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
-	if err := readJSON(r, &in); err != nil || strings.TrimSpace(in.Username) == "" {
+	if err := readJSON(w, r, &in); err != nil || strings.TrimSpace(in.Username) == "" {
 		s.fail(w, r, http.StatusBadRequest, "api.badRequest")
 		return
 	}

@@ -1,18 +1,11 @@
 <script>
   import { t } from '../lib/i18n.svelte.js'
   import Icon from './Icon.svelte'
-  import { app, toast } from '../lib/state.svelte.js'
+  import { app, copyText } from '../lib/state.svelte.js'
 
   const tuner = $derived(app.meta?.tuner || { url: location.origin, epg: location.origin + '/epg.xml' })
 
-  async function copy(text) {
-    try {
-      await navigator.clipboard.writeText(text)
-      toast(t('tunerHelp.copied'), 'success')
-    } catch {
-      toast(t('tunerHelp.copyFailed'))
-    }
-  }
+  const copy = copyText
 </script>
 
 <ol class="steps">

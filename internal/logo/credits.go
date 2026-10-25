@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/draw"
 	"image/png"
+	"math"
 	"strings"
 
 	xdraw "golang.org/x/image/draw"
@@ -300,7 +301,11 @@ func wrapText(face font.Face, text string, maxW, maxLines int) []string {
 // Blend mixes two frames of the same size: t = 0 gives a, t = 1 gives b.
 func Blend(a, b *image.RGBA, t float64) *image.RGBA {
 	out := image.NewRGBA(a.Bounds())
-	k := int(t*256 + 0.5)
+	if len(b.Pix) != len(a.Pix) {
+		copy(out.Pix, a.Pix) // frames of different sizes cannot be mixed
+		return out
+	}
+	k := int(math.Max(0, math.Min(1, t))*256 + 0.5)
 	for i := range out.Pix {
 		out.Pix[i] = uint8((int(a.Pix[i])*(256-k) + int(b.Pix[i])*k) >> 8)
 	}

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"strings"
 )
 
@@ -99,8 +100,13 @@ func scanMedia(sc interface{ Scan(...any) error }) (*Media, error) {
 	if err != nil {
 		return nil, err
 	}
-	_ = json.Unmarshal([]byte(tags), &m.Tags)
-	_ = json.Unmarshal([]byte(ext), &m.Ext)
+	if err := json.Unmarshal([]byte(tags), &m.Tags); err != nil && tags != "" {
+		// the title stays playable, but rules on its tags will not find it
+		slog.Warn("tags of a title unreadable", "key", m.RatingKey, "err", err)
+	}
+	if err := json.Unmarshal([]byte(ext), &m.Ext); err != nil && ext != "" {
+		slog.Warn("external ids of a title unreadable", "key", m.RatingKey, "err", err)
+	}
 	var d Tags
 	if json.Unmarshal([]byte(detailTags), &d) == nil {
 		m.Tags.Add(d)
@@ -496,16 +502,20 @@ func (s *Store) SetLibraryEnabled(ctx context.Context, id string, enabled bool) 
 }
 
 func (s *Store) DeleteLibrary(ctx context.Context, id string) error {
-	if _, err := s.DB.ExecContext(ctx, `DELETE FROM media WHERE library_id = ?`, id); err != nil {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
 		return err
 	}
-	if _, err := s.DB.ExecContext(ctx, `DELETE FROM trailers WHERE show_key IN
-		(SELECT key FROM show_details WHERE library_id = ?)`, id); err != nil {
-		return err
+	defer tx.Rollback()
+	for _, q := range []string{
+		`DELETE FROM media WHERE library_id = ?`,
+		`DELETE FROM trailers WHERE show_key IN (SELECT key FROM show_details WHERE library_id = ?)`,
+		`DELETE FROM show_details WHERE library_id = ?`,
+		`DELETE FROM libraries WHERE id = ?`,
+	} {
+		if _, err := tx.ExecContext(ctx, q, id); err != nil {
+			return err
+		}
 	}
-	if _, err := s.DB.ExecContext(ctx, `DELETE FROM show_details WHERE library_id = ?`, id); err != nil {
-		return err
-	}
-	_, err := s.DB.ExecContext(ctx, `DELETE FROM libraries WHERE id = ?`, id)
-	return err
+	return tx.Commit()
 }

@@ -99,7 +99,16 @@ type HistoryQuery struct {
 	Search    string // part of the title or show
 	From, To  int64  // start in [From, To) in unix milliseconds; 0 = open
 	Before    int64  // only entries that started before (the next page); 0 = none
-	Limit     int
+	// BeforeChannel is the channel of the last entry of the page before: with
+	// it, Before also lets through later channels that started at the same time.
+	BeforeChannel int64
+	Limit         int
+}
+
+// PurgeHistoryBefore deletes what started before t.
+func (s *Store) PurgeHistoryBefore(ctx context.Context, t time.Time) error {
+	_, err := s.DB.ExecContext(ctx, `DELETE FROM history WHERE start < ?`, t.UnixMilli())
+	return err
 }
 
 // History returns history entries with how often each title aired.
@@ -119,7 +128,10 @@ func (s *Store) History(ctx context.Context, q HistoryQuery) ([]HistoryEntry, er
 	if q.To != 0 {
 		where, args = append(where, "h.start < ?"), append(args, q.To)
 	}
-	if q.Before != 0 {
+	if q.Before != 0 && q.BeforeChannel != 0 {
+		// several channels start on the same minute: continue right after the last entry
+		where, args = append(where, "(h.start < ? OR h.start = ? AND h.channel_id > ?)"), append(args, q.Before, q.Before, q.BeforeChannel)
+	} else if q.Before != 0 {
 		where, args = append(where, "h.start < ?"), append(args, q.Before)
 	}
 	if q.Limit <= 0 || q.Limit > 500 {
