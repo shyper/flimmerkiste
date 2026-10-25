@@ -600,6 +600,7 @@ func TestE2E(t *testing.T) {
 		t.Fatalf("expected 2 library trailers, got %d", len(ts))
 	}
 	var ch8 struct{ ID int64 }
+	created8 := time.Now()
 	call("POST", "/api/channels", map[string]any{"name": "Kino", "number": 8, "kind": "manual", "config": map[string]any{
 		"order": "fixed", "align": 5, "previews": true, "filler": map[string]any{"type": "trailers"},
 		"source": map[string]any{"type": "manual", "items": []map[string]any{{"key": "1", "type": "movie"}, {"key": "2", "type": "movie"}}}}}, &ch8)
@@ -612,7 +613,9 @@ func TestE2E(t *testing.T) {
 	if err := srv.sched.BindPreviews(ctx, ch8.ID, time.Now().Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
-	all8, _ := st.ProgramsBetween(ctx, ch8.ID, time.Now(), time.Now().Add(time.Hour))
+	// From the creation on: starting later, a slow run could begin inside a
+	// promo whose trailer already ended.
+	all8, _ := st.ProgramsBetween(ctx, ch8.ID, created8, time.Now().Add(time.Hour))
 	trailerFillers, promos, unbound := 0, 0, 0
 	for i, p := range all8 {
 		switch {
@@ -623,7 +626,7 @@ func TestE2E(t *testing.T) {
 		case p.RatingKey == store.PromoKey:
 			promos++
 			target, err := st.ProgramAt(ctx, ch8.ID, time.UnixMilli(atoi64(p.Note)))
-			if err != nil || target.RatingKey != "1" || all8[i-1].RatingKey != "t:501" {
+			if err != nil || target.RatingKey != "1" || i == 0 || all8[i-1].RatingKey != "t:501" {
 				t.Fatalf("promo must follow the trailer and point at movie 1: %+v", p)
 			}
 		case p.Kind == store.KindPreview && p.Start < time.Now().Add(time.Hour).UnixMilli():
