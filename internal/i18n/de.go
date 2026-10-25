@@ -65,7 +65,7 @@ var de = map[string]string{
 	"schedule.noContent":    "keine passenden Inhalte gefunden",
 	"schedule.noFiller":     "keine Trailer oder Clips gefunden",
 	"schedule.emptyLibrary": "Bibliothek ist leer – bitte zuerst synchronisieren",
-	"schedule.aiFailed":     "KI-Auswahl fehlgeschlagen (%v) – es läuft vorübergehend eine Zufallsauswahl",
+	"schedule.aiFailed":     "KI-Auswahl fehlgeschlagen (%v) – erneuter Versuch beim nächsten Planungslauf; Zufallsauswahl nur bis zum halben Programmvorlauf",
 	"config.noTitles":       "%s: keine Titel ausgewählt",
 	"config.noTheme":        "%s: kein Thema für die KI angegeben",
 	"config.unknownSource":  "%s: unbekannte Quelle %q",

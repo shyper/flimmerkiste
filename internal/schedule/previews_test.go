@@ -170,7 +170,8 @@ func TestEditedPromptDropsQueuedPicks(t *testing.T) {
 	}
 	// Edited prompt: queued picks of the old theme are dropped, the AI is asked at once
 	// even while paused after an earlier error.
-	ss.Queue, ss.AIBackoff = []QueuedPick{{Key: "old", Reason: "Western"}}, time.Now().Add(time.Hour).Unix()
+	ss.Queue = []QueuedPick{{Key: "old", Reason: "Western"}}
+	g.aiFailures = map[string]error{"main": ai.ErrDisabled}
 	src.AI.Theme = "Superheldenfilme"
 	m, reason, err := g.pickAI("main", ss, src, time.Now())
 	if err != nil || reason != "neu" || len(fake.themes) != 1 || fake.themes[0] != "Superheldenfilme" {

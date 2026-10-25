@@ -320,7 +320,9 @@ func (s *Scheduler) ensure(ctx context.Context, channelID int64) error {
 	if err != nil {
 		return i18n.E("api.badConfig", err)
 	}
-	now := time.Now()
+	// Programme timestamps use milliseconds. Match their precision so a guide
+	// ending exactly at half the horizon does not get an extra fallback title.
+	now := time.Now().Truncate(time.Millisecond)
 	until := now.Add(s.horizon)
 	cursor := now
 	last, lastErr := s.store.LastProgram(ctx, channelID)
@@ -353,10 +355,11 @@ func (s *Scheduler) ensure(ctx context.Context, channelID int64) error {
 
 	g := &generator{
 		s: s, ctx: ctx, ch: ch, cfg: cfg, state: state, catalog: catalog,
-		rng:      rand.New(rand.NewSource(time.Now().UnixNano())),
-		resolved: map[string][]*store.Media{},
-		langs:    s.TrailerLanguages(ctx),
-		overrun:  fillerOverrun,
+		aiFallbackUntil: now.Add(s.horizon / 2),
+		rng:             rand.New(rand.NewSource(time.Now().UnixNano())),
+		resolved:        map[string][]*store.Media{},
+		langs:           s.TrailerLanguages(ctx),
+		overrun:         fillerOverrun,
 	}
 	g.index()
 	window := time.Duration(cfg.NoRepeatHours) * time.Hour
@@ -585,7 +588,6 @@ type SourceState struct {
 	LastGroup  string            `json:"lastGroup,omitempty"`  // shuffle with episode order
 	ShowCursor map[string]string `json:"showCursor,omitempty"` // show key -> last aired episode key
 	Queue      []QueuedPick      `json:"queue,omitempty"`      // AI picks not yet aired
-	AIBackoff  int64             `json:"aiBackoff,omitempty"`  // unix time until which AI calls pause after errors
 	AIConfig   string            `json:"aiConfig,omitempty"`   // theme and filter the queued AI picks were made for
 }
 
@@ -627,9 +629,13 @@ type generator struct {
 	resolved  map[string][]*store.Media
 	lastAired map[string]time.Time
 	softErr   error
-	langs     []string         // preferred trailer languages
-	trailers  []*store.Trailer // loaded on first use
-	info      []*store.Media   // weather and news slates, loaded on first use
+	// Failed requests pause this source for this planning run only. The next run
+	// retries; random picks may only cover the first half of the guide horizon.
+	aiFailures      map[string]error
+	aiFallbackUntil time.Time
+	langs           []string         // preferred trailer languages
+	trailers        []*store.Trailer // loaded on first use
+	info            []*store.Media   // weather and news slates, loaded on first use
 	// overrun: the last clip of a break may end this much after the round start
 	// time (0 where the following times are fixed, see Substitute).
 	overrun time.Duration
@@ -1088,7 +1094,8 @@ func (g *generator) pickAI(id string, ss *SourceState, src *Source, t time.Time)
 	// Picks made for another theme or filter are dropped, and the AI is asked right
 	// away, so an edited prompt shows in the guide at once.
 	if fp := aiFingerprint(cfg); ss.AIConfig != fp {
-		ss.Queue, ss.AIBackoff, ss.AIConfig = nil, 0, fp
+		ss.Queue, ss.AIConfig = nil, fp
+		delete(g.aiFailures, id)
 	}
 	for len(ss.Queue) > 0 {
 		q := ss.Queue[0]
@@ -1105,11 +1112,14 @@ func (g *generator) pickAI(id string, ss *SourceState, src *Source, t time.Time)
 	if len(pool) == 0 {
 		return nil, "", ErrNoContent
 	}
-	if time.Now().Unix() >= ss.AIBackoff {
+	if g.aiFailures[id] == nil {
 		if err := g.refillAI(ss, cfg, pool, t); err != nil {
-			g.s.log.Warn("ai selection failed, using random picks", "channel", g.ch.Name, "err", err)
+			g.s.log.Warn("ai selection failed, limiting random picks to half the guide horizon", "channel", g.ch.Name, "err", err)
+			if g.aiFailures == nil {
+				g.aiFailures = map[string]error{}
+			}
 			g.softErr = i18n.E("schedule.aiFailed", err)
-			ss.AIBackoff = time.Now().Add(30 * time.Minute).Unix()
+			g.aiFailures[id] = g.softErr
 		} else if len(ss.Queue) > 0 {
 			q := ss.Queue[0]
 			ss.Queue = ss.Queue[1:]
@@ -1118,7 +1128,12 @@ func (g *generator) pickAI(id string, ss *SourceState, src *Source, t time.Time)
 			}
 		}
 	}
-	// Fallback while the AI is unavailable.
+	// Leave the remaining guide unfilled while enough programme is prepared.
+	// Returning the failure stops this run without discarding its progress.
+	if !t.Before(g.aiFallbackUntil) {
+		return nil, "", g.aiFailures[id]
+	}
+	// Only bridge an outage up to half the horizon, keeping whole titles intact.
 	if g.cfg.KeepEpisodeOrder {
 		return g.pickGrouped(ss, pool, t), "", nil
 	}
@@ -1216,6 +1231,7 @@ func (g *generator) refillAI(ss *SourceState, cfg *AIConfig, pool []*store.Media
 	}
 	g.s.log.Debug("ai selection", "channel", g.ch.Name, "candidates", len(cands), "picks", len(picks),
 		"took", time.Since(started).Round(100*time.Millisecond))
+	queued := len(ss.Queue)
 	for _, p := range picks {
 		if strings.HasPrefix(p.ID, "show:") {
 			show := strings.TrimPrefix(p.ID, "show:")
@@ -1230,6 +1246,9 @@ func (g *generator) refillAI(ss *SourceState, cfg *AIConfig, pool []*store.Media
 			continue
 		}
 		ss.Queue = append(ss.Queue, QueuedPick{Key: p.ID, Reason: p.Reason})
+	}
+	if len(ss.Queue) == queued {
+		return i18n.E("ai.empty")
 	}
 	return nil
 }
