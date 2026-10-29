@@ -226,7 +226,7 @@
   "library.showDetails": "Vollständige Daten: {0} von {1} Serien · {2} von {3} Episoden",
   "library.showInfo": "Serien · {0} Episoden · synchronisiert {1}",
   "library.speichern_pruefen": "Speichern & prüfen",
-  "library.syncHint": "Der Abgleich läuft automatisch im eingestellten Intervall; neue Titel kommen nach etwa zwei Stunden ins Programm.",
+  "library.syncHint": "Der Abgleich läuft automatisch im eingestellten Intervall; neue Titel kommen am Ende des geplanten Programms dazu, das angekündigte Programm bleibt unverändert.",
   "library.syncMore": "Gelöschte Titel werden sofort aus dem Programm genommen. Musik- und Fotobibliotheken werden nicht unterstützt.",
   "library.syncStarted": "Synchronisation gestartet",
   "library.used": "„{0}“ wird verwendet",

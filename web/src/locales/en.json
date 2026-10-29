@@ -235,7 +235,7 @@
   "library.showDetails": "Full metadata: {0} of {1} shows · {2} of {3} episodes",
   "library.showInfo": "Shows · {0} episodes · synced {1}",
   "library.speichern_pruefen": "Save & check",
-  "library.syncHint": "The sync runs automatically at the set interval; new titles join the programme after about two hours.",
+  "library.syncHint": "The sync runs automatically at the set interval; new titles join at the end of the planned guide; what has been announced stays.",
   "library.syncMore": "Deleted titles are removed from the programme right away. Music and photo libraries are not supported.",
   "library.syncStarted": "Sync started",
   "library.used": "“{0}” is used",

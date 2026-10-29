@@ -23,7 +23,6 @@ import (
 	"github.com/shyper/flimmerkiste/internal/i18n"
 	"github.com/shyper/flimmerkiste/internal/logo"
 	"github.com/shyper/flimmerkiste/internal/news"
-	"github.com/shyper/flimmerkiste/internal/schedule"
 	"github.com/shyper/flimmerkiste/internal/store"
 	"github.com/shyper/flimmerkiste/internal/weather"
 )
@@ -422,8 +421,9 @@ func (s *Server) handleInfoRefresh(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]bool{"started": started})
 }
 
-// infoSettingsChanged fetches what was switched on and re-plans the breaks
-// beyond the stable window, so the slates join (or leave) them.
+// infoSettingsChanged fetches what was switched on. The guide stays as it is:
+// the slates join the breaks planned from now on, and planned ones whose data
+// was switched off show the "up next" slate instead.
 func (s *Server) infoSettingsChanged(kinds map[string]bool) {
 	ctx := context.Background()
 	s.info.mu.Lock()
@@ -435,23 +435,4 @@ func (s *Server) infoSettingsChanged(kinds map[string]bool) {
 	}
 	s.info.mu.Unlock()
 	s.maybeInfo(ctx)
-	if s.platform(ctx) == "plex" {
-		return // the slates only join breaks on Jellyfin and Emby
-	}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		defer cancel()
-		chans, err := s.store.ListChannels(ctx)
-		if err != nil {
-			return
-		}
-		from := time.Now().Add(stableWindow)
-		for _, c := range chans {
-			if cfg, err := schedule.ParseConfig(c.Config); err == nil && schedule.ShowsSlates(cfg) {
-				if err := s.sched.Replan(ctx, c.ID, from); err != nil {
-					s.log.Warn("re-plan", "channel", c.Name, "err", err)
-				}
-			}
-		}
-	}()
 }

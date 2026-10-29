@@ -802,18 +802,29 @@ func TestE2E(t *testing.T) {
 		"order": "shuffle", "noRepeatHours": 0, "source": map[string]any{"type": "rules", "rules": map[string]any{
 			"match": "all", "rules": []map[string]any{{"field": "genre", "op": "is", "values": []string{"Komödie"}}}}}}}, &ch7)
 	waitPlanned(ch7.ID)
-	stableUntil := time.Now().Add(stableWindow)
-	before7, _ := st.ProgramsBetween(ctx, ch7.ID, time.Now(), stableUntil)
+	upcoming := func(id int64) []store.Program {
+		ps, _ := st.ProgramsBetween(ctx, id, time.Now(), time.Now().Add(24*time.Hour))
+		return ps
+	}
+	before1, before7 := upcoming(ch1.ID), upcoming(ch7.ID)
+	slots2 := 0
+	for _, p := range before1 {
+		if p.RatingKey == "2" && p.StartTime().After(time.Now()) {
+			slots2++
+		}
+	}
+	if slots2 == 0 {
+		t.Fatal("movie 2 not in the guide before it is deleted")
+	}
 
 	movies = []map[string]any{movies[0], movie("3", "Neue Testkomödie", 2026, "Komödie", "m1.mkv", 12)}
 	episodes = append(episodes, episode("103", 3, "e1.mkv"))
 	call("POST", "/api/library/sync", nil, nil)
 	deadline := time.Now().Add(15 * time.Second)
 	for {
-		future, _ := st.ProgramsBetween(ctx, ch1.ID, time.Now(), time.Now().Add(3*time.Hour))
 		gone := true
-		for _, p := range future {
-			if p.RatingKey == "2" {
+		for _, p := range upcoming(ch1.ID) {
+			if p.RatingKey == "2" && p.StartTime().After(time.Now()) {
 				gone = false
 			}
 		}
@@ -824,54 +835,102 @@ func TestE2E(t *testing.T) {
 	}
 	time.Sleep(500 * time.Millisecond)
 
-	// Fixed order must continue seamlessly without the deleted movie and with the new episode.
+	// The announced guide stays: every title airs as planned, and only the slots
+	// of the deleted movie are filled with clips or the slate over the same time.
+	keptGuide := func(name string, before, after []store.Program) {
+		t.Helper()
+		for _, b := range before {
+			if !b.StartTime().After(time.Now()) || !b.IsMain() {
+				continue
+			}
+			if b.RatingKey == "2" {
+				var covered int64
+				for _, a := range after {
+					if a.Start >= b.Start && a.Stop <= b.Stop {
+						if a.IsMain() {
+							t.Fatalf("%s: a title moved into the slot of the deleted movie: %+v", name, a)
+						}
+						covered += a.Stop - a.Start
+					}
+				}
+				if covered != b.Stop-b.Start {
+					t.Fatalf("%s: slot of the deleted movie at %s covered %d of %d ms", name, b.StartTime().Format("15:04"), covered, b.Stop-b.Start)
+				}
+				continue
+			}
+			found := false
+			for _, a := range after {
+				found = found || a.Start == b.Start && a.Stop == b.Stop && a.RatingKey == b.RatingKey
+			}
+			if !found {
+				t.Fatalf("%s: announced title at %s changed after the library sync", name, b.StartTime().Format("15:04:05"))
+			}
+		}
+	}
+	after1, after7 := upcoming(ch1.ID), upcoming(ch7.ID)
+	keptGuide("fixed order", before1, after1)
+	keptGuide("smart channel", before7, after7)
+	for _, p := range append(after1, after7...) {
+		if p.RatingKey == "3" || p.RatingKey == "103" {
+			t.Fatalf("new title %s moved into the announced guide", p.RatingKey)
+		}
+	}
+
+	// Time passes: the guides are extended at their end, and the new titles join
+	// there. Fixed order continues after the last planned title with the new episode.
+	lastPlanned := func(id int64) int64 {
+		var last int64
+		for _, p := range upcoming(id) {
+			last = max(last, p.Stop)
+		}
+		return last
+	}
+	end1, end7 := lastPlanned(ch1.ID), lastPlanned(ch7.ID)
+	shift := 3 * time.Hour
+	if _, err := st.DB.ExecContext(ctx, `UPDATE programs SET start = start - ?, stop = stop - ? WHERE channel_id IN (?, ?)`,
+		shift.Milliseconds(), shift.Milliseconds(), ch1.ID, ch7.ID); err != nil {
+		t.Fatal(err)
+	}
+	srv.sched.EnsureAll(ctx)
+	extended := func(id int64, end int64) []store.Program {
+		var out []store.Program
+		for _, p := range upcoming(id) {
+			if p.Start >= end-shift.Milliseconds() {
+				out = append(out, p)
+			}
+		}
+		return out
+	}
 	succ := map[string]string{"1": "101", "101": "102", "102": "103", "103": "1"}
-	future1, _ := st.ProgramsBetween(ctx, ch1.ID, time.Now(), time.Now().Add(3*time.Hour))
 	var prevKey string
+	for _, p := range upcoming(ch1.ID) {
+		if p.IsMain() && p.Start < end1-shift.Milliseconds() {
+			prevKey = p.RatingKey
+		}
+	}
 	saw103 := false
-	for _, p := range future1 {
+	for _, p := range extended(ch1.ID, end1) {
 		if !p.IsMain() {
 			continue
 		}
 		if p.RatingKey == "2" {
-			t.Fatal("deleted movie still scheduled")
+			t.Fatal("deleted movie scheduled again")
 		}
-		if p.RatingKey == "103" {
-			saw103 = true
-		}
-		if prevKey != "" && succ[prevKey] != p.RatingKey {
-			t.Fatalf("fixed order broken after re-plan: %s followed by %s", prevKey, p.RatingKey)
+		saw103 = saw103 || p.RatingKey == "103"
+		if prevKey != "" && prevKey != "2" && succ[prevKey] != p.RatingKey {
+			t.Fatalf("fixed order broken after the library sync: %s followed by %s", prevKey, p.RatingKey)
 		}
 		prevKey = p.RatingKey
 	}
 	if !saw103 {
-		t.Fatal("new episode of a manually added show was not scheduled")
+		t.Fatal("new episode of a manually added show was not scheduled at the end of the guide")
 	}
-	// New titles only change the guide after the stable window.
-	after7, _ := st.ProgramsBetween(ctx, ch7.ID, time.Now(), stableUntil)
-	for i := range before7 {
-		if before7[i].Start < time.Now().UnixMilli() || before7[i].Start >= stableUntil.Add(-time.Minute).UnixMilli() {
-			continue
-		}
-		found := false
-		for _, a := range after7 {
-			if a.Start == before7[i].Start && a.RatingKey == before7[i].RatingKey {
-				found = true
-			}
-		}
-		if !found {
-			t.Fatalf("program inside the stable window changed at %s", before7[i].StartTime().Format("15:04:05"))
-		}
-	}
-	later7, _ := st.ProgramsBetween(ctx, ch7.ID, stableUntil, stableUntil.Add(2*time.Hour))
 	saw3 := false
-	for _, p := range later7 {
-		if p.RatingKey == "3" {
-			saw3 = true
-		}
+	for _, p := range extended(ch7.ID, end7) {
+		saw3 = saw3 || p.RatingKey == "3"
 	}
 	if !saw3 {
-		t.Fatal("new matching movie was not added to the smart channel")
+		t.Fatal("new matching movie was not added to the end of the smart channel's guide")
 	}
 	// The editor flags manual entries that no longer exist and gets their years for sorting.
 	var view struct {
@@ -892,7 +951,7 @@ func TestE2E(t *testing.T) {
 	if items := view.Config.Source.Items; len(items) != 3 || items[0].Year != 1985 || items[1].Year != 1990 || items[2].Year != 0 {
 		t.Fatalf("years of manual entries: %+v", items)
 	}
-	t.Logf("library change handled: movie 2 removed, movie 3 + episode 103 scheduled, stable window kept")
+	t.Logf("library change handled: guide kept, slots of movie 2 filled, movie 3 + episode 103 joined at the end")
 
 	// --- media folders mounted in the container, assigned to Plex's library folders ---
 	srv.container = true

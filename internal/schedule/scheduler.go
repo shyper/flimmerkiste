@@ -288,6 +288,69 @@ func (s *Scheduler) discard(ctx context.Context, channelID int64, from time.Time
 	return s.store.SaveChannelState(ctx, channelID, raw)
 }
 
+// ReplaceRemoved fills the upcoming slots of titles deleted from the library
+// with clips (or the fault slate) and keeps the rest of the guide: every other
+// title airs as announced. A program on air is left to the stream, which fills
+// it the same way. Fixed orders whose cursor points at a deleted title continue
+// after the last kept one instead of starting over. Returns the slots replaced.
+func (s *Scheduler) ReplaceRemoved(ctx context.Context, channelID int64, removed map[string]bool) (int, error) {
+	defer s.Track(channelID)()
+	l := s.lock(channelID)
+	l.Lock()
+	defer l.Unlock()
+	ch, err := s.store.GetChannel(ctx, channelID)
+	if err != nil {
+		return 0, err
+	}
+	now := time.Now()
+	progs, err := s.store.ProgramsBetween(ctx, channelID, now.Add(-14*24*time.Hour), now.Add(s.horizon+24*time.Hour))
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, p := range progs {
+		if !removed[p.RatingKey] || !p.StartTime().After(now) {
+			continue
+		}
+		if err := s.store.ReplaceProgram(ctx, p.ID, s.Substitute(ctx, ch, p.RatingKey, p.StartTime(), p.StopTime())); err != nil && !errors.Is(err, store.ErrNotFound) {
+			return n, err
+		}
+		n++
+	}
+	if n > 0 {
+		s.changed(false)
+	}
+
+	state := s.loadState(ch)
+	moved := false
+	for id, ss := range state.Sources {
+		var last string
+		lastEp := map[string]string{}
+		for _, p := range progs {
+			if !p.IsMain() || p.SourceID != id || removed[p.RatingKey] {
+				continue
+			}
+			last = p.RatingKey
+			if m := s.lib.Get(ctx, p.RatingKey); m != nil && m.Type == "episode" {
+				lastEp[m.ShowKey] = p.RatingKey
+			}
+		}
+		if removed[ss.Last] && last != "" {
+			ss.Last, moved = last, true
+		}
+		for show, k := range ss.ShowCursor {
+			if removed[k] && lastEp[show] != "" {
+				ss.ShowCursor[show], moved = lastEp[show], true
+			}
+		}
+	}
+	if moved {
+		raw, _ := json.Marshal(state)
+		return n, s.store.SaveChannelState(ctx, channelID, raw)
+	}
+	return n, nil
+}
+
 func without(list []string, v string) []string {
 	out := list[:0]
 	for _, x := range list {

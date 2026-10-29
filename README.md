@@ -107,8 +107,9 @@ Details are under [Installation](#installation-docker).
 - **Trailer-only channels**: a manual channel without titles plays its fillers around the clock,
   e.g. movie trailers. The guide shows “No program information available” as one entry per day, from midnight to midnight.
 - **Always up to date**: the sync with the media server (every 6 hours by default) finds new and deleted titles.
-  Deleted titles leave the programme at once, also from manual lists, where the editor marks them.
-  New matching titles join the programme from about 2 hours ahead, so what has been announced stays.
+  The announced guide never changes: new matching titles join where the guide is extended, at its end
+  (the planning horizon, 48 hours by default, ahead). Deleted titles leave at once, also from manual lists, where the
+  editor marks them; their slots are filled with clips or a slate, so everything else starts as announced.
   Manually added shows and seasons get new episodes automatically. Fixed orders continue seamlessly.
 - **Full metadata**: library listings name only the first few actors of a title (Plex), so every movie, show and
   episode is also fetched on its own and its whole answer is stored. New titles are fetched during the sync that
