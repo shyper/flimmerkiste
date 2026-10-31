@@ -32,17 +32,20 @@ type Media struct {
 	AddedAt       int64   `json:"addedAt,omitempty"`
 	Released      string  `json:"released,omitempty"`
 	ViewCount     int     `json:"viewCount"`
-	ShowKey       string  `json:"showKey,omitempty"`
-	ShowTitle     string  `json:"showTitle,omitempty"`
-	ShowThumb     string  `json:"-"`
-	Season        int     `json:"season,omitempty"`
-	Episode       int     `json:"episode,omitempty"`
-	PartKey       string  `json:"-"`
-	Container     string  `json:"-"`
-	VideoCodec    string  `json:"videoCodec,omitempty"`
-	AudioCodec    string  `json:"audioCodec,omitempty"`
-	Resolution    string  `json:"resolution,omitempty"`
-	Tags          Tags    `json:"tags"`
+	// LastViewed: when the media server's account last played it (unix
+	// seconds, 0 = never or unknown).
+	LastViewed int64  `json:"-"`
+	ShowKey    string `json:"showKey,omitempty"`
+	ShowTitle  string `json:"showTitle,omitempty"`
+	ShowThumb  string `json:"-"`
+	Season     int    `json:"season,omitempty"`
+	Episode    int    `json:"episode,omitempty"`
+	PartKey    string `json:"-"`
+	Container  string `json:"-"`
+	VideoCodec string `json:"videoCodec,omitempty"`
+	AudioCodec string `json:"audioCodec,omitempty"`
+	Resolution string `json:"resolution,omitempty"`
+	Tags       Tags   `json:"tags"`
 	// ShowSummary is the description of the show of an episode.
 	ShowSummary string `json:"-"`
 	// ShowFirstYear and ShowLastYear: the years the first and last episode of
@@ -75,7 +78,7 @@ func (m *Media) DisplayTitle() string {
 
 const mediaCols = `rating_key, library_id, type, title, sort_title, year, duration_ms, summary, thumb, art,
 	content_rating, rating, studio, added_at, released, view_count, show_key, show_title, show_thumb,
-	season, episode, part_key, container, video_codec, audio_codec, resolution, tags, guid, ext`
+	season, episode, part_key, container, video_codec, audio_codec, resolution, tags, guid, ext, last_viewed`
 
 // selectCols returns the columns scanMedia reads, those of a sync plus the
 // tags of the full metadata of the item and of its show, with the media
@@ -96,7 +99,7 @@ func scanMedia(sc interface{ Scan(...any) error }) (*Media, error) {
 	err := sc.Scan(&m.RatingKey, &m.LibraryID, &m.Type, &m.Title, &m.SortTitle, &m.Year, &m.DurationMs,
 		&m.Summary, &m.Thumb, &m.Art, &m.ContentRating, &m.Rating, &m.Studio, &m.AddedAt, &m.Released,
 		&m.ViewCount, &m.ShowKey, &m.ShowTitle, &m.ShowThumb, &m.Season, &m.Episode, &m.PartKey,
-		&m.Container, &m.VideoCodec, &m.AudioCodec, &m.Resolution, &tags, &m.GUID, &ext, &detailTags, &showTags, &showSummary)
+		&m.Container, &m.VideoCodec, &m.AudioCodec, &m.Resolution, &tags, &m.GUID, &ext, &m.LastViewed, &detailTags, &showTags, &showSummary)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +159,7 @@ func (s *Store) UpsertMedia(ctx context.Context, items []*Media, syncedAt int64)
 	}
 	defer tx.Rollback()
 	stmt, err := tx.PrepareContext(ctx, `INSERT INTO media (`+mediaCols+`, synced_at)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(rating_key) DO UPDATE SET library_id=excluded.library_id, type=excluded.type,
 			title=excluded.title, sort_title=excluded.sort_title, year=excluded.year,
 			duration_ms=excluded.duration_ms, summary=excluded.summary, thumb=excluded.thumb, art=excluded.art,
@@ -165,7 +168,7 @@ func (s *Store) UpsertMedia(ctx context.Context, items []*Media, syncedAt int64)
 			show_key=excluded.show_key, show_title=excluded.show_title, show_thumb=excluded.show_thumb,
 			season=excluded.season, episode=excluded.episode, part_key=excluded.part_key,
 			container=excluded.container, video_codec=excluded.video_codec, audio_codec=excluded.audio_codec,
-			resolution=excluded.resolution, tags=excluded.tags, guid=excluded.guid, ext=excluded.ext, synced_at=excluded.synced_at`)
+			resolution=excluded.resolution, tags=excluded.tags, guid=excluded.guid, ext=excluded.ext, last_viewed=excluded.last_viewed, synced_at=excluded.synced_at`)
 	if err != nil {
 		return err
 	}
@@ -179,7 +182,7 @@ func (s *Store) UpsertMedia(ctx context.Context, items []*Media, syncedAt int64)
 		if _, err := stmt.ExecContext(ctx, m.RatingKey, m.LibraryID, m.Type, m.Title, m.SortTitle, m.Year,
 			m.DurationMs, m.Summary, m.Thumb, m.Art, m.ContentRating, m.Rating, m.Studio, m.AddedAt, m.Released,
 			m.ViewCount, m.ShowKey, m.ShowTitle, m.ShowThumb, m.Season, m.Episode, m.PartKey, m.Container,
-			m.VideoCodec, m.AudioCodec, m.Resolution, string(tags), m.GUID, string(ext), syncedAt); err != nil {
+			m.VideoCodec, m.AudioCodec, m.Resolution, string(tags), m.GUID, string(ext), m.LastViewed, syncedAt); err != nil {
 			return err
 		}
 	}

@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"time"
 )
@@ -91,6 +92,15 @@ func (s *Store) MarkHistory(ctx context.Context, channelID, start int64, failed 
 	}
 	_, err = mark()
 	return err
+}
+
+// LastWatched returns when a stream last sent the title (start of that
+// program, unix milliseconds; 0 = never).
+func (s *Store) LastWatched(ctx context.Context, ratingKey string) (int64, error) {
+	var last sql.NullInt64
+	err := s.DB.QueryRowContext(ctx, `SELECT MAX(start) FROM history WHERE rating_key = ? AND watched = 1 AND failed = 0`,
+		ratingKey).Scan(&last)
+	return last.Int64, err
 }
 
 // HistoryQuery selects history entries, newest first.

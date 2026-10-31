@@ -53,6 +53,7 @@ type Item struct {
 	AddedAt        int64  // unix seconds
 	Released       string // YYYY-MM-DD
 	ViewCount      int
+	LastViewed     int64 // unix seconds, 0 = never or unknown
 
 	// Episodes: number in the season, season number and the show.
 	Index       int

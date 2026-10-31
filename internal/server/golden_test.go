@@ -235,6 +235,10 @@ func newGoldenWorld(t *testing.T, lang i18n.Lang) *goldenWorld {
 			ShowKey: "200", ShowTitle: "Die Simpsons", ShowThumb: "/library/metadata/200/thumb/1", Season: 1, Episode: 2,
 			Year: 1990, PartKey: "/library/parts/205", Tags: store.Tags{Genre: []string{"Animation", "Komödie"}}},
 	}
+	// last watched: Ghostbusters years ago and Stirb langsam months ago on the
+	// media server, Kevin today on a channel (below), the others never
+	items[1].ViewCount, items[1].LastViewed = 2, now.AddDate(-3, 0, -10).Unix()
+	items[3].ViewCount, items[3].LastViewed = 1, now.AddDate(0, -5, -3).Unix()
 	must(st.UpsertMedia(ctx, items, now.Unix()))
 
 	srv := &Server{
@@ -282,6 +286,9 @@ func newGoldenWorld(t *testing.T, lang i18n.Lang) *goldenWorld {
 		must(err)
 		w.prog[name] = got
 	}
+	_, err = st.RecordHistory(ctx, now)
+	must(err)
+	must(st.MarkHistory(ctx, chans[1].ID, w.prog["c2-now"].Start, false))
 	must(st.UpsertTrailers(ctx, []*store.Trailer{
 		{Key: store.TrailerPrefix + "lib-2", Origin: store.OriginLibrary, MediaKey: "2", Title: "Ghostbusters", Kind: "movie",
 			Year: 1984, Genres: []string{"Komödie", "Fantasy"}, Thumb: "/library/metadata/2/thumb/1", Name: "Trailer",

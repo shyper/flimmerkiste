@@ -599,6 +599,7 @@ func convert(md *mediaserver.Item, libraryID string, show *mediaserver.Item) *st
 		AddedAt:       md.AddedAt,
 		Released:      md.Released,
 		ViewCount:     md.ViewCount,
+		LastViewed:    md.LastViewed,
 		PartKey:       mi.Parts[0].Key,
 		Container:     mi.Container,
 		VideoCodec:    mi.VideoCodec,

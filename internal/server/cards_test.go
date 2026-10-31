@@ -147,3 +147,40 @@ func TestThemeFile(t *testing.T) {
 		t.Errorf("Plex asked again instead of the cache: %v", hits)
 	}
 }
+
+func TestSeenText(t *testing.T) {
+	now := time.Date(2026, 10, 10, 9, 0, 0, 0, time.Local)
+	ago := func(days int) int64 { return now.AddDate(0, 0, -days).UnixMilli() }
+	cases := []struct {
+		watched int64
+		want    string
+	}{
+		{0, "Noch nie gesehen"},
+		{now.Add(-8 * time.Hour).UnixMilli(), "Zuletzt heute gesehen"},
+		{now.Add(-10 * time.Hour).UnixMilli(), "Zuletzt gestern gesehen"}, // 23:00 the day before
+		{ago(3), "Zuletzt vor 3 Tagen gesehen"},
+		{ago(10), "Zuletzt vor einer Woche gesehen"},
+		{ago(45), "Zuletzt vor 6 Wochen gesehen"},
+		{ago(200), "Zuletzt vor 6 Monaten gesehen"},
+		{ago(400), "Zuletzt vor einem Jahr gesehen"},
+		{ago(3 * 365), "Zuletzt vor 3 Jahren gesehen"},
+		{now.Add(time.Hour).UnixMilli(), "Zuletzt heute gesehen"}, // clocks a little apart
+	}
+	for _, c := range cases {
+		if got := seenText(i18n.DE, &store.Media{}, c.watched, now); got != c.want {
+			t.Errorf("%v: got %q, want %q", time.UnixMilli(c.watched), got, c.want)
+		}
+	}
+	// the later of the media server and the channels counts
+	m := &store.Media{ViewCount: 1, LastViewed: now.AddDate(0, 0, -2).Unix()}
+	if got := seenText(i18n.EN, m, ago(30), now); got != "Last watched 2 days ago" {
+		t.Errorf("media server later: %q", got)
+	}
+	if got := seenText(i18n.EN, m, ago(0), now); got != "Last watched today" {
+		t.Errorf("channel later: %q", got)
+	}
+	// played according to the media server, but without a date: no line
+	if got := seenText(i18n.EN, &store.Media{ViewCount: 1}, 0, now); got != "" {
+		t.Errorf("played without date: %q", got)
+	}
+}

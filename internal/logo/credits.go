@@ -27,6 +27,7 @@ type CreditsOptions struct {
 	When          string          // e.g. "At 8:15 PM"
 	Title         string
 	Subtitle      string
+	Seen          string // under the subtitle, e.g. "Last watched 2 years ago"
 	Kicker        string // above the highlights, e.g. "Coming up on other channels"
 	Highlights    []Highlight
 }
@@ -37,6 +38,7 @@ type Highlight struct {
 	When     string      // e.g. "8:15 PM · Comedies"
 	Title    string
 	Subtitle string // e.g. "1985 · Adventure, Comedy"
+	Seen     string // e.g. "Last watched 2 years ago"
 	Summary  string
 	Poster   image.Image
 }
@@ -113,10 +115,16 @@ func RenderCredits(o CreditsOptions) ([]*image.RGBA, error) {
 		if o.Subtitle != "" {
 			bottom -= int(34 * s)
 		}
+		if o.Seen != "" {
+			bottom -= int(32 * s)
+		}
 		y += drawTitle(base, bebas, o.Title, x, y, maxW, bottom-y, 84*s, 34*s)
 	}
 	if o.Subtitle != "" {
-		drawText(base, newFace(bebas, 28), o.Subtitle, color.RGBA{170, 174, 188, 255}, x, y+int(4*s), maxW)
+		y += drawText(base, newFace(bebas, 28), o.Subtitle, color.RGBA{170, 174, 188, 255}, x, y+int(4*s), maxW) + int(4*s)
+	}
+	if o.Seen != "" {
+		drawText(base, newFace(bebas, 26), o.Seen, seenColor(accent), x, y+int(6*s), maxW)
 	}
 
 	if len(o.Highlights) == 0 {
@@ -158,14 +166,14 @@ func RenderCredits(o CreditsOptions) ([]*image.RGBA, error) {
 				draw.DrawMask(img, img.Bounds(), image.NewUniform(c), image.Point{}, dot, image.Point{}, draw.Over)
 			}
 		}
-		drawHighlight(img, hl, image.Rect(margin, top+kh, margin+width, bottom), s, bebas, slab)
+		drawHighlight(img, hl, image.Rect(margin, top+kh, margin+width, bottom), s, accent, bebas, slab)
 		frames[i] = img
 	}
 	return frames, nil
 }
 
 // drawHighlight draws poster, channel, time, title, details and summary into r.
-func drawHighlight(img *image.RGBA, hl Highlight, r image.Rectangle, s float64, bebas, slab *opentype.Font) {
+func drawHighlight(img *image.RGBA, hl Highlight, r image.Rectangle, s float64, accent color.RGBA, bebas, slab *opentype.Font) {
 	newFace := func(f *opentype.Font, size float64) font.Face {
 		face, _ := opentype.NewFace(f, &opentype.FaceOptions{Size: size * s, DPI: 72, Hinting: font.HintingNone})
 		return face
@@ -206,8 +214,16 @@ func drawHighlight(img *image.RGBA, hl Highlight, r image.Rectangle, s float64, 
 	}
 	y += lineH + int(10*s)
 	y += drawTitle(img, bebas, hl.Title, x, y, maxW, int(64*s), 62*s, 34*s)
+	// the "last watched" line sits close under the subtitle, leaving room for the summary
+	gap := int(12 * s)
+	if hl.Seen != "" {
+		gap = int(4 * s)
+	}
 	if hl.Subtitle != "" {
-		y += drawText(img, newFace(bebas, 28), hl.Subtitle, color.RGBA{170, 174, 188, 255}, x, y+int(2*s), maxW) + int(12*s)
+		y += drawText(img, newFace(bebas, 28), hl.Subtitle, color.RGBA{170, 174, 188, 255}, x, y+int(2*s), maxW) + gap
+	}
+	if hl.Seen != "" {
+		y += drawText(img, newFace(bebas, 24), hl.Seen, seenColor(accent), x, y, maxW) + int(8*s)
 	}
 	if hl.Summary != "" {
 		face := newFace(slab, 20)

@@ -164,6 +164,7 @@ type Metadata struct {
 	AddedAt               int64       `json:"addedAt"`
 	OriginallyAvailableAt string      `json:"originallyAvailableAt"`
 	ViewCount             int         `json:"viewCount"`
+	LastViewedAt          int64       `json:"lastViewedAt"`
 	Index                 int         `json:"index"`
 	ParentIndex           int         `json:"parentIndex"`
 	ParentRatingKey       string      `json:"parentRatingKey"`

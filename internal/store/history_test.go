@@ -78,6 +78,13 @@ func TestHistory(t *testing.T) {
 	if got, _ := st.History(ctx, HistoryQuery{ChannelID: ch.ID + 1}); len(got) != 0 {
 		t.Fatalf("other channel: %+v", got)
 	}
+	// last watched: only what a stream sent and could play
+	if got, err := st.LastWatched(ctx, "e1"); err != nil || got != at(-time.Hour) {
+		t.Fatalf("last watched episode: %d %v", got, err)
+	}
+	if got, err := st.LastWatched(ctx, "m1"); err != nil || got != 0 {
+		t.Fatalf("last watched movie (unwatched, then failed): %d %v", got, err)
+	}
 	// deleting the channel keeps its history
 	if err := st.DeleteChannel(ctx, ch.ID); err != nil {
 		t.Fatal(err)

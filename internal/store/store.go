@@ -226,6 +226,7 @@ var migrations = []string{
 		created_at INTEGER NOT NULL,
 		last_used  INTEGER NOT NULL DEFAULT 0
 	);`,
+	`ALTER TABLE media ADD COLUMN last_viewed INTEGER NOT NULL DEFAULT 0; -- unix seconds`,
 }
 
 func (s *Store) migrate(ctx context.Context) error {

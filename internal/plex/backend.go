@@ -214,7 +214,7 @@ func ItemFrom(md *Metadata) mediaserver.Item {
 		ID: md.RatingKey, GUID: md.GUID, Type: md.Type, Subtype: md.Subtype, Title: md.Title, SortTitle: md.TitleSort,
 		Year: md.Year, Duration: md.Duration, Summary: md.Summary, Thumb: md.Thumb, Art: md.Art,
 		Rating: md.Rating, AudienceRating: md.AudienceRating, ContentRating: md.ContentRating, Studio: md.Studio,
-		AddedAt: md.AddedAt, Released: md.OriginallyAvailableAt, ViewCount: md.ViewCount,
+		AddedAt: md.AddedAt, Released: md.OriginallyAvailableAt, ViewCount: md.ViewCount, LastViewed: md.LastViewedAt,
 		Index: md.Index, ParentIndex: md.ParentIndex,
 		ShowID: md.GrandparentRatingKey, ShowTitle: md.GrandparentTitle, ShowThumb: md.GrandparentThumb,
 		Genres: tags(md.Genre), Actors: tags(md.Role), Directors: tags(md.Director), Writers: tags(md.Writer),

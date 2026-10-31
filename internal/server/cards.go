@@ -11,6 +11,7 @@ import (
 	"image/draw"
 	_ "image/jpeg"
 	"image/png"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -114,6 +115,9 @@ func (s *Server) renderCard(ctx context.Context, c *store.Channel, prog *store.P
 	}
 	if next != nil {
 		key += fmt.Sprintf("|%s|%d", next.RatingKey, next.Start)
+		if m := s.lib.Get(ctx, next.RatingKey); m != nil && !fault {
+			key += "|" + s.seen(ctx, s.lang(ctx), m)
+		}
 	}
 	sum := sha1.Sum([]byte(key))
 	path := filepath.Join(s.cfg.DataDir, "cache", "card-"+hex.EncodeToString(sum[:8])+".png")
@@ -168,9 +172,55 @@ func (s *Server) cardOptions(ctx context.Context, c *store.Channel, next *store.
 				o.When = i18n.T(l, "card.now")
 			}
 			s.describe(ctx, &o, m)
+			o.Seen = s.seen(ctx, l, m)
 		}
 	}
 	return o
+}
+
+// seen says when m was last watched: on the media server or on a channel.
+func (s *Server) seen(ctx context.Context, l i18n.Lang, m *store.Media) string {
+	watched, err := s.store.LastWatched(ctx, m.RatingKey)
+	if err != nil {
+		s.log.Warn("last watched", "key", m.RatingKey, "err", err)
+	}
+	return seenText(l, m, watched, s.now())
+}
+
+// seenText: "Last watched 3 weeks ago" from the later of the media server's
+// last play and watched (unix milliseconds), counted in calendar days.
+// "Not watched yet" needs both to know nothing; a title the media server
+// counts as played without a date gets no line.
+func seenText(l i18n.Lang, m *store.Media, watched int64, now time.Time) string {
+	last := max(m.LastViewed*1000, watched)
+	if last == 0 {
+		if m.ViewCount > 0 {
+			return ""
+		}
+		return i18n.T(l, "seen.never")
+	}
+	day := func(t time.Time) time.Time {
+		y, mo, d := t.Local().Date()
+		return time.Date(y, mo, d, 0, 0, 0, 0, time.Local)
+	}
+	days := int(math.Round(day(now).Sub(day(time.UnixMilli(last))).Hours() / 24))
+	switch {
+	case days <= 0:
+		return i18n.T(l, "seen.today")
+	case days == 1:
+		return i18n.T(l, "seen.yesterday")
+	case days < 7:
+		return i18n.T(l, "seen.days", days)
+	case days < 14:
+		return i18n.T(l, "seen.week")
+	case days < 60:
+		return i18n.T(l, "seen.weeks", days/7)
+	case days < 365:
+		return i18n.T(l, "seen.months", days/30)
+	case days < 730:
+		return i18n.T(l, "seen.year")
+	}
+	return i18n.T(l, "seen.years", days/365)
 }
 
 // faultPNG renders the slate for a title that cannot be played: what is

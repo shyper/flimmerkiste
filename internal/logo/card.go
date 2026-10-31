@@ -26,6 +26,7 @@ type CardOptions struct {
 	When          string      // e.g. "At 8:15 PM"
 	Title         string
 	Subtitle      string
+	Seen          string // under the subtitle, e.g. "Last watched 2 years ago"
 	// "Coming to theaters" slates: a backdrop instead of the plain background,
 	// a short summary under the subtitle and a source credit at the bottom right.
 	Backdrop image.Image
@@ -147,6 +148,10 @@ func RenderCard(o CardOptions) ([]byte, error) {
 	if o.Subtitle != "" {
 		y += drawLine(o.Subtitle, bebas, 38*s, color.RGBA{170, 174, 188, 255}, maxW)
 	}
+	if o.Seen != "" {
+		y += int(8 * s)
+		y += drawLine(o.Seen, bebas, 30*s, seenColor(accent), maxW)
+	}
 	if o.Summary != "" {
 		slab, err := loadFont("ZillaSlab-Bold.ttf")
 		if err != nil {
@@ -182,6 +187,9 @@ func RenderCard(o CardOptions) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
+
+// seenColor is the colour of the "last watched" line: the accent, lightened.
+func seenColor(accent color.RGBA) color.RGBA { return mix(accent, white, 0.45) }
 
 // slateBackground is the backdrop of all slates: a dark vertical gradient plus
 // a soft accent glow centred at (cx, cy), given as fractions of the size.

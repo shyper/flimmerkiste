@@ -150,18 +150,19 @@ func (s *Server) creditsOptions(ctx context.Context, c *store.Channel, nextAfter
 			o.When = i18n.T(l, "card.at", i18n.Clock(l, next.StartTime().Local()))
 			var card logo.CardOptions
 			s.describeText(l, &card, m)
-			o.Title, o.Subtitle = card.Title, card.Subtitle
-			key += fmt.Sprintf("|%s|%s", o.When, m.RatingKey)
+			o.Title, o.Subtitle, o.Seen = card.Title, card.Subtitle, s.seen(ctx, l, m)
+			key += fmt.Sprintf("|%s|%s|%s", o.When, m.RatingKey, o.Seen)
 		}
 	}
 	for _, h := range s.highlights(ctx, c, at) {
 		var card logo.CardOptions
 		s.describeText(l, &card, h.m)
+		seen := s.seen(ctx, l, h.m)
 		o.Highlights = append(o.Highlights, logo.Highlight{
 			When:  i18n.T(l, "credits.slot", i18n.Clock(l, h.prog.StartTime().Local()), h.ch.Name),
-			Title: card.Title, Subtitle: card.Subtitle, Summary: h.m.Summary,
+			Title: card.Title, Subtitle: card.Subtitle, Seen: seen, Summary: h.m.Summary,
 		})
-		key += fmt.Sprintf("|%d:%s:%d:%s:%s", h.ch.ID, h.m.RatingKey, h.prog.Start, h.ch.Logo, s.autoLogoVersion(h.ch))
+		key += fmt.Sprintf("|%d:%s:%d:%s:%s:%s", h.ch.ID, h.m.RatingKey, h.prog.Start, h.ch.Logo, s.autoLogoVersion(h.ch), seen)
 	}
 	return o, key
 }

@@ -53,8 +53,9 @@ type baseItem struct {
 	BackdropImageTags     []string          `json:"BackdropImageTags"`
 	SeriesPrimaryImageTag string            `json:"SeriesPrimaryImageTag"`
 	UserData              struct {
-		PlayCount int  `json:"PlayCount"`
-		Played    bool `json:"Played"`
+		PlayCount      int    `json:"PlayCount"`
+		Played         bool   `json:"Played"`
+		LastPlayedDate string `json:"LastPlayedDate"`
 	} `json:"UserData"`
 	MediaSources []mediaSource `json:"MediaSources"`
 	Chapters     []chapter     `json:"Chapters"`
@@ -384,6 +385,7 @@ func (c *Client) itemFrom(b *baseItem) mediaserver.Item {
 	}
 	if b.UserData.Played {
 		it.ViewCount = max(1, b.UserData.PlayCount)
+		it.LastViewed = parseUnix(b.UserData.LastPlayedDate)
 	}
 	switch b.Type {
 	case "Movie":
