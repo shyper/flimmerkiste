@@ -27,7 +27,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags=
 # One image for every kind of hardware: jellyfin-ffmpeg brings the VAAPI drivers
 # for Intel and AMD along and supports NVIDIA (NVENC, with the NVIDIA Container
 # Toolkit on the host) and the encoder of the Raspberry Pi 4.
-FROM debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad
+FROM debian:trixie-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4
 ARG VERSION=dev
 ARG DEBIAN_FRONTEND=noninteractive
 LABEL org.opencontainers.image.title="Flimmerkiste" \
